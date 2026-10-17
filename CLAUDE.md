@@ -68,3 +68,7 @@ If code already exists, skim the layout and fit the plan to it; no deep groundin
 | models/ | Stub I7 config.json | Changing n₀, windows, cutoffs |
 | scripts/ | export_schemas, build_eicu_fixtures, replay_fixture | Regenerating schemas or fixtures, replaying a stay |
 | pyproject.toml, .env.example | uv project (Python 3.12), env key names | Setting up the environment |
+| backend/config.py | Central config, one section per component (receiver, breathing) | Changing a setting, threshold or timeout |
+| receiver/ | Strap receiver: breathing, frames, strap link, sender, main | Building or changing S1 |
+| scripts/hardware/ | Six guided strap checks (scan, connect, rhythm, contact, paced breathing, dropout) | Testing the strap, Bluetooth or breathing on real hardware |
+| tests/ | pytest suites, one folder per component (tests/receiver) | Running or adding tests |

@@ -22,7 +22,7 @@ These are just leans. Updates can be made as needed, but this doc should be upda
 | Alerts | Photon text (two-way), ElevenLabs voice, dashboard toast as fallback | No Even G2: Even Hub doesn't allow medical apps |
 | Observability | Sentry (Python SDK, FastAPI integration) | Spans around ingest, scoring and LLM calls; keep intake free text out of events |
 | Hosting | Laptop | Move to Vultr later only if the receiver can post over HTTPS with a shared token |
-| Tooling | Python 3.12, `uv`, one `.env` | 3.12 has wheels for CatBoost, LightGBM, bleak and FastAPI |
+| Tooling | Python 3.12, `uv`, one `.env` | 3.12 has wheels for CatBoost, LightGBM, bleak and FastAPI. Settings live in `backend/config.py`, one section per component; `.env` holds keys and machine-specific values (`uv run --env-file .env`). Tests: pytest in `tests/` |
 
 ## Design rules
 

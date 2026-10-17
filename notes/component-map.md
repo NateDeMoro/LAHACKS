@@ -103,6 +103,8 @@ Affects S2, S4, S5, T1, B1. Models live in `backend/contracts.py`; JSON Schema i
 
 The simulator sends only the vitals it is filling or scripting, with the same wearable_id. Ingest takes the simulator's value for any vital it sent in the last few seconds, otherwise the strap's. Raw ECG (130 Hz) only if the dashboard gets a live waveform.
 
+While the strap is disconnected or off the skin, the receiver sends `contact: false` about once a second with `hr` and `resp_rate` null, so a no-contact event is distinct from a fault. Ingest should treat those seconds as not clean. Affects S2.
+
 ### I2 Intake record
 
 | Field | Type / values |

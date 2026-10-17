@@ -48,7 +48,7 @@ Inside the risk engine, baseline ranges pass I8 to the personal baseline, scorer
 | Risk engine | Stats | Python module, entry points at intake, every second (NEWS2), every minute (baseline, trends) | I4, I5, I6, I7, I13 | I8, I9, I14 | I6/I13 rows from eICU and recorded strap data |
 | Alert logic | Stats | Persistence windows; NEWS2 ≥5 urgent, ≥7 high; trend cutoffs; one alert per problem; stays until acknowledged | I9, I11 | I10 | Recorded I9 rows |
 | Nurse dashboard | Systems | Live vitals + NEWS2 each second; reason and NEWS2 points; ranges and trends; acknowledge and event buttons | I8, I9, I10, I13, I14 | I11, I12 | Stub risk engine (plain NEWS2) |
-| Alert channels | Systems | Photon text (two-way), ElevenLabs voice | I10 | Text, voice | A "send test alert" button |
+| Alert channels | Systems | Photon text (two-way), ElevenLabs voice; no Even G2 (Even Hub bans medical apps) | I10 | Text, voice | A "send test alert" button |
 | Fetch.ai agent | Systems | ASI:One chat: "who needs a recheck right now?" | I9 | Chat answers | Stored I9 rows |
 
 ## Interface contracts

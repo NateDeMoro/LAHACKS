@@ -58,5 +58,5 @@ If code already exists, skim the layout and fit the plan to it; no deep groundin
 | notes/component-map.md | Components, owners, interface contracts I1–I15, stand-ins | Before building or changing any component, or any data passed between them |
 | notes/build-order.md | Parallel lanes, step dependencies, checkpoints C1–C4 | Picking the next piece to build or checking what it depends on |
 | notes/stack-reference.md | Tech stack per component, design rules, LLM and agent layer | Choosing a library or tool, or setting up a new component |
-| notes/architecture-and-build-order.md | Earlier overview: data formats, company challenges, demo notes | Background; component-map.md wins where they differ |
+| notes/project-overview.md | What we're building, demo plan, hardware, inputs, plain-English risk engine, company challenges, open decisions | Starting work, or needing the why behind a decision |
 | notes/risk-model-training-plan.md | Datasets, methods, and evaluation for the risk layer | Building or evaluating the risk scoring, trend models, or alert logic |

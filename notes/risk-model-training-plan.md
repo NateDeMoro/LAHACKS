@@ -11,14 +11,14 @@ Five pieces, four build methods. Each row is detailed in its own section below.
 | Component | Build method | Data | Output |
 | --- | --- | --- | --- |
 | Baseline ranges | Fit (quantile regression) + published reference ranges + guideline rules | NHANES 2017–Mar 2020; NEWS2; reference studies | Safe / warning / danger band per vital, per patient |
-| Context adjuster | LLM extraction, evaluated against labeled examples (optional fine-tune) | Hand-labeled intake texts; MIMIC-IV-ED demo chief complaints | Allowed adjustments with quoted evidence, red flags |
+| Context adjuster | LLM extraction, evaluated against labeled examples (optional fine-tune) | Hand-labeled intake texts; MIMIC-IV-ED demo chief complaints | Danger-threshold tightenings (I5); facts and quotes logged separately (I15) |
 | Personal baseline | Bayesian update, one tuned setting | eICU demo (tuning and check) | Bands narrowed toward the patient's own readings |
 | Trend model | Two trained classifiers: fast (minutes ahead) and slow (hours ahead) | MIMIC-III waveform vitals (fast); PhysioNet 2019 (slow); eICU demo | Probability of instability in the next 15–30 min and of sepsis in the next hours, + top reasons |
 | Signal quality, breathing rate, alert logic | Rules with tuned thresholds | eICU replay | Clean vitals, breathing rate, alert decisions |
 
 ## 1. Baseline ranges
 
-Heart rate and blood pressure bands are fit on NHANES; SpO2, breathing rate and temperature come from published references, because no open population dataset links them to patient features. The danger tier is NEWS2 for every vital.
+Heart rate and blood pressure bands are fit on NHANES; SpO2, breathing rate and temperature come from published references, because no open population dataset links them to patient features. The danger tier starts at NEWS2 for every vital; the context adjuster (section 2) may tighten it.
 
 ### How the three bands are defined
 
@@ -36,7 +36,7 @@ Heart rate and blood pressure bands are fit on NHANES; SpO2, breathing rate and 
 
 Source: [MDCalc NEWS2](https://www.mdcalc.com/calc/10083/national-early-warning-score-news-2) and the [RCP NEWS2 report](https://www.rcp.ac.uk/media/a4ibkkbf/news2-final-report_0_0.pdf). An aggregate NEWS2 of 5 or more is also an urgent threshold; the live monitor uses it (section 4).
 
-Live, the other NEWS2 parts come from intake: alertness entered by the nurse, the on-oxygen flag, and systolic BP from the single triage reading (never repeated), which keeps its points for the whole wait. Patient information never moves these danger values; it only adds earlier warnings above them. NEWS2 was validated mainly on admitted patients, so using it in a waiting room is an assumption we state.
+Live, the other NEWS2 parts come from intake: alertness entered by the nurse, the on-oxygen flag, and systolic BP from the single triage reading (never repeated), which keeps its points for the whole wait. The NHANES fit and personal baseline only move the safe band. The danger values move only through the context adjuster, and only inward, so danger is reached sooner, never later. NEWS2 was validated mainly on admitted patients, so using it in a waiting room is an assumption we state.
 
 ### Heart rate and blood pressure: fit on NHANES
 
@@ -72,7 +72,9 @@ NHANES has no SpO2, breathing-rate or body-temperature measurements in any 1999�
 | SpO2 | Daytime 96.2 ± 1.4% in 33,080 wearable users; ≤92% in 0.1% of people under 60 vs 1.9% at 70+; BMI ≥30 lowers SpO2 | [Apple Heart & Movement Study 2023](https://pmc.ncbi.nlm.nih.gov/articles/PMC10374661); [Vold 2015, Tromsø](https://bmcpulmmed.biomedcentral.com/articles/10.1186/s12890-015-0003-5) |
 | Breathing rate | No covariate-adjusted adult reference found; use NEWS2 score-0 range 12–20 as the safe band | [RCP NEWS2 report](https://www.rcp.ac.uk/media/a4ibkkbf/news2-final-report_0_0.pdf) |
 
-### Guideline adjustments (rules, applied after the fit)
+### Guideline adjustments (candidate rules)
+
+Candidates for the context adjuster's rule list (section 2) and for structured-field rules applied by code. The final list is decided later.
 
 | Factor | Adjustment | Source |
 | --- | --- | --- |
@@ -84,13 +86,15 @@ NHANES has no SpO2, breathing-rate or body-temperature measurements in any 1999�
 
 ## 2. Context adjuster
 
-The LLM is not trained on outcomes; it is prompted to extract facts into a fixed format, and we measure how accurately it does that on a labeled test set we write ourselves. Everything it may change comes from the rule tables in section 1.
+The LLM is not trained on outcomes; it is prompted to extract facts into a fixed format, and we measure how accurately it does that on a labeled test set we write ourselves. Its only effect on scoring is to tighten danger thresholds, using rules from an allowed list (decided later; candidates in section 1). Contracts: I4 in, I5 and I15 out ([component-map.md](component-map.md)).
 
 ### What it is allowed to output
 
-- **Allowed adjustments:** exactly the factor rows of the guideline table in section 1, plus a discrepancy flag when the text names something missing from the structured record. Applied by code, escalate-only.
-- **Red flags** that go straight to the nurse regardless of vitals. The starting list follows the Emergency Severity Index level-2 question, which routes patients who are in a high-risk situation, confused or lethargic, or in severe pain or distress to level 2 ([AHRQ ESI algorithm](https://git.lsit.ucsb.edu/publicdata/ahrq-gov/raw/commit/58222b51ed2ca5fbc109e641d86b5c7039a3725c/archive.ahrq.gov/research/esi/esifig3-1a.htm)). Illustrative high-risk examples from ESI training material: chest pain suspicious for coronary syndrome, signs of stroke ([ESI slide deck](https://avera.cloud-cme.com/assets/avera/Activity/13832/ESI%20in%20Triage%20Presentation.pdf)). A clinician should review the list before any real use.
-- **Evidence:** every fact must carry a quote that appears word-for-word in the intake text. Code checks this; a fact without a matching quote is dropped.
+- **Inputs:** the full patient context (I4), including the chief complaint.
+- **Adjustments (I5, to the risk engine):** a list of {rule, vital, low or high bound, new danger threshold}. Tighten only: a high bound can only move down, a low bound only up. A code validator checks every proposal against the allowed rules, vitals and per-vital caps, and clamps or drops anything else.
+- **Evidence (I15, to the evaluation log only):** the fact and the exact quote behind each adjustment. Code checks that the quote appears word-for-word in the chief complaint; an adjustment without a matching quote is dropped. The risk engine never reads the evidence.
+- **No red flags.** Triage acuity is the nurse's ESI level; the adjuster only changes thresholds.
+- **Pipeline:** a fixed chain of LLM steps with code between them (fact extractor, history reader, threshold proposer, reviewer), then the code validator ([stack-reference.md](stack-reference.md)).
 
 ### Medication lookup
 
@@ -100,7 +104,7 @@ The LLM extracts drug names; mapping a name to a drug class is deterministic, us
 
 No open dataset has realistic free-text intake. The MIMIC-IV-ED demo's chief complaints are short codes such as "SOB" and "HEAD BLEED" (222 triage rows, checked by download; [dataset page](https://physionet.org/content/mimic-iv-ed-demo/2.2/)). So we write the test set:
 
-1. About 100 short intake texts, covering every allowed adjustment and red flag at least five times.
+1. About 100 short intake texts, covering every allowed rule at least five times.
 2. Hard cases on purpose: negation ("I stopped my beta blockers last month"), slang ("weed"), brand names, two conflicting facts, nothing relevant at all.
 3. Each text labeled with the expected output by one teammate and checked by the other; disagreements resolved before testing.
 4. Use the MIMIC chief-complaint codes only as seeds for realistic complaint topics.
@@ -109,15 +113,15 @@ No open dataset has realistic free-text intake. The MIMIC-IV-ED demo's chief com
 
 | Metric | Target |
 | --- | --- |
-| Red-flag recall | As close to 100% as possible; a missed red flag is the worst error |
-| Fact precision and recall | Report both; precision matters because false facts tighten ranges for no reason |
+| Fact precision and recall | Report both; precision matters because false facts tighten thresholds for no reason |
 | Adjustment exact match | Share of texts where the full set of adjustments is right |
 | Quote validity | 100% after the code check, by construction |
-| Escalate-only violations | Zero, enforced by code |
+| Loosening violations | Zero, enforced by the code validator |
 
 ### Model choice
 
-- **Default:** StepFun step-5-preview with a fixed JSON schema; the StepFun challenge requires the app to call it at runtime.
+- **Default:** StepFun step-5-preview through LiteLLM, with JSON Schema output, low reasoning effort and temperature 0 for repeatable answers; the StepFun challenge requires the app to call it at runtime.
+- **Considered:** Jev (TypeSafe AI), a decision model that answers fixed-choice questions with a probability. A fit for picking rules, but it can't return quotes and access was unclear; optional.
 - **Optional fine-tune (veri.studio challenge):** fine-tune a small open model on extra labeled examples and compare it with StepFun on the same held-out texts. Veri's challenge asks for exactly this before-vs-after comparison ([veri.studio](https://www.veri.studio/lahacks)).
 
 Keep test texts out of any prompt examples or fine-tuning data, or the scores will be inflated.
@@ -144,7 +148,7 @@ For each vital, the patient's true resting level starts as the section-1 predict
 A patient who arrives already deteriorating would teach the system that abnormal is their normal. Three rules prevent that:
 
 1. The personal safe band may only be narrower than the population safe band, never wider or shifted outside it.
-2. The NEWS2 danger tier never moves.
+2. The personal baseline never moves the danger tier; only the context adjuster can, and only inward.
 3. If the first readings already sit in warning or danger, no baseline is learned; the patient is flagged instead.
 
 ### Tuning and checking n₀
@@ -198,6 +202,10 @@ Across vitals: NEWS2 computed from the available vitals (consciousness assumed a
 
 **Check on eICU.** The 2019 data is hourly, so it can't show the value of checking more often. eICU's 5-minute vitals can: compare the same rule evaluated every 5 minutes against every 60 minutes, using hospital death as the outcome. That is the direct analogue of the SNAP40 finding that continuous monitoring caught deterioration a median of 65 minutes earlier than manual vital signs in a subgroup of 31 ED patients ([SNAP40-ED study](https://www.pagepressjournals.org/ecj/article/view/9711)).
 
+### Output
+
+Every minute: a probability (0–1) of sepsis within about 6 hours, plus the top 3 feature contributions as the one-line reason. Saved as a LightGBM model file; cutoffs in config.json (I7). Training with `scale_pos_weight` inflates raw probabilities: they rank correctly but are not real percentages. Compare them only against cutoffs, or add a calibration step fitted on held-out patients if the dashboard shows percentages.
+
 ### Running it live
 
 The live stream is collapsed into one-minute medians, then into the same hourly windows the model was trained on, and the model is re-run every minute on the rolling windows. Early in a patient's wait there is little history, so predictions lean on current levels; we show that uncertainty to the nurse rather than hide it.
@@ -234,6 +242,10 @@ Because the label is built from the same vitals the model reads, it must beat tw
 
 Headline metric: minutes of warning before the event at a fixed alert rate, compared with those baselines and with a nurse recheck every 60 minutes. Also report AUPRC.
 
+### Output
+
+Two models, 15 and 30 minutes ahead. Each outputs a probability (0–1) that some vital enters the danger tier, plus the top 3 feature contributions. They don't say which vital; one model per vital would, at the cost of more models. Open: I9 has one fast field for two models. Same calibration caveat as the slow model.
+
 ### Running it live
 
 It runs every minute on the stream's one-minute medians, the same resolution it was trained on. The slow model keeps running alongside it; both feed the alert logic in section 5.
@@ -264,7 +276,6 @@ An alert fires when any of these holds for its persistence window:
 1. A vital in the danger tier, or aggregate NEWS2 of 5 or more (the urgent threshold; [NHS Scotland NEWS2 guideline](https://rightdecisions.scot.nhs.uk/media/vhcccgq2/news2-guideline-no-fp.pdf)).
 2. A vital in warning for longer than its window.
 3. Trend-model probability above its threshold for its window.
-4. A red flag from the context adjuster, with no delay.
 
 **Why persistence windows:** short delays cut nuisance alarms sharply. A 15-second delay plus a lower SpO2 threshold cut alarms by 70% in post-surgical patients, and a 15-second delay alone cut SpO2 alarms by 67% in preterm infants (both summarized in [this ICU alarm review](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4891882/)).
 
@@ -307,7 +318,6 @@ Datasets
 Thresholds and guidelines
 
 - [RCP NEWS2 report](https://www.rcp.ac.uk/media/a4ibkkbf/news2-final-report_0_0.pdf) · [MDCalc NEWS2](https://www.mdcalc.com/calc/10083/national-early-warning-score-news-2) · [NHS Scotland NEWS2 guideline](https://rightdecisions.scot.nhs.uk/media/vhcccgq2/news2-guideline-no-fp.pdf) · [RCN NEWS2 card](https://startingout.rcn.org.uk/Develop/Nursing-Essentials-Crib-Cards/NEWS2)
-- [AHRQ ESI algorithm](https://git.lsit.ucsb.edu/publicdata/ahrq-gov/raw/commit/58222b51ed2ca5fbc109e641d86b5c7039a3725c/archive.ahrq.gov/research/esi/esifig3-1a.htm) · [ESI training slides](https://avera.cloud-cme.com/assets/avera/Activity/13832/ESI%20in%20Triage%20Presentation.pdf)
 - [IDSA fever in older adults, High 2009](https://pmc.ncbi.nlm.nih.gov/articles/PMC7166905)
 
 Reference ranges and modifiers

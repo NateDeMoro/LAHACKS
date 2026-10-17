@@ -1,0 +1,102 @@
+{
+  "$defs": {
+    "Adjustment": {
+      "additionalProperties": false,
+      "properties": {
+        "rule_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Id"
+        },
+        "vital": {
+          "anyOf": [
+            {
+              "enum": [
+                "hr",
+                "resp_rate",
+                "spo2",
+                "temp_c",
+                "sbp"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vital"
+        },
+        "bound": {
+          "anyOf": [
+            {
+              "enum": [
+                "low",
+                "high"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bound"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "title": "Adjustment",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "patient_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Patient Id"
+    },
+    "adjustments": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Adjustment"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Adjustments"
+    }
+  },
+  "title": "ContextAdjustments",
+  "type": "object"
+}

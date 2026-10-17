@@ -1,0 +1,14 @@
+{
+  "patient_id": "demo-001",
+  "wearable_id": 1,
+  "arrival_ts": "2026-10-18T09:00:00-07:00",
+  "age": 58,
+  "sex": "male",
+  "height_cm": 178,
+  "weight_kg": 86,
+  "pregnant": false,
+  "conditions": ["hypertension", "diabetes"],
+  "medications": ["metoprolol", "metformin", "sertraline"],
+  "chief_complaint": "Shortness of breath since this morning, worse when lying flat.",
+  "triage": {"sbp": 142, "dbp": 88, "alertness": "alert", "pain": 3, "on_oxygen": false, "level": 3}
+}

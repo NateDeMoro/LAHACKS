@@ -1,0 +1,148 @@
+{
+  "$defs": {
+    "News2Points": {
+      "additionalProperties": false,
+      "properties": {
+        "resp_rate": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resp Rate"
+        },
+        "spo2": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Spo2"
+        },
+        "on_oxygen": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "On Oxygen"
+        },
+        "sbp": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sbp"
+        },
+        "hr": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hr"
+        },
+        "alertness": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alertness"
+        },
+        "temp_c": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Temp C"
+        }
+      },
+      "title": "News2Points",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "patient_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Patient Id"
+    },
+    "ts": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ts"
+    },
+    "news2": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "News2"
+    },
+    "news2_points": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/News2Points"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "title": "LiveNews2",
+  "type": "object"
+}

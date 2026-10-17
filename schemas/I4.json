@@ -1,0 +1,303 @@
+{
+  "$defs": {
+    "Triage": {
+      "additionalProperties": false,
+      "properties": {
+        "sbp": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sbp"
+        },
+        "dbp": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dbp"
+        },
+        "alertness": {
+          "anyOf": [
+            {
+              "enum": [
+                "alert",
+                "new_confusion",
+                "voice",
+                "pain",
+                "unresponsive"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alertness"
+        },
+        "pain": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pain"
+        },
+        "on_oxygen": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "On Oxygen"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Level"
+        }
+      },
+      "title": "Triage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "patient_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Patient Id"
+    },
+    "wearable_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Wearable Id"
+    },
+    "arrival_ts": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Arrival Ts"
+    },
+    "age": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Age"
+    },
+    "sex": {
+      "anyOf": [
+        {
+          "enum": [
+            "male",
+            "female"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sex"
+    },
+    "height_cm": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Height Cm"
+    },
+    "weight_kg": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Weight Kg"
+    },
+    "pregnant": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pregnant"
+    },
+    "conditions": {
+      "anyOf": [
+        {
+          "items": {
+            "enum": [
+              "hypertension",
+              "asthma",
+              "cancer",
+              "diabetes",
+              "thyroid",
+              "copd",
+              "liver",
+              "heart_disease",
+              "stroke",
+              "heart_failure"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Conditions"
+    },
+    "medications": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Medications"
+    },
+    "chief_complaint": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Chief Complaint"
+    },
+    "triage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Triage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "bmi": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Bmi"
+    },
+    "drug_classes": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Drug Classes"
+    },
+    "unmatched_medications": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unmatched Medications"
+    }
+  },
+  "title": "PatientContext",
+  "type": "object"
+}

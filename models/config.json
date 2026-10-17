@@ -1,0 +1,5 @@
+{
+  "n0": 30,
+  "persistence_windows": {"warning": 5, "danger": 2},
+  "probability_cutoffs": {"fast": 0.5, "slow": 0.5}
+}

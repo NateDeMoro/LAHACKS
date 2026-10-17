@@ -1,0 +1,49 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "n0": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "N0"
+    },
+    "persistence_windows": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Persistence Windows"
+    },
+    "probability_cutoffs": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Probability Cutoffs"
+    }
+  },
+  "title": "ModelConfig",
+  "type": "object"
+}

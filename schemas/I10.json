@@ -1,0 +1,91 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "alert_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Alert Id"
+    },
+    "patient_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Patient Id"
+    },
+    "ts": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ts"
+    },
+    "severity": {
+      "anyOf": [
+        {
+          "enum": [
+            "warning",
+            "urgent",
+            "high"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Severity"
+    },
+    "trigger": {
+      "anyOf": [
+        {
+          "enum": [
+            "vital_danger",
+            "news2_total",
+            "warning_persisted",
+            "trend"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trigger"
+    },
+    "message": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Message"
+    }
+  },
+  "title": "Alert",
+  "type": "object"
+}

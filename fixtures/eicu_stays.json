@@ -1,0 +1,44 @@
+[
+  {
+    "patient_id": "eicu-238463",
+    "age": 83,
+    "sex": "male",
+    "outcome": "expired",
+    "peak_partial_news2": 9
+  },
+  {
+    "patient_id": "eicu-733083",
+    "age": 68,
+    "sex": "female",
+    "outcome": "expired",
+    "peak_partial_news2": 9
+  },
+  {
+    "patient_id": "eicu-3211766",
+    "age": 73,
+    "sex": "male",
+    "outcome": "expired",
+    "peak_partial_news2": 8
+  },
+  {
+    "patient_id": "eicu-2621632",
+    "age": 64,
+    "sex": "female",
+    "outcome": "alive",
+    "peak_partial_news2": 10
+  },
+  {
+    "patient_id": "eicu-3141080",
+    "age": 87,
+    "sex": "male",
+    "outcome": "alive",
+    "peak_partial_news2": 10
+  },
+  {
+    "patient_id": "eicu-1118668",
+    "age": 77,
+    "sex": "female",
+    "outcome": "alive",
+    "peak_partial_news2": 6
+  }
+]

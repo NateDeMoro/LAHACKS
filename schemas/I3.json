@@ -1,0 +1,44 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "wearable_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Wearable Id"
+    },
+    "patient_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Patient Id"
+    },
+    "assigned_ts": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Assigned Ts"
+    }
+  },
+  "title": "WearableAssignment",
+  "type": "object"
+}

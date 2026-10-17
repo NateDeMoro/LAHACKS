@@ -1,0 +1,162 @@
+{
+  "$defs": {
+    "VitalRange": {
+      "additionalProperties": false,
+      "properties": {
+        "safe_low": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Safe Low"
+        },
+        "safe_high": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Safe High"
+        },
+        "danger_low": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Danger Low"
+        },
+        "danger_high": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Danger High"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "enum": [
+                "population",
+                "personal"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "reasons": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reasons"
+        }
+      },
+      "title": "VitalRange",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "patient_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Patient Id"
+    },
+    "hr": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VitalRange"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "resp_rate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VitalRange"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "spo2": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VitalRange"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "temp_c": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VitalRange"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "sbp": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VitalRange"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "title": "PatientRanges",
+  "type": "object"
+}

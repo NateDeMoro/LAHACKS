@@ -1,0 +1,4 @@
+{"wearable_id": 1, "ts": "2026-10-18T09:05:00-07:00", "hr": 72, "rr_intervals_ms": [830, 835], "contact": true, "resp_rate": 15.5}
+{"wearable_id": 1, "ts": "2026-10-18T09:05:01-07:00", "hr": 73, "rr_intervals_ms": [822], "contact": true, "resp_rate": 15.8}
+{"wearable_id": 1, "ts": "2026-10-18T09:05:01-07:00", "spo2": 97, "temp_c": 36.8}
+{"wearable_id": 1, "ts": "2026-10-18T09:05:02-07:00", "spo2": 96, "temp_c": 36.8}

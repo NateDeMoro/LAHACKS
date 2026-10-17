@@ -1,0 +1,42 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "type": {
+      "anyOf": [
+        {
+          "enum": [
+            "I1",
+            "I8",
+            "I9",
+            "I10",
+            "I11",
+            "I12",
+            "I13",
+            "I14"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Type"
+    },
+    "data": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Data"
+    }
+  },
+  "title": "WsMessage",
+  "type": "object"
+}

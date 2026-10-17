@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "alert_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Alert Id"
+    },
+    "ts": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ts"
+    }
+  },
+  "title": "Acknowledgment",
+  "type": "object"
+}

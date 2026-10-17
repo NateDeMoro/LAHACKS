@@ -60,3 +60,11 @@ If code already exists, skim the layout and fit the plan to it; no deep groundin
 | notes/stack-reference.md | Tech stack per component, design rules, LLM and agent layer | Choosing a library or tool, or setting up a new component |
 | notes/project-overview.md | What we're building, demo plan, hardware, inputs, plain-English risk engine, company challenges, open decisions | Starting work, or needing the why behind a decision |
 | notes/risk-model-training-plan.md | Datasets, methods, and evaluation for the risk layer | Building or evaluating the risk scoring, trend models, or alert logic |
+| backend/contracts.py | Pydantic models for I1–I15, WebSocket envelope | Passing or validating any interface data |
+| backend/risk_engine/ | NEWS2 scoring (news2.py) and stub engine (engine.py) | Building or wiring the risk engine, alerts, or dashboard stand-in |
+| backend/fixtures.py, backend/timeutil.py | Fixture loaders, I13 expansion; LA time helpers | Needing stand-in I1/I2/I4/I6/I13 data or timestamps |
+| fixtures/ | Hand-written I1/I2/I4, eICU I6 rows, stays, recorded I9 | Testing against stand-ins |
+| schemas/ | JSON Schema per interface (generated) | B1 output schema or TypeScript type generation |
+| models/ | Stub I7 config.json | Changing n₀, windows, cutoffs |
+| scripts/ | export_schemas, build_eicu_fixtures, replay_fixture | Regenerating schemas or fixtures, replaying a stay |
+| pyproject.toml, .env.example | uv project (Python 3.12), env key names | Setting up the environment |

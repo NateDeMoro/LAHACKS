@@ -1,5 +1,12 @@
 """Pure NEWS2 scoring (SpO2 scale 1). Use when scoring any vital set."""
+from decimal import ROUND_HALF_UP, Decimal
+
 from backend.contracts import News2Points
+
+
+def _round(v, places=0):
+    """Round half up (20.5 -> 21, 35.05 -> 35.1); avoids half-to-even surprises like 24.5 -> 24."""
+    return float(Decimal(str(v)).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP))
 
 
 def _band(v, bands):
@@ -11,23 +18,23 @@ def _band(v, bands):
 
 
 def score_rr(v):
-    return _band(round(v), [(8, 3), (11, 1), (20, 0), (24, 2), (float("inf"), 3)])
+    return _band(_round(v), [(8, 3), (11, 1), (20, 0), (24, 2), (float("inf"), 3)])
 
 
 def score_spo2(v):
-    return _band(round(v), [(91, 3), (93, 2), (95, 1), (float("inf"), 0)])
+    return _band(_round(v), [(91, 3), (93, 2), (95, 1), (float("inf"), 0)])
 
 
 def score_sbp(v):
-    return _band(round(v), [(90, 3), (100, 2), (110, 1), (219, 0), (float("inf"), 3)])
+    return _band(_round(v), [(90, 3), (100, 2), (110, 1), (219, 0), (float("inf"), 3)])
 
 
 def score_hr(v):
-    return _band(round(v), [(40, 3), (50, 1), (90, 0), (110, 1), (130, 2), (float("inf"), 3)])
+    return _band(_round(v), [(40, 3), (50, 1), (90, 0), (110, 1), (130, 2), (float("inf"), 3)])
 
 
 def score_temp(v):
-    return _band(round(v, 1), [(35.0, 3), (36.0, 1), (38.0, 0), (39.0, 1), (float("inf"), 2)])
+    return _band(_round(v, 1), [(35.0, 3), (36.0, 1), (38.0, 0), (39.0, 1), (float("inf"), 2)])
 
 
 def score_alertness(v):

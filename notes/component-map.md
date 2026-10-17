@@ -82,7 +82,7 @@ Affects S2, S4, S5, T1, B1. Models live in `backend/contracts.py`; JSON Schema i
 - **Endpoints (tentative):** `WS /ws/ingest` accepts I1. `WS /ws/dashboard` pushes I8, I9, I10, I13, I14 and accepts I11, I12. `POST /intake` takes I2 and returns the I3 assignment.
 - **Band edges:** safe_low/safe_high and danger_low/danger_high are inclusive; a value at or below danger_low (or at or above danger_high) is danger. Stub I8: NEWS2 score-0 range is safe, score-3 values are danger. spo2 and temp_c have null danger_high.
 - **Null scoring:** a null vital gets null points and is left out of the total; never filled in.
-- **Rounding:** HR, RR and SpO2 round to whole numbers and temp_c to one decimal before banding using Python `round` (half to even), so 20.5 breaths becomes 20, inside 12-20.
+- **Rounding:** HR, RR and SpO2 round to whole numbers and temp_c to one decimal before banding, rounding half up (20.5 breaths becomes 21, 2 points; 24.5 becomes 25, 3 points).
 - **news2_points range:** 0-3 each, except on_oxygen which is 0 or 2.
 - **SBP, alertness, on_oxygen** in I14 come from I4 triage held in engine state; with no intake they are null.
 - **Cadence:** I6 is per minute. eICU is 5-minute, so fixtures never repeat a value into five rows; the I13 loader holds the latest I6 for up to 5 minutes, then null.

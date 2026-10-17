@@ -70,7 +70,7 @@ Read left to right: everything in one column can be built at the same time. A ch
 | S2 Ingest service | Systems | P0 | Accepts I1 over WebSocket, merges sources per vital, emits I13 each second and I6 each minute |
 | S3 Simulator filler | Systems | S2 | Sends SpO2 and temperature as I1 for the wearer's wearable ID |
 | S4 Dashboard | Systems | S3 | Shows live vitals and NEWS2 updating every second from the stub |
-| T1 NEWS2 scorer | Stats | P0 | Scores I13 rows into I14 with per-part points; replaces the stub's NEWS2 |
+| T1 NEWS2 scorer | Stats | P0 | P0 stub already scores the full table; T1 checks it against reference cases, covers edge cases and missing parts, and owns scoring from here |
 | **C1 Thin slice** | Both | S4, T1 | Simulated vitals flow end to end and NEWS2 moves on the dashboard |
 | **C2 Real strap live** | Systems | C1, S1 | The wearer's real HR and breathing rate show next to simulated SpO2 and temperature |
 | S5 Intake form + service | Systems | C2 | Submitting the form creates a patient, assigns the wearable (I3) and produces I4 with drug classes |

@@ -40,5 +40,12 @@
     "sex": "female",
     "outcome": "alive",
     "peak_partial_news2": 6
+  },
+  {
+    "patient_id": "eicu-1048833",
+    "age": 56,
+    "sex": "male",
+    "outcome": "alive",
+    "peak_partial_news2": 0
   }
 ]

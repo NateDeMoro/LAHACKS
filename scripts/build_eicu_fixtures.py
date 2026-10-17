@@ -75,6 +75,17 @@ def main():
         picks = pool[:1] + pool[1:][:: max(1, len(pool) // PER_OUTCOME)][: PER_OUTCOME - 1]
         chosen += [(c, outcome) for c in picks]
 
+    # one extra survivor that starts normal (HR and breathing score 0 for the first hour), so the
+    # personal baseline has a stay it can learn from; the ICU stays above mostly start abnormal
+    def starts_normal(g):
+        first = g.head(12)
+        return len(first.dropna(subset=["heartrate", "respiration"])) == 12 and all(
+            news2.score_hr(r.heartrate) == 0 and news2.score_rr(r.respiration) == 0 for r in first.itertuples())
+    normal = [c for c in cands if status.get(c[0]) == "Alive" and starts_normal(c[1])
+              and c[0] not in {x[0][0] for x in chosen}]
+    if normal:
+        chosen.append((min(normal, key=lambda c: c[2]), "Alive"))
+
     i6, stays = [], []
     for (stay, g, peak), outcome in chosen:
         pid = f"eicu-{stay}"

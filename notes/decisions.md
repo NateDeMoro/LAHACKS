@@ -69,6 +69,15 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 ### Windows count time, not rows
 - eICU rows are 5 minutes, live rows 1 minute. Windows and n use `minute_ts` so both behave alike.
 
+### Chosen start values: k = 2.5, floor multiplier 1.0 (HR floor 5, breathing 2; min widths 16 and 6)
+- **Evidence** (`training/tune_baseline.py`, first 4 hours of 1,945 eICU stays: 1,778 survivors, 167 non-survivors): relative to population bands only, k=2.5 / x1.0 raises the survivor flag rate to 1.04x and the non-survivor flag share to 1.01x. Looser settings (k=3.0 with floor x1.5) do almost nothing (1.00x) and never personalize breathing; tighter ones (k=2.0 / x0.5) raise survivor flags to 1.18x. Under the chosen setting a personal HR band forms in 54% of survivor stays and breathing in 33%.
+- **What this does and does not show:** about 95% of ICU stays are already in warning or danger on HR or breathing under the plain NEWS2 bands, so false-alarm rates and time-to-first-flag cannot separate the settings (median time to first flag is 0 everywhere). The sweep confirms the mechanics and that personalization adds few flags; it cannot show the benefit. The synthetic wearer replay and the strap at C2 are the real tests.
+- **Revisit if:** the strap at C2 shows frequent warnings in a calm wearer (raise k or the floors) or misses a real drift (lower them).
+
+### Checks done
+- A raw eICU row (stay 197617, offset 4064: HR 117, RR 48, SpO2 93, temp 37.7) scored by hand from the NEWS2 chart (2, 3, 2, 0 points) matches the engine.
+- One survivor who starts normal (stay 1048833) was added to the fixtures so the personal band has a real stay to learn from: it personalizes at minute 18 and has 10 warning rows of 220. The synthetic wearer (fixtures/wearer_drift_i6.jsonl) personalizes at 15 minutes, freezes at 30, and the later rise reaches warning at 87 bpm.
+
 ## Stated limits
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.
 - NHANES pulse is seated and resting; anxious waiting patients may run above the 90 bpm cap and show warning (check at C2; the fix would be a config offset).

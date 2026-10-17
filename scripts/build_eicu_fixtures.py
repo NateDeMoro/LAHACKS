@@ -44,14 +44,20 @@ def _n(v):
     return None if pd.isna(v) else float(v)
 
 
-def main():
+def load_clean():
+    """Cleaned eICU vitals (implausible values nulled, sorted by stay and offset) and the patient table.
+    Use when a script needs the raw eICU stays, e.g. fixtures or training/tune_baseline.py."""
     vit = pd.read_csv(fetch("vitalPeriodic.csv.gz"),
                       usecols=["patientunitstayid", "observationoffset", *LIMITS])
     pat = pd.read_csv(fetch("patient.csv.gz"),
                       usecols=["patientunitstayid", "gender", "age", "hospitaldischargestatus"])
     for col, (lo, hi) in LIMITS.items():
         vit.loc[(vit[col] < lo) | (vit[col] > hi), col] = None
-    vit = vit.sort_values(["patientunitstayid", "observationoffset"])
+    return vit.sort_values(["patientunitstayid", "observationoffset"]), pat
+
+
+def main():
+    vit, pat = load_clean()
 
     cands = []
     for stay, g in vit.groupby("patientunitstayid"):

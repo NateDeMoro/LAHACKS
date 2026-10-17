@@ -1,4 +1,5 @@
 """Pure NEWS2 scoring (SpO2 scale 1). Use when scoring any vital set."""
+import math
 from decimal import ROUND_HALF_UP, Decimal
 
 from backend.contracts import News2Points
@@ -7,6 +8,11 @@ from backend.contracts import News2Points
 def _round(v, places=0):
     """Round half up (20.5 -> 21, 35.05 -> 35.1); avoids half-to-even surprises like 24.5 -> 24."""
     return float(Decimal(str(v)).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP))
+
+
+def rounded(vital: str, v: float) -> float:
+    """A reading rounded as NEWS2 does before banding (temperature to 0.1, the rest to whole numbers)."""
+    return _round(v, 1 if vital == "temp_c" else 0)
 
 
 def _band(v, bands):
@@ -46,7 +52,10 @@ def score_oxygen(v):
 
 
 def _opt(fn, v):
-    return None if v is None else fn(v)
+    # NaN and infinity count as missing (the contract models reject them, but direct callers can pass them)
+    if v is None or (isinstance(v, float) and not math.isfinite(v)):
+        return None
+    return fn(v)
 
 
 def score(resp_rate=None, spo2=None, on_oxygen=None, sbp=None, hr=None,

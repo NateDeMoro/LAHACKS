@@ -74,8 +74,8 @@ Read left to right: everything in one column can be built at the same time. A ch
 | **C1 Thin slice** | Both | S4, T1 | Simulated vitals flow end to end and NEWS2 moves on the dashboard |
 | **C2 Real strap live** | Systems | C1, S1 | The wearer's real HR and breathing rate show next to simulated SpO2 and temperature |
 | S5 Intake form + service | Systems | C2 | Submitting the form creates a patient, assigns the wearable (I3) and produces I4 with drug classes |
-| T2 Baseline ranges | Stats | T1 | NHANES quantile fit written to ranges.json; engine builds I8 from I4 |
-| T3 Personal baseline | Stats | T2 | I6 rows narrow the safe band; danger limits move only via I5 |
+| T2 Baseline ranges | Stats | T1 | NHANES quantile fit written to ranges.json; engine builds I8 from I4. Done: training/fit_ranges.py, backend/risk_engine/ranges.py |
+| T3 Personal baseline | Stats | T2 | I6 rows narrow the safe band; danger limits move only via I5. Done: backend/risk_engine/baseline.py (hr and breathing) |
 | T4 Alert logic | Stats | T3 | Recorded I9 rows produce I10 alerts with persistence windows and one alert per problem |
 | B1 step-5-preview call | Both | P0 | A test call returns valid JSON matching the I5/I15 schema |
 | B2 Test set | Both | B1 | About 100 labeled chief complaints, including negations |

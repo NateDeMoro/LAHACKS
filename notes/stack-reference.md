@@ -27,7 +27,7 @@ These are just leans. Updates can be made as needed, but this doc should be upda
 ## Design rules
 
 - **Three entry points.** The risk engine is a Python module called at three times: once at intake (build ranges from I4 and I5), every second (NEWS2 on the 60 s window, I13 → I14), and every minute (personal baseline, trend models, risk result, I6 → I9). Rules set the floor; ML models can raise a level, never lower one. A small registry picks the model by config.
-- **Training is separate.** A `training/` folder holds notebooks; outputs are LightGBM model files and JSON (I7). The backend loads the files at startup and never imports training code.
+- **Training is separate.** A `training/` folder holds scripts run with uv (statsmodels for the quantile fit, LightGBM later), not notebooks; outputs are LightGBM model files and JSON (I7). The backend loads the files at startup and never imports training code.
 - **Missing vitals are fine.** Models take missing inputs as NaN (LightGBM handles this); the simulator fills what the strap can't.
 
 ## LLM and agent layer

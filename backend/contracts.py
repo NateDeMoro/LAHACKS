@@ -1,7 +1,7 @@
 """Shared models for interfaces I1-I15. Source of truth: notes/component-map.md.
 
-Every field is nullable with default None, unknown fields are rejected, and
-timestamps must be timezone-aware.
+Every field is nullable with default None, unknown fields are rejected, NaN and
+infinity are rejected, and timestamps must be timezone-aware.
 """
 from datetime import datetime
 from typing import Annotated, Literal
@@ -30,7 +30,7 @@ RangeSource = Literal["population", "personal"]
 
 
 class Model(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
 class VitalsReading(Model):  # I1
@@ -193,10 +193,64 @@ class AdjustmentEvidence(Model):  # I15
     model: str | None = None
 
 
+class BaselineConfig(Model):
+    """Personal baseline settings (T3). Times are minutes of wall-clock, not row counts."""
+    min_minutes: float | None = None
+    arrival_check_minutes: float | None = None
+    learn_minutes: float | None = None
+    min_clean_seconds: int | None = None
+    n0_min: float | None = None
+    n0_max: float | None = None
+    k: float | None = None
+    spread_floor: dict[str, float] | None = None  # per vital, vital units
+    min_width: dict[str, float] | None = None
+
+
 class ModelConfig(Model):  # I7 config.json
-    n0: int | None = None
+    baseline: BaselineConfig | None = None
     persistence_windows: dict[str, int] | None = None
     probability_cutoffs: dict[str, float] | None = None
+
+
+class QuantileFit(Model):
+    intercept: float | None = None
+    coef: dict[str, float] | None = None
+
+
+class TargetFit(Model):
+    q025: QuantileFit | None = None
+    q50: QuantileFit | None = None
+    q975: QuantileFit | None = None
+
+
+class ReferenceBand(Model):
+    safe_low: float | None = None
+    safe_high: float | None = None
+
+
+class TempReference(Model):
+    safe_low: float | None = None
+    safe_high: float | None = None
+    ref_age: float | None = None
+    shift_per_decade: float | None = None
+
+
+class RangesMeta(Model):
+    cycle: str | None = None
+    n_train: int | None = None
+    n_holdout: int | None = None
+    fit_date: str | None = None
+    coverage: dict[str, float] | None = None
+    notes: str | None = None
+
+
+class RangesFile(Model):  # I7 ranges.json
+    meta: RangesMeta | None = None
+    features: list[str] | None = None
+    feature_clamp: dict[str, list[float]] | None = None  # feature -> [low, high] applied before predicting
+    cohort_means: dict[str, float] | None = None  # fallback for a missing continuous feature
+    targets: dict[str, TargetFit] | None = None  # "hr", "sbp"
+    reference: dict[str, ReferenceBand | TempReference] | None = None  # "resp_rate", "spo2", "temp_c"
 
 
 # WebSocket envelope: {"type": "<interface ID>", "data": {...}}

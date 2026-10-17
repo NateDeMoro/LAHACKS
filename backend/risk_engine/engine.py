@@ -1,9 +1,15 @@
-"""Stub risk engine: plain NEWS2 as I9/I14 with fixed population ranges."""
-from datetime import timedelta
+"""Risk engine: NEWS2 every second; population ranges at intake; personal baseline and I9 every minute."""
+import json
+from pathlib import Path
+from typing import Callable
 
-from backend.contracts import (ContextAdjustments, LiveNews2, LiveWindow, MinuteSummary,
-                               PatientContext, PatientRanges, RiskResult, VitalRange)
-from backend.risk_engine import news2
+from backend.contracts import (BaselineConfig, ContextAdjustments, LiveNews2, LiveWindow,
+                               MinuteSummary, ModelConfig, PatientContext, PatientRanges,
+                               RiskResult, VitalRange)
+from backend.risk_engine import news2, ranges
+from backend.risk_engine.baseline import PersonalBaseline
+
+CONFIG_PATH = Path(__file__).resolve().parents[2] / "models" / "config.json"
 
 _LABEL = {"hr": "heart rate", "resp_rate": "breathing", "spo2": "SpO2", "temp_c": "temperature"}
 _UNIT = {"hr": "/min", "resp_rate": "/min", "spo2": "%", "temp_c": "C"}
@@ -12,18 +18,17 @@ _RANK = {"safe": 0, "warning": 1, "danger": 2}
 
 def default_ranges(patient_id: str | None) -> PatientRanges:
     """NEWS2 score-0 range as safe, score-3 values as danger (edges inclusive)."""
-    def r(sl, sh, dl, dh):
-        return VitalRange(safe_low=sl, safe_high=sh, danger_low=dl, danger_high=dh,
-                          source="population", reasons=[])
-    return PatientRanges(
-        patient_id=patient_id,
-        hr=r(51, 90, 40, 131), resp_rate=r(12, 20, 8, 25),
-        spo2=r(96, 100, 91, None), temp_c=r(36.1, 38.0, 35.0, None),
-        sbp=r(111, 219, 90, 220),
-    )
+    return ranges.score0_ranges(patient_id)
 
 
-def classify(v: float, rng: VitalRange) -> str:
+def load_config(path: Path = CONFIG_PATH) -> ModelConfig:
+    return ModelConfig(**json.loads(path.read_text()))
+
+
+def classify(v: float, rng: VitalRange, vital: str | None = None) -> str:
+    """Band a reading against a range. With the vital named, the reading is rounded as NEWS2 does."""
+    if vital:
+        v = news2.rounded(vital, v)
     if (rng.danger_low is not None and v <= rng.danger_low) or \
        (rng.danger_high is not None and v >= rng.danger_high):
         return "danger"
@@ -34,17 +39,29 @@ def classify(v: float, rng: VitalRange) -> str:
 
 
 class RiskEngine:
-    def __init__(self):
+    def __init__(self, config: ModelConfig | None = None):
+        self.config = config or load_config()
         self.context: dict[str, PatientContext] = {}
-        self.ranges: dict[str, PatientRanges] = {}
+        self.intake_ranges: dict[str, PatientRanges] = {}  # population I8 at intake; the simulator reads this one
+        self.baselines: dict[str, PersonalBaseline] = {}
         self.latest: dict[str, LiveNews2] = {}
+        self.ranges_listener: Callable[[PatientRanges], None] | None = None  # called when a patient's I8 changes
+
+    @property
+    def ranges(self) -> dict[str, PatientRanges]:
+        """Current I8 per patient (population, narrowed once the personal baseline kicks in)."""
+        return {pid: b.ranges for pid, b in self.baselines.items()}
+
+    def _start(self, patient_id: str, population: PatientRanges, centres: dict[str, float]):
+        self.intake_ranges[patient_id] = population
+        self.baselines[patient_id] = PersonalBaseline(self.config.baseline, population, centres)
 
     def on_intake(self, ctx: PatientContext, adjustments: ContextAdjustments | None = None
                   ) -> PatientRanges:
-        # I5 is accepted and ignored in the stub (applied by T2/B3 later)
+        # I5 is accepted and ignored here (applied with the context adjuster, B3)
         self.context[ctx.patient_id] = ctx
-        self.ranges[ctx.patient_id] = default_ranges(ctx.patient_id)
-        return self.ranges[ctx.patient_id]
+        self._start(ctx.patient_id, ranges.build_population_ranges(ctx), ranges.population_centres(ctx))
+        return self.baselines[ctx.patient_id].ranges
 
     def on_second(self, w: LiveWindow) -> LiveNews2:
         tri = self.context[w.patient_id].triage if w.patient_id in self.context else None
@@ -57,13 +74,18 @@ class RiskEngine:
         return out
 
     def on_minute(self, m: MinuteSummary) -> RiskResult:
-        ranges = self.ranges.get(m.patient_id) or default_ranges(m.patient_id)
+        if m.patient_id not in self.baselines:  # seen without an intake: plain NEWS2 bands
+            self._start(m.patient_id, default_ranges(m.patient_id), ranges.population_centres(None))
+        base = self.baselines[m.patient_id]
+        if base.update(m) and self.ranges_listener:
+            self.ranges_listener(base.ranges)
+        current = base.ranges
         level, vital, reason = "safe", None, None
         for name in ("hr", "resp_rate", "spo2", "temp_c"):
             v = getattr(m, name)
             if v is None:
                 continue
-            lv = classify(v, getattr(ranges, name))
+            lv = classify(v, getattr(current, name), name)
             if _RANK[lv] > _RANK[level]:
                 level, vital = lv, name
                 reason = f"{_LABEL[name]} {v:g}{_UNIT[name]}, {lv}"

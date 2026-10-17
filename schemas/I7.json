@@ -1,17 +1,140 @@
 {
+  "$defs": {
+    "BaselineConfig": {
+      "additionalProperties": false,
+      "description": "Personal baseline settings (T3). Times are minutes of wall-clock, not row counts.",
+      "properties": {
+        "min_minutes": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Minutes"
+        },
+        "arrival_check_minutes": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arrival Check Minutes"
+        },
+        "learn_minutes": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Learn Minutes"
+        },
+        "min_clean_seconds": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Clean Seconds"
+        },
+        "n0_min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N0 Min"
+        },
+        "n0_max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N0 Max"
+        },
+        "k": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "K"
+        },
+        "spread_floor": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Spread Floor"
+        },
+        "min_width": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Width"
+        }
+      },
+      "title": "BaselineConfig",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
   "properties": {
-    "n0": {
+    "baseline": {
       "anyOf": [
         {
-          "type": "integer"
+          "$ref": "#/$defs/BaselineConfig"
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
-      "title": "N0"
+      "default": null
     },
     "persistence_windows": {
       "anyOf": [

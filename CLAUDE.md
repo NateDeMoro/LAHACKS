@@ -43,4 +43,5 @@ If code already exists, skim the layout and fit the plan to it; no deep groundin
 | Path | Description | Open when |
 |---|---|---|
 | notes/architecture-and-build-order.md | System components, data formats, build steps, company challenges | Planning the build order or wiring components together |
+| notes/stack-reference.md | Tech stack per component, design rules, LLM and agent layer | Choosing a library or tool, or setting up a new component |
 | notes/risk-model-training-plan.md | Datasets, methods, and evaluation for the risk layer | Building or evaluating the risk scoring, trend models, or alert logic |

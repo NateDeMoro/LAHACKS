@@ -47,9 +47,16 @@ If code already exists, skim the layout and fit the plan to it; no deep groundin
 - Before starting, run `git worktree list` and `git status` to see what's in flight.
 - Don't touch files outside your feature without telling the other person.
 
+## Parallel build rules
+- Build each component to its contracts in `notes/component-map.md`; consume neighbours only through those interfaces (I1–I15).
+- Test against the listed stand-in, not the real neighbour, until the checkpoint in `notes/build-order.md` says to plug in.
+- Changing a contract: update `notes/component-map.md` first, and say which components it affects.
+
 ## File index
 | Path | Description | Open when |
 |---|---|---|
-| notes/architecture-and-build-order.md | System components, data formats, build steps, company challenges | Planning the build order or wiring components together |
+| notes/component-map.md | Components, owners, interface contracts I1–I15, stand-ins | Before building or changing any component, or any data passed between them |
+| notes/build-order.md | Parallel lanes, step dependencies, checkpoints C1–C4 | Picking the next piece to build or checking what it depends on |
 | notes/stack-reference.md | Tech stack per component, design rules, LLM and agent layer | Choosing a library or tool, or setting up a new component |
+| notes/architecture-and-build-order.md | Earlier overview: data formats, company challenges, demo notes | Background; component-map.md wins where they differ |
 | notes/risk-model-training-plan.md | Datasets, methods, and evaluation for the risk layer | Building or evaluating the risk scoring, trend models, or alert logic |

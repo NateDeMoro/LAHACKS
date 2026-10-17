@@ -14,7 +14,7 @@ Five pieces, four build methods. Each row is detailed in its own section below.
 | Context adjuster | LLM extraction, evaluated against labeled examples (optional fine-tune) | Hand-labeled intake texts; MIMIC-IV-ED demo chief complaints | Allowed adjustments with quoted evidence, red flags |
 | Personal baseline | Bayesian update, one tuned setting | eICU demo (tuning and check) | Bands narrowed toward the patient's own readings |
 | Trend model | Two trained classifiers: fast (minutes ahead) and slow (hours ahead) | MIMIC-III waveform vitals (fast); PhysioNet 2019 (slow); eICU demo | Probability of instability in the next 15–30 min and of sepsis in the next hours, + top reasons |
-| Signal quality, breathing rate, alert logic | Rules with tuned thresholds; breathing estimator validated | BIDMC; eICU replay | Clean vitals, breathing rate, alert decisions |
+| Signal quality, breathing rate, alert logic | Rules with tuned thresholds | eICU replay | Clean vitals, breathing rate, alert decisions |
 
 ## 1. Baseline ranges
 
@@ -36,6 +36,8 @@ Heart rate and blood pressure bands are fit on NHANES; SpO2, breathing rate and 
 
 Source: [MDCalc NEWS2](https://www.mdcalc.com/calc/10083/national-early-warning-score-news-2) and the [RCP NEWS2 report](https://www.rcp.ac.uk/media/a4ibkkbf/news2-final-report_0_0.pdf). An aggregate NEWS2 of 5 or more is also an urgent threshold; the live monitor uses it (section 4).
 
+Live, the other NEWS2 parts come from intake: alertness entered by the nurse, the on-oxygen flag, and systolic BP from the single triage reading (never repeated), which keeps its points for the whole wait. Patient information never moves these danger values; it only adds earlier warnings above them. NEWS2 was validated mainly on admitted patients, so using it in a waiting room is an assumption we state.
+
 ### Heart rate and blood pressure: fit on NHANES
 
 **Data.** NHANES 2017–March 2020 pre-pandemic files, all open XPT downloads from the [CDC 2017 data page](https://wwwn.cdc.gov/nchs/nhanes/search/datapage.aspx?Component=Examination&CycleBeginYear=2017): P\_DEMO (age, sex, pregnancy, exam weights), P\_BPXO (three automated BP and pulse readings), P\_BMX (height, weight, BMI), P\_DIQ (diabetes), P\_MCQ (asthma, COPD), P\_BPQ (hypertension), P\_RXQ\_RX (prescription drug IDs), joined to RXQ\_DRUG for drug classes ([RXQ\_DRUG doc](https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/1988/DataFiles/RXQ_DRUG.htm)). We use this cycle, not 2021–23, because the newest prescription file has only yes/no medication flags and no drug names (checked by download).
@@ -44,7 +46,9 @@ Source: [MDCalc NEWS2](https://www.mdcalc.com/calc/10083/national-early-warning-
 
 **Targets.** Mean of the three automated pulse readings; mean systolic and diastolic BP.
 
-**Features.** Age, sex, BMI, diabetes, hypertension, on BP medication, asthma, COPD, and drug-class flags (beta-blockers, SSRIs, SNRIs, tricyclics, others as sample size allows).
+**Features.** Age, sex (male or female, as NHANES records it), BMI, on BP medication, drug-class flags (beta-blockers, SSRIs, SNRIs, tricyclics, others as sample size allows), and every condition with enough participants to fit a shift: hypertension, asthma, cancer, diabetes, thyroid disease, COPD, liver disease, heart disease (coronary heart disease, angina and heart attack combined), stroke, heart failure. Kidney disease is pending a check of its NHANES file.
+
+**Condition counts** (adults with a pulse reading, NHANES 2021–23, 6,123 people; checked by download): hypertension 2,241, asthma 1,127, cancer 881, diabetes 842, thyroid 812, COPD 432, liver 348, coronary heart disease 312, stroke 267, heart attack 253, heart failure 244, angina 131. The 2017–2020 cycle adds roughly as many again. Each condition is a shift term in one pooled model, so a few hundred people is enough.
 
 **Model.**
 
@@ -77,7 +81,6 @@ NHANES has no SpO2, breathing-rate or body-temperature measurements in any 1999�
 | Age 65+ / frail | Fever = single reading >37.8 °C, repeated >37.2 °C, or a rise >1.1 °C over baseline | [IDSA guideline, High 2009](https://pmc.ncbi.nlm.nih.gov/articles/PMC7166905) |
 | Antidepressants | Tricyclics and SNRIs raise HR; SSRIs slightly lower it | [Licht, NESDA](https://pmc.ncbi.nlm.nih.gov/articles/PMC3442343) |
 | Pregnancy | HR rises from about 79 to 87 bpm between weeks 10 and 40; SBP 110 to 116 | [Loerup 2019, BMC Med](https://bmcmedicine.biomedcentral.com/track/pdf/10.1186/s12916-019-1399-1) |
-| Trained athletes | Resting HR under 40 can be normal if asymptomatic; shown to the nurse as a note, not used to relax the danger tier | [ACC summary of Sharma 2017](https://www.acc.org/latest-in-cardiology/articles/2019/07/17/07/03/athlete-ecgs) |
 
 ## 2. Context adjuster
 
@@ -163,7 +166,7 @@ This is the only component trained in the machine-learning sense: a classifier t
 
 ### Inputs: only what the waiting room will have
 
-Labs are dropped; nobody draws blood in the waiting room. Features use heart rate, breathing rate and temperature (all measured live), SpO2 (simulated live, real in training), intake systolic BP held constant, age and sex.
+Labs are dropped; nobody draws blood in the waiting room. Features use heart rate and breathing rate (measured live), SpO2 and temperature (simulated in the demo, real in training), triage systolic BP held constant, age and sex.
 
 For each vital, computed at every hour over windows of 1, 3 and 6 hours:
 
@@ -173,8 +176,6 @@ For each vital, computed at every hour over windows of 1, 3 and 6 hours:
 - hours since the last real measurement, plus a missing flag; temperature is present in only 34% of rows in our sample, so missingness carries information
 
 Across vitals: NEWS2 computed from the available vitals (consciousness assumed alert), its change over 3 hours, and the number of vitals moving in a worsening direction together. Plus hours since arrival.
-
-Temperature enters only as change, not level: the training data records clinical temperature, while we measure skin temperature, which is not on the same scale.
 
 ### Model
 
@@ -239,7 +240,7 @@ It runs every minute on the stream's one-minute medians, the same resolution it 
 
 ## 5. Signal quality, breathing rate and alert logic
 
-These are rules and estimators with tuned thresholds. Breathing rate is validated against a dataset with hand-marked breaths; alert thresholds are tuned by replaying eICU.
+These are rules and estimators with tuned thresholds. Alert thresholds are tuned by replaying eICU. We do not validate the breathing-rate estimate ourselves; we rely on the published H10 results below.
 
 ### Breathing rate from the chest strap
 
@@ -248,18 +249,12 @@ Breathing modulates heart rate: it rises on inhaling and falls on exhaling (resp
 | Method | Evidence on the Polar H10 | Our use |
 | --- | --- | --- |
 | From beat-to-beat intervals | r = 0.85 against gas-exchange reference, median bias about 1 breath/min, 21 people on an exercise ramp ([Rogers 2022, Sensors](https://pmc.ncbi.nlm.nih.gov/articles/PMC9573071)); 5.5–7.6% error with two algorithms during running ([EPFL](https://infoscience.epfl.ch/signposting/describedby/eefedefe-b1e1-40bf-a51d-246e9b3c4127)) | Primary method; works over the standard heart-rate profile |
-| From chest accelerometer | No H10-specific validation found | Secondary; used only if it agrees with the interval method on our own tests |
-
-**Validation plan.**
-
-1. **BIDMC dataset:** 53 eight-minute ICU recordings with 125 Hz ECG and breaths marked by hand ([dataset](https://physionet.org/content/bidmc/1.0.0/)). Derive beat intervals from the ECG, run our estimator, and report mean absolute error in breaths per minute against the annotations.
-2. **Our own recordings:** wear the strap while breathing to a metronome at 10, 15 and 20 breaths per minute, and check the estimate against the known rate. This also tests the accelerometer method.
+| From chest accelerometer | No H10-specific validation found | Not used |
 
 ### Signal quality
 
 - **Strap contact:** the standard heart-rate message carries a sensor-contact flag ([Bluetooth Heart Rate Service](https://www.bluetooth.com/specifications/specs/heart-rate-service-1-0/)); minutes without contact are discarded.
 - **Beat intervals:** drop intervals outside a physiologic range (30–200 bpm) and sudden jumps relative to neighbouring beats; the jump threshold is tuned on our own recordings.
-- **Skin temperature:** ignore readings until the sensor has settled after placement; reject sudden jumps.
 - Every discarded minute is logged, and its count feeds the dashboard so the nurse knows when a patient's data is thin.
 
 ### Alert logic
@@ -283,8 +278,9 @@ The biggest limit is setting: every training dataset is survey or ICU data, and 
 
 - **Population shift.** NHANES is healthy people at rest; PhysioNet 2019 and eICU are ICU patients. Waiting-room patients sit in between.
 - **Coverage of vitals.** Only heart rate and BP have feature-conditioned population data; SpO2, breathing rate and temperature rely on single published studies and NEWS2.
-- **Skin vs. clinical temperature.** We measure skin temperature and use only its change.
-- **SpO2 is simulated live** until a real sensor is added.
+- **SpO2, temperature and triage BP are simulated** in the demo, generated from the wearer's predicted ranges, until real sensors are added.
+- **Blood pressure is a single triage reading,** so a BP drop during the wait goes unseen.
+- **NEWS2 in a waiting room.** It was validated mainly on admitted patients.
 - **Small subgroups.** Some drug classes will have too few NHANES users to estimate their own shift; those fall back to guideline rules.
 - **Limited outcome types.** The slow model learns sepsis and the fast model learns short-term vital instability; other causes rely on the bands and NEWS2. The fast model's labels come from the same vitals it reads, which is why it must beat simple baselines.
 - **Self-written adjuster test set.** It reflects what we thought to test.
@@ -294,7 +290,7 @@ The biggest limit is setting: every training dataset is survey or ICU data, and 
 
 - No numeric heart-rate cutoff was found for diabetic autonomic neuropathy, so there is no diabetes rule beyond what NHANES shows.
 - No source was found for anticholinergics raising heart rate, so that rule is excluded.
-- Breathing rate from the H10's accelerometer has no published validation; it is secondary until our own tests pass.
+- Breathing rate from the H10's accelerometer has no published validation, so it is not used.
 - That the H10 keeps a second Bluetooth connection alive while streaming accelerometer data: Polar documents two connections, but not this combination.
 - LightGBM's `pred_contrib` option was not checked against the docs in this pass.
 
@@ -304,7 +300,7 @@ Datasets
 
 - [NHANES 2017 examination files](https://wwwn.cdc.gov/nchs/nhanes/search/datapage.aspx?Component=Examination&CycleBeginYear=2017) · [2021 files](https://wwwn.cdc.gov/nchs/nhanes/search/datapage.aspx?Component=Examination&CycleBeginYear=2021) · [RXQ\_DRUG drug classes](https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/1988/DataFiles/RXQ_DRUG.htm)
 - [PhysioNet/CinC 2019 Sepsis Challenge](https://physionet.org/content/challenge-2019/1.0.0/) · [Reyna 2020](https://pmc.ncbi.nlm.nih.gov/articles/PMC6964870/)
-- [eICU-CRD demo](https://physionet.org/content/eicu-crd-demo/2.0.1/) · [BIDMC PPG and Respiration](https://physionet.org/content/bidmc/1.0.0/) · [MIMIC-IV-ED demo](https://physionet.org/content/mimic-iv-ed-demo/2.2/)
+- [eICU-CRD demo](https://physionet.org/content/eicu-crd-demo/2.0.1/) · [MIMIC-IV-ED demo](https://physionet.org/content/mimic-iv-ed-demo/2.2/)
 
 * [MIMIC-III Waveform Database, matched subset](https://physionet.org/content/mimic3wdb-matched/1.0/)
 
@@ -317,7 +313,7 @@ Thresholds and guidelines
 Reference ranges and modifiers
 
 - [Obermeyer 2017, temperature](https://www.bmj.com/content/359/bmj.j5468.long) · [Apple Heart & Movement Study, SpO2](https://pmc.ncbi.nlm.nih.gov/articles/PMC10374661) · [Vold 2015, SpO2](https://bmcpulmmed.biomedcentral.com/articles/10.1186/s12890-015-0003-5) · [Quer 2020, resting HR](https://pmc.ncbi.nlm.nih.gov/articles/PMC7001906)
-- [Beta-blockers in sepsis, J Intensive Care 2021](https://doaj.org/article/534b643510c745418abca8a5271d43d8) · [Antidepressants and HR, Licht](https://pmc.ncbi.nlm.nih.gov/articles/PMC3442343) · [Pregnancy vitals, Loerup 2019](https://bmcmedicine.biomedcentral.com/track/pdf/10.1186/s12916-019-1399-1) · [Athlete ECGs, ACC](https://www.acc.org/latest-in-cardiology/articles/2019/07/17/07/03/athlete-ecgs)
+- [Beta-blockers in sepsis, J Intensive Care 2021](https://doaj.org/article/534b643510c745418abca8a5271d43d8) · [Antidepressants and HR, Licht](https://pmc.ncbi.nlm.nih.gov/articles/PMC3442343) · [Pregnancy vitals, Loerup 2019](https://bmcmedicine.biomedcentral.com/track/pdf/10.1186/s12916-019-1399-1)
 
 Signals, methods and monitoring
 

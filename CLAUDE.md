@@ -39,6 +39,14 @@ If code already exists, skim the layout and fit the plan to it; no deep groundin
 - Never leave the app in a broken state at the end of a change.
 - Handle errors only where a failure would crash the app or block the main flow.
 
+## Parallel sessions
+- Each person or feature works in its own git worktree on its own branch
+  (`git worktree add ../LAHACKS-<name> -b <name>`). Never share one checkout.
+- Overrides "commit directly to main": commit on your branch, then rebase on
+  main and merge after each working slice. Keep branches short-lived.
+- Before starting, run `git worktree list` and `git status` to see what's in flight.
+- Don't touch files outside your feature without telling the other person.
+
 ## File index
 | Path | Description | Open when |
 |---|---|---|

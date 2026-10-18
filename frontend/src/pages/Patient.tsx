@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import * as api from '../api'
 import { Glyph, SEV, VITALS, fmtClock, go, levelBorder, levelFromPoints, show, useApp, waitingMin } from '../lib'
 import Adjustments from '../components/Adjustments'
+import RangeBars from '../components/RangeBars'
 import WhyUrgent from '../components/WhyUrgent'
 import { rankedAlerts, tileSeverity, useStore } from '../store'
 import type { I10, I9, IntakeCard, VitalKey } from '../types'
@@ -41,12 +42,6 @@ export default function Patient({ id }: { id: string }) {
   const sub = [ctx?.age != null ? `${ctx.age} ${ctx.sex === 'female' ? 'F' : ctx.sex === 'male' ? 'M' : ''}`.trim() : null,
     ctx?.height_cm != null || ctx?.weight_kg != null ? `${show(ctx?.height_cm)} cm, ${show(ctx?.weight_kg)} kg` : null,
     ctx?.triage?.level != null ? `triage level ${ctx.triage.level}` : null].filter(Boolean).join(' · ')
-
-  const danger = (['resp_rate', 'spo2', 'hr', 'temp_c'] as const).map((k) => {
-    const r = i8?.[k]; if (!r) return null
-    const parts = [r.danger_low != null ? `${r.danger_low} or less` : null, r.danger_high != null ? `${r.danger_high} or more` : null].filter(Boolean)
-    return parts.length ? { k, text: parts.join(' · ') } : null
-  }).filter(Boolean) as { k: VitalKey; text: string }[]
 
   const t = ctx?.triage
   return (
@@ -167,17 +162,7 @@ export default function Patient({ id }: { id: string }) {
             </div>
           </div>
           <Adjustments card={card} />
-          {danger.length > 0 && (
-            <div className="flex flex-col pt-5 gap-2 border-t border-line">
-              <div className="font-mono text-[12px] leading-4 tracking-[0.08em] text-muted">DANGER LIMITS</div>
-              {danger.map((d) => (
-                <div key={d.k} className="flex justify-between">
-                  <div className="text-[14px] leading-5 text-ink">{VITALS.find((v) => v.key === d.k)!.title}</div>
-                  <div className="font-mono text-[14px] leading-5 font-[500] text-ink">{d.text}</div>
-                </div>
-              ))}
-            </div>
-          )}
+          <RangeBars ranges={i8} values={{ hr: i13?.hr ?? i9?.vital_values?.hr, resp_rate: i13?.resp_rate ?? i9?.vital_values?.resp_rate, spo2: i13?.spo2 ?? i9?.vital_values?.spo2, temp_c: i13?.temp_c ?? i9?.vital_values?.temp_c }} />
         </div>
       </div>
       {modal && <SensorModal patientId={id} onClose={() => setModal(false)} />}

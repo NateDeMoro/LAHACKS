@@ -30,14 +30,26 @@ Values at 0 → 30% → 60% → 100% of the run. NEWS2 includes each patient's t
 
 | Run | Tier | Patient | Heart rate | Breathing | SpO2 | Temp °C | NEWS2 | Target alerts |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| H1 Ankle sprain | Healthy | 24 M, no conditions, ESI 4 | 72 → 74 → 73 → 72 | 14 → 14 → 15 → 14 | 98 flat; dips to 90 for 8 s at 50% | 36.6 | 0 → 0 → 0 → 0 | None; the dip is absorbed |
+| H1 Ankle sprain | Healthy | 24 M, no conditions, ESI 4 | 72 → 74 → 73 → 72 | 14 → 14 → 15 → 14 | 98 flat; dips to 90 for 8 s at 50% | 36.6 | 0 → 0 → 0 → 0 | None; the 60-second median absorbs the dip |
 | H2 Sore throat | Healthy | 41 F, no conditions, ESI 5 | 78 → 78 → 105 → 80 | 15 → 15 → 22 → 16 | 97 → 97 → 96 → 97 | 36.8 | 0 → 0 → 3 → 0 | None; warning at most |
 | U1 Fever on a beta-blocker | At risk | 67 M, hypertension, diabetes, metoprolol | 82 → 88 → 98 → 104 | 18 → 20 → 23 → 26 | 95 → 94 → 93 → 92 | 37.8 → 38.2 → 38.7 → 39.2 | 1 → 2 → 6 → 8 | Urgent at 3–6 min, high near the end |
 | U2 Asthma flare | At risk | 31 F, asthma, albuterol | 96 → 104 → 114 → 120 | 20 → 24 → 27 → 28 | 95 → 94 → 92 → 91 | 36.9 | 2 → 4 → 7 → 8 | Urgent after 3 min, high by about 6 |
-| C1 Heart failure, short of breath | Critical | 72 M, heart failure, hypertension, on oxygen, ESI 2 | 88 → 90 → 112 → 134 | 20 → 20 → 25 → 30 | 95 → 94 → 92 → 89 | 36.8 | 4 → 4 → 10 → 12 | Urgent after 3 min, high by 6 |
+| C1 Heart failure, short of breath | Critical | 72 M, heart failure, hypertension, on oxygen, ESI 2 | 88 → 90 → 112 → 134 | 20 → 20 → 25 → 30 | 95 → 94 → 92 → 89 | 36.8 | 4 → 4 → 10 → 12 | Below urgent (4) for about 3 min, then high (7+) from minute 4 and 10+ by minute 7 |
 | C2 Septic-looking, confused | Critical | 58 F, diabetes, cancer, new confusion, ESI 2 | 96 → 108 → 122 → 136 | 20 → 23 → 26 → 30 | 96 → 95 → 93 → 92 | 38.6 → 38.9 → 39.2 → 39.5 | 7 → 10 → 14 → 15 | High from the first minute |
 
-The target alerts are design targets to compare with alert logic (T4) when it exists, not results. Fever alone cannot reach the danger tier on the high side (NEWS2 lists only 35.0 °C or below as a 3), so U1 and C2 get there through the total.
+The target alerts are design targets to compare with alert logic (T4) when it exists, not results. The NEWS2 columns are for the script's instantaneous values; the live score uses a 60-second median, so it trails by about 30 seconds.
+
+Replayed through the real risk engine (60-second median, one-minute summaries, intake from the sample's own record), live NEWS2 first reached:
+
+| Run | NEWS2 5 or more | NEWS2 7 or more | I9 level at the end |
+| --- | --- | --- | --- |
+| H1, H2 | never | never | safe (H2 shows warning for minutes 5 to 8, peak NEWS2 3) |
+| U1 | 4:10 | 8:17 | danger (breathing) |
+| U2 | 3:57 | 5:19 | danger (breathing) |
+| C1 | 3:50 (also a one-off flicker at 0:03 from the wobble, when the window holds only a few seconds) | 3:50 | danger (heart rate) |
+| C2 | 0:00 | 0:00 | danger (heart rate); the I9 level reads warning until minute 5 because it ignores triage points |
+
+No run formed a personal baseline in 10 minutes. Fever alone cannot reach the danger tier on the high side (NEWS2 lists only 35.0 °C or below as a 3), so U1 and C2 get there through the total.
 
 ## Trend pre-roll
 

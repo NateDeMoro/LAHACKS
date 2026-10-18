@@ -36,7 +36,7 @@ _LIST = [
         "Rolled my ankle playing soccer, can't put weight on it.",
         118, 74, "alert", 5, False, 4,
         _script([72, 74, 73, 72], [14, 14, 15, 14], [98] * 4, [36.6] * 4, 101, [0, 0, 0, 0],
-                "None: the SpO2 dip is absorbed by the persistence window",
+                "None: the 8 s SpO2 dip is absorbed by the 60-second median",
                 glitches=[Glitch(vital="spo2", at=0.5, duration_s=8, value=90)]),
     ),
     _profile(
@@ -67,7 +67,7 @@ _LIST = [
         "Short of breath, can't lie flat, legs swollen, worse over three days.",
         104, 66, "alert", 2, True, 2,
         _script([88, 90, 112, 134], [20, 20, 25, 30], [95, 94, 92, 89], [36.8] * 4, 105,
-                [4, 4, 10, 12], "Urgent after 3 minutes, high by 6 minutes"),
+                [4, 4, 10, 12], "Below urgent (4) for about 3 minutes, then high (7+) from about minute 4 and 10+ by minute 7"),
     ),
     _profile(
         "C2", "Septic-looking, confused", "critical", 58, "female", 160, 70,

@@ -7,8 +7,8 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from backend.contracts import (ContextAdjustments, PatientContext, PatientRanges, RangesFile, TempReference,
-                               VitalRange)
+from backend.contracts import (Adjustment, ContextAdjustments, PatientContext, PatientRanges, RangesFile,
+                               TempReference, VitalRange)
 
 RANGES_PATH = Path(__file__).resolve().parents[2] / "models" / "ranges.json"
 
@@ -46,28 +46,73 @@ def clamp_safe(vital: str, low: float | None, high: float | None) -> tuple[float
     return low, high
 
 
+def _apply_danger(out: PatientRanges, a: Adjustment):
+    rng = getattr(out, a.vital, None) if a.vital in DANGER else None
+    if rng is None or a.bound not in ("low", "high") or a.value is None:
+        return
+    m = MARGIN[a.vital]
+    reason = f"{_ADJ_NAME[a.vital]} danger {a.bound} limit {a.value:g}: {(a.rule_id or 'context').replace('_', ' ')}"
+    if a.bound == "high" and (rng.danger_high is None or a.value < rng.danger_high):
+        rng.danger_high = a.value
+        if rng.safe_high is not None:
+            rng.safe_high = round(min(rng.safe_high, a.value - m), 1)
+    elif a.bound == "low" and (rng.danger_low is None or a.value > rng.danger_low):
+        rng.danger_low = a.value
+        if rng.safe_low is not None:
+            rng.safe_low = round(max(rng.safe_low, a.value + m), 1)
+    else:
+        return
+    rng.reasons = [*(rng.reasons or []), reason]
+
+
+def _warning_reason(a: Adjustment) -> str:
+    rule = a.rule_id or "context"
+    why = f"draft ({rule.removeprefix('draft:')}), unreviewed" if rule.startswith("draft:") else rule.replace("_", " ")
+    return f"{_ADJ_NAME[a.vital]} warning limit {a.value:g}: {why}"
+
+
+def _apply_warning(out: PatientRanges, a: Adjustment):
+    """Narrow only the safe edge to a.value. The danger edge never moves, and the result must stay
+    inside the current safe band (so inside score-0 and clear of danger) and at least the drafted-step width."""
+    from backend.conditions.menu import MIN_WIDTH as MIN_STEP_WIDTH  # menu imports this module
+    rng = getattr(out, a.vital, None) if a.vital in MIN_STEP_WIDTH else None  # sbp is not graded per period
+    if rng is None or a.bound not in ("low", "high") or a.value is None:
+        return
+    if rng.safe_low is None or rng.safe_high is None:
+        return
+    low, high = (rng.safe_low, a.value) if a.bound == "high" else (a.value, rng.safe_high)
+    tightens = a.value < rng.safe_high if a.bound == "high" else a.value > rng.safe_low
+    if not tightens or round(high - low, 6) < MIN_STEP_WIDTH[a.vital]:
+        return
+    rng.safe_low, rng.safe_high = round(low, 1), round(high, 1)
+    rng.reasons = [*(rng.reasons or []), _warning_reason(a)]
+
+
+def _milder_warnings(adjs: list[Adjustment]) -> list[Adjustment]:
+    """One warning per vital and bound: the one that tightens less (higher high edge, lower low edge)."""
+    kept: dict[tuple, Adjustment] = {}
+    for a in adjs:
+        if a.value is None:
+            continue
+        key = (a.vital, a.bound)
+        old = kept.get(key)
+        if old is None or (a.value > old.value if a.bound == "high" else a.value < old.value):
+            kept[key] = a
+    return list(kept.values())
+
+
 def apply_i5(pop: PatientRanges, i5: ContextAdjustments | None) -> PatientRanges:
-    """Move danger edges inward by the I5 adjustments, then pull the safe band back inside the moved edge.
-    Use when a patient's context tightens limits at intake. Loosening, unknown vitals and missing values are
-    ignored (I5 says the engine clamps anything else)."""
+    """Apply the I5 adjustments for one patient. Use when a patient's context tightens limits at intake.
+    Danger tier (the default): move the danger edge inward and pull the safe band inside it. Warning tier
+    (drafted rules): narrow only the safe edge, after the danger tier. Loosening, unknown vitals and
+    missing values are ignored (I5 says the engine clamps anything else)."""
     out = pop.model_copy(deep=True)
-    for a in (i5.adjustments or []) if i5 else []:
-        rng = getattr(out, a.vital, None) if a.vital in DANGER else None
-        if rng is None or a.bound not in ("low", "high") or a.value is None:
-            continue
-        m = MARGIN[a.vital]
-        reason = f"{_ADJ_NAME[a.vital]} danger {a.bound} limit {a.value:g}: {(a.rule_id or 'context').replace('_', ' ')}"
-        if a.bound == "high" and (rng.danger_high is None or a.value < rng.danger_high):
-            rng.danger_high = a.value
-            if rng.safe_high is not None:
-                rng.safe_high = round(min(rng.safe_high, a.value - m), 1)
-        elif a.bound == "low" and (rng.danger_low is None or a.value > rng.danger_low):
-            rng.danger_low = a.value
-            if rng.safe_low is not None:
-                rng.safe_low = round(max(rng.safe_low, a.value + m), 1)
-        else:
-            continue
-        rng.reasons = [*(rng.reasons or []), reason]
+    adjs = (i5.adjustments or []) if i5 else []
+    for a in adjs:
+        if a.tier != "warning":
+            _apply_danger(out, a)
+    for a in _milder_warnings([a for a in adjs if a.tier == "warning"]):
+        _apply_warning(out, a)
     return out
 
 

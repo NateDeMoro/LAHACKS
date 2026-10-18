@@ -11,7 +11,6 @@
     {"id": "resp_rate_low_strong", "vital": "resp_rate", "bound": "low", "kind": "relative", "amount": 4, "label": "strong", "source": "design constant: tightens the safe edge by 4 breaths/min"},
     {"id": "temp_c_high_mild", "vital": "temp_c", "bound": "high", "kind": "relative", "amount": 0.3, "label": "mild", "source": "design constant: tightens the safe edge by 0.3 C"},
     {"id": "temp_c_high_strong", "vital": "temp_c", "bound": "high", "kind": "relative", "amount": 0.6, "label": "strong", "source": "design constant: tightens the safe edge by 0.6 C"},
-    {"id": "temp_c_high_oral_378", "vital": "temp_c", "bound": "high", "kind": "absolute", "amount": 37.8, "label": "fever, single oral reading", "source": "IDSA fever definition for older adults, 100 F (secondary review: https://www.pulmccm.org/p/the-latest-in-critical-care-2524)"},
     {"id": "spo2_low_mild", "vital": "spo2", "bound": "low", "kind": "relative", "amount": 1, "label": "mild", "source": "design constant: tightens the safe edge by 1 point"},
     {"id": "spo2_low_strong", "vital": "spo2", "bound": "low", "kind": "relative", "amount": 2, "label": "strong", "source": "design constant: tightens the safe edge by 2 points"}
   ]

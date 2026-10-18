@@ -32,6 +32,23 @@ def test_every_shipped_entry_actually_tightens_the_default_news2_band():
         assert (edge < hi) if e.bound == "high" else (edge > lo), e.id
 
 
+def test_every_shipped_entry_bites_for_real_patient_profiles():
+    """Fitted bands are narrower than score-0 (a 50-year-old's temp ceiling is 37.3), so check real profiles.
+    Pinned finding: an absolute 37.8 C entry would be a no-op for every profile, so the menu does not carry one."""
+    from backend.contracts import PatientContext
+    m = M.load_menu()
+    for age in (20, 35, 50, 65, 85):
+        for sex in ("male", "female"):
+            band = ranges.build_population_ranges(PatientContext(patient_id="p", age=age, sex=sex, height_cm=170, weight_kg=70))
+            for e in m.entries:
+                rng = getattr(band, e.vital)
+                edge = M.target_edge(e, rng.safe_low, rng.safe_high)
+                if (e.id, age) == ("temp_c_high_strong", 85):  # 36.1-37.2 minus 0.6 leaves 0.5, under the 0.6 minimum
+                    assert edge is None
+                else:
+                    assert edge is not None, (e.id, age, sex)
+
+
 def test_shipped_absolute_values_sit_inside_score0():
     for e in M.load_menu().entries:
         if e.kind == "absolute":

@@ -21,6 +21,17 @@ from backend.timeutil import now_la
 log = logging.getLogger(__name__)
 
 PENDING, DONE, STRUCTURED_ONLY = "pending", "done", "structured only"
+FAILED = "failed"
+
+
+def _terms_key(terms: list[str] | None) -> tuple[str, ...]:
+    return tuple(sorted({" ".join(t.lower().split()) for t in terms or [] if t.strip()}))
+
+
+def default_condition_fn(ctx: PatientContext):
+    """Real lookup and evidence step; imported here so the intake service loads without them."""
+    from backend.conditions import evidence, lookup, service
+    return service.process(ctx, resolve_fn=lookup.resolve, draft_fn=evidence.draft)
 
 
 class UnknownWearable(ValueError):
@@ -30,8 +41,11 @@ class UnknownWearable(ValueError):
 class IntakeService:
     def __init__(self, engine: RiskEngine, on_assign: Callable[[WearableAssignment], None], *,
                  cfg: Config = CONFIG, adjust_fn: Callable[[PatientContext], A.Outcome] = A.adjust,
-                 on_submit: Callable[[PatientContext], None] = lambda ctx: None):
+                 on_submit: Callable[[PatientContext], None] = lambda ctx: None,
+                 condition_fn: Callable[[PatientContext], object] = default_condition_fn):
         self._engine, self._on_assign, self._adjust, self._on_submit = engine, on_assign, adjust_fn, on_submit
+        self._condition_fn = condition_fn
+        self._cond: dict[str, dict] = {}  # patient -> {key: typed terms, outcome}: drafts survive a resubmit
         self._sim_wearables = set(cfg.simulator.scenario_wearable_ids)
         self._structured_only: set[str] = set()  # scenario patients: no LLM call, so ranges never move mid-demo
         self._labels = dict(cfg.beds.labels)
@@ -55,8 +69,19 @@ class IntakeService:
         c = self._card.get(patient_id)
         if c is None:
             return None
+        cond = c.get("cond")
+        drafted = list(cond.evidence_items) if cond else []
         return {"context": c["ctx"], "ranges": self._engine.ranges.get(patient_id), "i5": c["i5"],
-                "i15_items": c["i15"].items, "adjuster": c["state"]}
+                "i15_items": [*(c["i15"].items or []), *drafted], "adjuster": c["state"],
+                "conditions": self._conditions_card(c)}
+
+    @staticmethod
+    def _conditions_card(c: dict) -> dict | None:
+        if not c["ctx"].custom_conditions:
+            return None
+        cond = c.get("cond")
+        return {"state": c.get("cond_state", PENDING), "resolution": cond.resolution if cond else None,
+                "suggestions": cond.suggestions if cond else [], "infra_errors": cond.infra_errors if cond else []}
 
     def _assign(self, patient_id: str, wearable_id: int) -> WearableAssignment:
         old_patient = self._by_wearable.get(wearable_id)
@@ -77,6 +102,10 @@ class IntakeService:
                                  "unmatched_medications": unmatched})
 
     def _apply(self, ctx: PatientContext, i5: ContextAdjustments):
+        """on_intake rebuilds ranges from the I5 it is given, so every apply carries the patient's drafts too."""
+        cond = self._card.get(ctx.patient_id, {}).get("cond")
+        if cond and cond.adjustments:
+            i5 = i5.model_copy(update={"adjustments": [*(i5.adjustments or []), *cond.adjustments]})
         ranges = self._engine.on_intake(ctx, i5)
         if self._engine.ranges_listener:
             self._engine.ranges_listener(ranges)
@@ -97,17 +126,57 @@ class IntakeService:
         seq = self._seq[pid] = self._seq.get(pid, 0) + 1
         assignment = self._assign(pid, rec.wearable_id)
         self._on_assign(assignment)
+        key = _terms_key(ctx.custom_conditions)
+        kept = self._cond.get(pid)
+        if not key or structured_only or (kept and kept["key"] != key):
+            self._cond.pop(pid, None)  # conditions removed or changed: the old drafts no longer apply
+            kept = None
+        cond = kept["outcome"] if kept else None
+        if cond and cond.checklist_flags:
+            ctx = ctx.model_copy(update={"conditions": sorted({*(ctx.conditions or []), *cond.checklist_flags})})
         out = A.adjust_structured(ctx)
-        self._card[pid] = {"ctx": ctx, "i5": out.i5, "i15": out.i15, "state": PENDING}
+        self._card[pid] = {"ctx": ctx, "i5": out.i5, "i15": out.i15, "state": PENDING, "cond": cond,
+                           "cond_state": DONE if cond else PENDING}
         self._apply(ctx, out.i5)
         self._on_submit(ctx)
         if structured_only:
             self._card[pid]["state"] = STRUCTURED_ONLY
             return assignment
-        task = asyncio.create_task(self._finish(ctx, seq))
+        self._spawn(self._finish(ctx, seq))
+        if key and not cond:
+            self._spawn(self._finish_conditions(ctx, seq, key))
+        return assignment
+
+    def _spawn(self, coro):
+        task = asyncio.create_task(coro)
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
-        return assignment
+
+    async def _finish_conditions(self, ctx: PatientContext, seq: int, key: tuple[str, ...]):
+        """Lookup and evidence run off the loop; the result is applied on it, only if still the latest intake."""
+        pid = ctx.patient_id
+        try:
+            outcome = await asyncio.to_thread(self._condition_fn, ctx)
+        except Exception:  # the structured result stays in place
+            log.exception("condition step failed for %s", pid)
+            outcome = None
+        if self._seq.get(pid) != seq:
+            self.stale_dropped += 1
+            return
+        card = self._card[pid]
+        if outcome is None:
+            card["cond_state"] = FAILED
+            return
+        try:
+            card["cond"], card["cond_state"] = outcome, DONE
+            self._cond[pid] = {"key": key, "outcome": outcome}
+            if outcome.checklist_flags:
+                card["ctx"] = card["ctx"].model_copy(update={"conditions": sorted(
+                    {*(card["ctx"].conditions or []), *outcome.checklist_flags})})
+            self._apply(card["ctx"], card["i5"])
+        except Exception:
+            log.exception("condition apply failed for %s", pid)
+            card["cond_state"] = FAILED
 
     async def _finish(self, ctx: PatientContext, seq: int):
         pid = ctx.patient_id
@@ -123,8 +192,8 @@ class IntakeService:
             self._card[pid]["state"] = STRUCTURED_ONLY
             return
         try:
-            self._apply(ctx, out.i5)
             self._card[pid].update(i5=out.i5, i15=out.i15, state=DONE if out.llm_ok else STRUCTURED_ONLY)
+            self._apply(self._card[pid]["ctx"], out.i5)
         except Exception:
             log.exception("background apply failed for %s", pid)
             self._card[pid]["state"] = STRUCTURED_ONLY

@@ -12,7 +12,7 @@ Each case lists `expected`: one entry per rule that fires, `{rule_id, source, qu
 - `text`: the rule is supported only by the chief complaint (or by an unmatched medication that the complaint also mentions). Quote is required: exact contiguous words copied from `chief_complaint`, the shortest span that shows the fact (including "taking", "on", "stopped" words only if needed to read it as current). Never quote the medication list or the age.
 - `drug_classes` is given as the lookup result for that case; label from it as is, do not re-derive it. Vocabulary: beta_blocker, ssri, snri, opioid, corticosteroid, immunosuppressant. Only beta_blocker, opioid, corticosteroid and immunosuppressant matter here.
 - A medication in `unmatched_medications` is one the lookup missed. In this set it is always also named in the complaint, so the label is `text` with that quote. A drug that is only in the medication list, missed by the lookup, and absent from the complaint does not appear in the set.
-- Rules by source: age65_fever is structured only; chemo_fever and suspected_infection are text only; opioid, steroid_immunosuppressed and beta_blocker are structured when the class is present, text otherwise; pregnancy is structured when `pregnant` is true, text when the flag is null and the complaint says pregnant.
+- Rules by source: age65 is structured only; chemo_fever and suspected_infection are text only; opioid, steroid_immunosuppressed and beta_blocker are structured when the class is present, text otherwise; pregnancy is structured when `pregnant` is true, text when the flag is null and the complaint says pregnant.
 
 ## When each rule fires
 
@@ -22,7 +22,7 @@ Each case lists `expected`: one entry per rule that fires, `{rule_id, source, qu
 | suspected_infection | Current fever or chills, shaking chills, a measured temperature that is a fever, productive cough with fever, burning urination with fever or flank pain, a red, hot or draining wound | "No fever", fever that is gone, dry cough, allergies, congestion, a vague "feel off", tired, sore muscles with no infection sign |
 | opioid | Currently taking oxycodone, morphine, fentanyl, methadone, codeine, tramadol, hydrocodone, Percocet, heroin or street opioids ("percs", "oxys"), prescribed or not | Stopped, "off the morphine", allergic to codeine, ibuprofen, naproxen, muscle relaxants |
 | steroid_immunosuppressed | Currently on systemic prednisone, dexamethasone, methylprednisolone (Medrol), or an anti-rejection or immunosuppressant drug (tacrolimus, mycophenolate, azathioprine) | Inhaled, nasal, eye or skin steroids, a taper finished, "was on prednisone last year" |
-| age65_fever | `age` is 65 or more | Age 64 or less, however old the complaint sounds |
+| age65 | `age` is 65 or more, whatever the complaint says (a standing stricter temperature limit, not a symptom) | Age 64 or less, however old the complaint sounds |
 | beta_blocker | Currently taking metoprolol, atenolol, carvedilol, propranolol, labetalol, or brands (Lopressor, Toprol, Coreg, Tenormin, Inderal) | Stopped or past use, timolol or other beta-blocker eye drops, other blood pressure drugs |
 | pregnancy | `pregnant` is true, or the patient says they are pregnant now ("30 weeks pregnant", "expecting") | Partner pregnant, negative test, "had a baby", "might be" with no statement of being pregnant |
 
@@ -32,7 +32,7 @@ Fire only on current use. "I take", "I'm on", "just took" are current. "Stopped"
 
 ## Conflicts between rules
 
-Two rules can move the same edge (beta_blocker and pregnancy both move hr high; chemo_fever, steroid and age65_fever all move temp_c high). Both are labeled as firing; the stricter value wins when applied later. Cases tagged `conflicting` use this, or a self-contradicting complaint.
+Two rules can move the same edge (beta_blocker and pregnancy both move hr high; chemo_fever, steroid and age65 all move temp_c high). Both are labeled as firing; the stricter value wins when applied later. Cases tagged `conflicting` use this, or a self-contradicting complaint.
 
 ## Near-misses and tags
 

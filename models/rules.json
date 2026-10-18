@@ -48,7 +48,7 @@
       "flag": null
     },
     {
-      "id": "age65_fever",
+      "id": "age65",
       "adjustments": [{"vital": "temp_c", "bound": "high", "value": 37.8}],
       "status": "proposed",
       "trigger_source": "structured",

@@ -14,10 +14,10 @@ flowchart LR
     direction LR
     S1["S1 Strap receiver<br/>HR, beat intervals, breathing rate → I1"]
     S2["S2 Ingest service<br/>I1 in · merge · I6 + I13 out"]
-    S3["S3 Simulator filler<br/>SpO2, temp from fixed ranges"]
+    S3["S3 Simulator<br/>sample patients + runs, live filler"]
     S4["S4 Dashboard<br/>live vitals I13 + NEWS2 I14"]
     S5["S5 Intake form + service<br/>I2 → I3, I4 · med lookup"]
-    S6["S6 Scenario player<br/>event buttons I12"]
+    S6["S6 Run buttons<br/>load sample, start run I12"]
     S8["S8 Add-ons<br/>Tiger Data, Sentry, Vultr, domain, Fetch.ai"]
   end
 
@@ -64,8 +64,8 @@ Read left to right: everything in one column can be built at the same time. A ch
 | --- | --- | --- | --- |
 | P0 Contracts and stubs | Both | — | Shared models for I1–I15 exist; a stub risk engine returns plain NEWS2 as I9/I14; eICU fixture rows load as I6/I13 |
 | S1 Strap receiver | Systems | P0 | bleakheart prints HR and beat intervals; receiver sends I1 with breathing rate; reconnects on drop |
-| S2 Ingest service | Systems | P0 | Accepts I1 over WebSocket, merges sources per vital, emits I13 each second and I6 each minute |
-| S3 Simulator filler | Systems | S2 | Sends SpO2 and temperature as I1 for the wearer's wearable ID |
+| S2 Ingest service | Systems | P0 | Accepts I1 over WebSocket, merges sources per vital, emits I13 each second and I6 each minute; run mode drops strap readings and freezes when a run ends (component-map, Simulator runs) |
+| S3 Simulator | Systems | P0 (S2 to plug in) | Six sample patients play fixed-length runs through the `RunSink` interface, with run state and a 120-minute trend pre-roll. Done: backend/simulator/, scripts/simulate_run.py. Still to build: the live-mode filler of SpO2 and temperature for C2, and ingest's side of the sink (S2). Integration testing is blocked on S2, T4, S5 and S6 (checks listed in simulation-layer.md) |
 | S4 Dashboard | Systems | S3 | Shows live vitals and NEWS2 updating every second from the stub |
 | T1 NEWS2 scorer | Stats | P0 | P0 stub already scores the full table; T1 checks it against reference cases, covers edge cases and missing parts, and owns scoring from here. Done: NaN rejection, tests/risk_engine/test_news2.py |
 | **C1 Thin slice** | Both | S4, T1 | Simulated vitals flow end to end and NEWS2 moves on the dashboard |
@@ -78,7 +78,7 @@ Read left to right: everything in one column can be built at the same time. A ch
 | B2 Test set | Both | B1 | About 100 labeled chief complaints, including negations |
 | B3 Context adjuster | Both | B2 | I4 in, I5 to the engine, I15 to the evaluation log; quote check enforced; scored on the test set |
 | **C3 Real risk engine** | Both | S5, T4, B3 | A typed intake changes the wearer's ranges, and live scoring and alerts run on the real engine |
-| S6 Scenario player | Systems | C3 | An event button replaces the scripted vitals, the scores react, then the strap takes back over |
+| S6 Run buttons | Systems | C3 | The intake form prefills a sample patient and a dashboard button starts its run; scores react and the end shows as a pause |
 | Step A Trend wiring | Stats | T3 | I9 carries per-vital levels and trend fields (null with the stub), I10/I11 contracts and typed alert/trend config exist, `trend.py` and a stub `fast_model.py` are wired into the engine. Done: backend/risk_engine/trend.py, tests/risk_engine/test_trend.py |
 | T6 Fast trend model | Stats | Step A | The 15 min model (or the better simple baseline) replaces the stub; beats both baselines or a baseline ships; tier and reason appear in I9 |
 | S8 Add-ons | Systems | any time | Tiger Data stores readings, Sentry tracing + logs, hosted on Vultr behind a domain, Fetch.ai agent answers in ASI:One |

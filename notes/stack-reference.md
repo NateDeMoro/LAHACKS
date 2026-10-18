@@ -10,7 +10,7 @@ These are just leans. Updates can be made as needed, but this doc should be upda
 | Component | Choice | Notes |
 | --- | --- | --- |
 | Receiver | Python, `bleakheart`, WebSocket client | Runs on the laptop as its own process; computes breathing rate from beat intervals; sends I1 readings to the backend |
-| Simulator | Python, asyncio task inside the backend | Fills SpO2, temperature and triage BP from the wearer's ranges; plays scenarios from the dashboard's event buttons (I12); sends I1-shaped readings into the same ingest path as the strap |
+| Simulator | Python, asyncio task inside the backend (`backend/simulator/`) | Six sample patients with fixed-length runs started from the dashboard (I12); in a run it supplies every vital and ingest drops the strap; live mode fills SpO2 and temperature; calls the same ingest entry function as the strap, in-process |
 | Backend | FastAPI + uvicorn | pydantic models for the reading and risk result; WebSocket push to the dashboard |
 | Storage | SQLite (default) | Tiger Data (TimescaleDB) as an add-on for the challenge, written alongside the main store |
 | Risk engine: rules | Plain Python | NEWS2, persistence windows, guideline adjustments, personal baseline |

@@ -86,3 +86,4 @@ If code already exists, skim the layout and fit the plan to it; no deep groundin
 | backend/simulator/scenario.py, clock.py | Waiting-room scenario (six patients, John, lead-in, skip replay) and the sim clock | Changing the scenario, a scenario patient or the skip |
 | scripts/spike_john.py | Replays John's script through the real engine on a fake clock | Retuning John's keyframes |
 | frontend/ | Nurse dashboard: React + Vite + Tailwind. src/api.ts (all HTTP, mock mode), store.ts + ws.ts (dashboard socket state), pages Board / Patient / CheckIn. Run: `cd frontend && npm i && npm run dev` (`VITE_MOCK=1` for fixtures) | Building or changing the dashboard, check-in form, or sensor modal |
+| agent/ | Fetch.ai agent (uagents, port 8001, mailbox): main.py chat protocol + ASI:One tool loop, tools.py read-only backend calls, README for Agentverse. Run: `uv run --group agent --env-file .env python -m agent.main` | Changing the Fetch.ai agent or its Agentverse listing |

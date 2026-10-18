@@ -116,3 +116,11 @@ def test_train_serve_parity(tmp_path, monkeypatch):
                                 spo2=None if np.isnan(spo2[k]) else float(spo2[k]), temp_c=36.8, clean_seconds=60))
         live = fast_model.predict(h)[0]
         assert live == pytest.approx(train_scores[i], abs=1e-6)
+
+
+def test_capped_warning():
+    from training.train_fast import event_warnings
+    assert event_warnings([60], 100) == (40, None)       # alert at -40: caught uncapped only
+    assert event_warnings([90], 100) == (10, 10)         # alert at -10: caught, warning 10
+    assert event_warnings([60, 85], 100) == (40, 15)     # stale early alert ignored by the capped window
+    assert event_warnings([], 100) == (None, None)

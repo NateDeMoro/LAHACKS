@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PROC = ROOT / "data" / "processed"
 MODELS = ROOT / "models"
 REFRACTORY, LOOKBACK, SBP_HOLD = 15, 60, 30
+CAP_WINDOW = 20   # capped warning: 15-min forecast horizon + 5-min hold
 SEED, N_BOOT, HELD_OUT_FRAC, N_FOLDS = 0, 1000, 0.2, 5
 
 
@@ -100,9 +101,18 @@ def news2_alerts(ns, first_row) -> int:
     return len(alert_times(idx, ns[first_row:] >= 5))
 
 
+def event_warnings(al, onset):
+    """(uncapped, capped) warning minutes for one event given sorted alert minutes; None when not caught.
+    Uncapped: earliest alert in the LOOKBACK window. Capped: earliest alert in the CAP_WINDOW before onset."""
+    al = np.asarray(al)
+    unc = al[(al >= onset - LOOKBACK) & (al < onset)]
+    cap = al[(al >= onset - CAP_WINDOW) & (al < onset)]
+    return (onset - unc.min() if len(unc) else None), (onset - cap.min() if len(cap) else None)
+
+
 def per_patient_stats(df, scores, cutoff, events, meta, segments, patients):
     """{patient: dict(n_events, warn, detected, hours, alerts, hourly_detect)} for the given score column."""
-    stats = {p: dict(n_events=0, warn=0.0, detected=0, hours=0.0, alerts=0, hourly=0.0) for p in patients}
+    stats = {p: dict(n_events=0, warn=0.0, detected=0, cwarn=0.0, cdetected=0, hours=0.0, alerts=0, hourly=0.0) for p in patients}
     pset = set(patients)
     for sid, g in df[df.patient.isin(pset)].groupby("seg_id"):
         p = segments[sid].patient
@@ -113,10 +123,13 @@ def per_patient_stats(df, scores, cutoff, events, meta, segments, patients):
         al = np.array(al)
         for onset, end, _ in events[sid]:
             st["n_events"] += 1
-            hit = al[(al >= onset - LOOKBACK) & (al < onset)] if len(al) else al
-            if len(hit):
+            unc, cap = event_warnings(al, onset)
+            if unc is not None:
                 st["detected"] += 1
-                st["warn"] += onset - hit.min()
+                st["warn"] += unc
+            if cap is not None:
+                st["cdetected"] += 1
+                st["cwarn"] += cap
             st["hourly"] += min(1.0, (end - onset + 1) / 60)
     for sid, seg in enumerate(segments):
         if seg.patient in pset:
@@ -129,6 +142,8 @@ def summarize(stats, patients):
     return dict(events=n,
                 warn=sum(stats[p]["warn"] for p in patients) / max(n, 1),
                 detected=sum(stats[p]["detected"] for p in patients) / max(n, 1),
+                cwarn=sum(stats[p]["cwarn"] for p in patients) / max(n, 1),
+                cdetected=sum(stats[p]["cdetected"] for p in patients) / max(n, 1),
                 rate=sum(stats[p]["alerts"] for p in patients) / max(sum(stats[p]["hours"] for p in patients), 1e-9),
                 hourly_detected=sum(stats[p]["hourly"] for p in patients) / max(n, 1))
 
@@ -139,7 +154,7 @@ def bootstrap(stats, patients, rng):
     for _ in range(N_BOOT):
         out.append(summarize(stats, rng.choice(pats, len(pats))))
     return {k: (float(np.percentile([o[k] for o in out], 2.5)), float(np.percentile([o[k] for o in out], 97.5)))
-            for k in ("warn", "detected", "rate")}
+            for k in ("warn", "detected", "cwarn", "cdetected", "rate")}
 
 
 def average_precision(y, s):

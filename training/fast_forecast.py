@@ -221,7 +221,8 @@ class AlertEval:
         ci = tf.bootstrap(st, self.patients, np.random.default_rng(tf.SEED))
         return dict(cut=float(cutoff), rate=alerts / self.hours, false_rate=false / self.hours,
                     false_share=false / max(alerts, 1), warn=sm["warn"], warn_ci=ci["warn"],
-                    detected=sm["detected"], det_ci=ci["detected"], events=sm["events"])
+                    detected=sm["detected"], det_ci=ci["detected"], events=sm["events"],
+                    cwarn=sm["cwarn"], cwarn_ci=ci["cwarn"], cdetected=sm["cdetected"], cdet_ci=ci["cdetected"])
 
     def match(self, score, target_rate):
         """Cutoff whose held-out alert rate is closest to target_rate (coarse then fine search)."""
@@ -241,13 +242,15 @@ def print_forecast_table(rows):
 
 def print_alert_header():
     print(f"{'method':14s} {'cutoff':>7s} {'alerts/h':>8s} {'false/h':>7s} {'false%':>7s} {'warn min (95% CI)':>20s} "
-          f"{'caught (95% CI)':>17s}")
+          f"{'caught (95% CI)':>17s} {'CAPPED warn (CI)':>20s} {'CAPPED caught (CI)':>20s}")
 
 
 def print_alert_row(method, r):
     print(f"{method:14s} {r['cut']:7.3f} {r['rate']:8.3f} {r['false_rate']:7.3f} {100 * r['false_share']:6.1f}% "
           f"{r['warn']:6.1f} [{r['warn_ci'][0]:.1f},{r['warn_ci'][1]:.1f}] {r['detected']:7.3f} "
-          f"[{r['det_ci'][0]:.2f},{r['det_ci'][1]:.2f}]")
+          f"[{r['det_ci'][0]:.2f},{r['det_ci'][1]:.2f}] "
+          f"{r['cwarn']:6.1f} [{r['cwarn_ci'][0]:.1f},{r['cwarn_ci'][1]:.1f}] {r['cdetected']:7.3f} "
+          f"[{r['cdet_ci'][0]:.2f},{r['cdet_ci'][1]:.2f}]")
 
 
 def alert_report(ev: AlertEval, score_fc, score_r2, matched_cut):

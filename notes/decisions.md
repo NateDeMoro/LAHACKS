@@ -358,7 +358,7 @@ Same 52 held-out patients (3,149 monitored hours), a third look at them. False a
 
 - **Alerts, held-out** (3,149 h, 388 events). Rule 2 rows are at the same alert rate as the forecast row above them:
 
-| Method | Cutoff | Alerts/h | False/h | False share | Warning min (95% CI) | Caught (95% CI) |
+| Method | Cutoff | Alerts/h | False/h | False share | Warning min, uncapped, generous (95% CI) | Caught, uncapped (95% CI) |
 | --- | --- | --- | --- | --- | --- | --- |
 | Forecast | 0 | 2.62 | 2.33 | 88.8% | 48.3 [46.9, 49.4] | 0.995 [0.99, 1.00] |
 | Rule 2 | -3.29 | 2.62 | 2.35 | 89.6% | 47.0 [45.3, 48.3] | 0.992 [0.98, 1.00] |
@@ -392,17 +392,32 @@ Same 52 held-out patients (3,149 monitored hours), a third look at them. False a
 | HR lowest | 1.851 | 3.112 | 11.2% |
 | HR highest | 3.086 | 4.333 | 10.2% |
 
-| Cutoff | Alerts/h | False/h | False share | Warning min (95% CI) | Caught (95% CI) |
+| Cutoff | Alerts/h | False/h | False share | Warning min, uncapped, generous (95% CI) | Caught, uncapped (95% CI) |
 | --- | --- | --- | --- | --- | --- |
 | 4.856 (shipped) | 0.574 | 0.445 | 77.6% | 25.8 [21.4, 29.3] | 0.677 [0.59, 0.75] |
 | 0 | 2.50 | | 91% | 47.5 | 0.985 |
 | 1.0 | 2.01 | | 89% | 45.2 | 0.982 |
 | 2.0 | 1.57 | | 87% | 41.6 | 0.947 |
 
-- **Read:** forecast accuracy and calibration hold on new patients. The shipped cutoff warns about 26 minutes ahead and catches about two thirds of events, with about three in four alerts not followed by a danger event within 20 minutes. Looser cutoffs buy warning and catches at the price of 2.5 to 4 times the alerts.
+- **Read:** forecast accuracy and calibration hold on new patients. The shipped cutoff warns about 26 minutes ahead (uncapped, generous; see "T6 capped warning metric" for the figures to quote) and catches about two thirds of events (uncapped), with about three in four alerts not followed by a danger event within 20 minutes. Looser cutoffs buy warning and catches at the price of 2.5 to 4 times the alerts.
 - **Demo consequence (accepted):** `fast_spo2_drop_i6` replay at 4.856 shows no trend warning before danger. The forecast score peaks at 1.01 at minute 45 (SpO2 91.6); the alerts are the warning-persisted alert at 09:44 (10-minute window on the SpO2 warning level) and the vital-danger alert at 09:47. A looser cutoff (0 to 1.0) would show the trend tier at minutes 39 to 45 if the demo needs it.
 - **Caveats:** the original 52 held-out patients were looked at four times (LightGBM yes/no, logistic, Rule 2 sweep, forecast), so their numbers are optimistic; the fresh batch is the honest test but is partial (about 109 of 600 patients downloaded when measured) and its false-alert share is still high. Labels are ICU patients near the edges, so absolute alert rates overstate a waiting room.
 - **Retrain plan:** the batch2 download (600 patients, 910 records, seed 1, excluding the original 300) is still running. When it finishes, retrain the forecast on original + batch2 (`training.fast_forecast`), re-match the cutoff on training patients, re-run the fresh-patient check on whatever is held out, then update `models/` and the cutoff in `config.json` and the JSON together.
+
+### T6 capped warning metric (quote these)
+- **Why:** the original "minutes of warning" credits the earliest alert anywhere in the 60 minutes before onset. For a 15-minute model that rewards stale early alerts, which are also counted as false alerts (no event follows within 20 minutes), so warning exceeded 15 minutes (47 at loose cutoffs). The earlier warning and caught figures above are kept and are now labelled "uncapped, generous".
+- **Definition (capped):** an event is caught in time only if an alert fired in the 20 minutes before onset (15-minute horizon + 5-minute hold); its warning is onset minus the earliest alert in that window (at most 20). Mean warning is over all events, a missed event counts as 0, same as the uncapped column. CIs are 95% patient bootstraps. Alerts/h, false/h and false share are unchanged (15-minute refractory alerts; false = no onset within 20 minutes). Code: `train_fast.event_warnings` (`CAP_WINDOW` = 20), extra columns in the `training.fast_forecast` alert tables, test `test_capped_warning`.
+- **Fresh batch** (`mimic3wdb_batch2` as downloaded so far: 203 patients, 398 segments, 10,653 monitored hours, 1,295 events; saved models unchanged):
+
+| Cutoff | Alerts/h | False share | Warning uncapped | Caught uncapped | Warning capped min (95% CI) | Caught in time (95% CI) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 4.856 (shipped) | 0.62 | 72.7% | 23.6 | 0.615 | 4.3 [3.7, 4.8] | 0.434 [0.39, 0.48] |
+| 0 | 2.51 | 88.0% | 47.4 | 0.988 | 11.9 [11.6, 12.2] | 0.968 [0.95, 0.98] |
+| 1.0 | 2.04 | 85.6% | 45.1 | 0.981 | 11.2 [10.8, 11.6] | 0.949 [0.93, 0.97] |
+| 2.0 | 1.61 | 83.1% | 41.0 | 0.937 | 9.8 [9.3, 10.3] | 0.867 [0.83, 0.90] |
+
+- **Original 52 held-out patients** (3,149 h, 388 events, optimistic): shipped cutoff 4.856: 0.72/h, 75.3% false, capped warning 4.8 [3.8, 5.8] min, caught in time 0.459 [0.37, 0.53] (uncapped 24.6 min, 0.634). Cutoff 0: 11.8 [11.2, 12.3] min, 0.987; 1.0: 11.2 [10.5, 11.8], 0.943; 2.0: 9.6 [8.7, 10.5], 0.858.
+- **Read:** at the shipped cutoff the honest claim is about 4 minutes of average warning per event with roughly 43% of events caught with an alert in the final 20 minutes (conditional on being caught, about 10 minutes); the earlier "26 minutes, two thirds caught" was generous. Looser cutoffs lift this to about 11 to 12 minutes and 95 to 97% caught at cutoffs 0 to 1.0 (2.0 to 2.5 alerts/h), most of them false. Capped numbers are the ones to quote. Rule 2 at equal alert rates is slightly lower on capped warning (about 1 minute at loose cutoffs) and similar at the shipped rate.
 
 ### Known skews
 - Strap breathing rate is not the impedance RESP in MIMIC; SpO2 is simulated in the demo; the label uses fixed NEWS2 limits while live levels use personal ranges; ICU patients sit near edges so the matched cutoff is tight; the eICU second check from section 4b is dropped (5-minute spacing cannot feed timestamp windows).

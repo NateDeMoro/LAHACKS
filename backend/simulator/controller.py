@@ -2,6 +2,8 @@
 import asyncio
 import logging
 import time
+from datetime import datetime
+from typing import Literal
 
 from backend.config import CONFIG, SimulatorConfig
 from backend.contracts import Model, RunState
@@ -22,15 +24,21 @@ class RunInProgress(RuntimeError):
     pass
 
 
+class NoScenario(RuntimeError):
+    pass
+
+
 class RunStatus(Model):
     state: RunState
     profile_id: str | None = None
     patient_id: str | None = None
+    kind: Literal["single", "scenario"] | None = None
+    sim_now: datetime | None = None  # the scenario's simulated time
 
 
 class SimController:
     def __init__(self, sink: RunSink, *, cfg: SimulatorConfig = CONFIG.simulator, profiles=PROFILES,
-                 now=time.monotonic, sleep=asyncio.sleep, clock=now_la):
+                 now=time.monotonic, sleep=asyncio.sleep, clock=now_la, scenario=None):
         self._sink = sink
         self._cfg = cfg
         self._profiles = profiles
@@ -40,6 +48,8 @@ class SimController:
         self._profile_id: str | None = None
         self._patient_id: str | None = None
         self._task: asyncio.Task | None = None
+        self._scenario = scenario  # a ScenarioRunner, or None where scenarios are not wired
+        self._kind: Literal["single", "scenario"] | None = None
 
     def profiles(self) -> list[Profile]:
         return list(self._profiles.values())
@@ -51,7 +61,40 @@ class SimController:
             raise UnknownProfile(profile_id) from None
 
     def status(self) -> RunStatus:
-        return RunStatus(state=self._state, profile_id=self._profile_id, patient_id=self._patient_id)
+        sim_now = self._scenario.sim_now() if self._kind == "scenario" else None
+        return RunStatus(state=self._state, profile_id=self._profile_id, patient_id=self._patient_id,
+                         kind=self._kind, sim_now=sim_now)
+
+    async def start_scenario(self) -> RunStatus:
+        """Starts the waiting room; returns once the six patients are in and the 20-minute lead-in is replayed."""
+        if self._state == "running":
+            raise RunInProgress(self._profile_id or "scenario")
+        await self.reset()  # clears a finished run's patients
+        self._state, self._kind = "running", "scenario"  # claimed before the first await so a second start is refused
+        try:
+            await self._scenario.prepare()
+        except BaseException:
+            await self._scenario.drop_all()
+            self._state, self._kind = "live", None
+            raise
+        task = asyncio.create_task(self._run_scenario())
+        task.add_done_callback(self._finish)
+        self._task = task
+        return self.status()
+
+    async def skip(self, minutes: float) -> RunStatus:
+        if self._kind != "scenario" or self._state != "running" or not self._task or self._task.done():
+            raise NoScenario()
+        await self._scenario.skip(minutes)
+        if self._scenario.at_end:
+            await asyncio.wait([self._task])
+        return self.status()
+
+    async def _run_scenario(self) -> None:
+        try:
+            await self._scenario.play()
+        except Exception:
+            log.exception("scenario failed")
 
     def start(self, profile_id: str, patient_id: str | None = None, wearable_id: int | None = None,
               length_s: int | None = None) -> RunStatus:
@@ -71,6 +114,7 @@ class SimController:
         ))
         task.add_done_callback(self._finish)
         self._profile_id, self._patient_id, self._task, self._state = profile_id, patient_id, task, "running"
+        self._kind = "single"
         return self.status()
 
     async def wait(self) -> None:
@@ -86,12 +130,14 @@ class SimController:
         return self.status()
 
     async def reset(self) -> RunStatus:
-        task, patient_id = self._task, self._patient_id
+        task, patient_id, kind = self._task, self._patient_id, self._kind
         await self.stop()
         if self._task is task:  # a start that landed while stop was finishing must not be wiped
-            if patient_id:
+            if kind == "scenario":
+                await self._scenario.drop_all()
+            elif patient_id:
                 self._sink.set_run_state(patient_id, "live")
-            self._state, self._profile_id, self._patient_id, self._task = "live", None, None, None
+            self._state, self._profile_id, self._patient_id, self._task, self._kind = "live", None, None, None, None
         return self.status()
 
     def _finish(self, task: asyncio.Task) -> None:

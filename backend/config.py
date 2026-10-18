@@ -59,7 +59,8 @@ class AdjusterConfig:
 @dataclass(frozen=True)
 class BedConfig:
     """Bed label per wearable, used in alert messages."""
-    labels: dict[int, str] = field(default_factory=lambda: {1: "Bed 4"})
+    labels: dict[int, str] = field(default_factory=lambda: {1: "Bed 4", 101: "Bed 5", 102: "Bed 6", 103: "Bed 7",
+                                                             104: "Bed 8", 105: "Bed 9", 106: "Bed 10"})
 
 
 @dataclass(frozen=True)
@@ -67,6 +68,7 @@ class SimulatorConfig:
     run_length_s: int = 600  # every run script is stored as fractions of this, so changing it rescales all six
     preroll_minutes: int = 60  # trend-model look-back fed before 0:00; matches trend.HISTORY
     default_wearable_id: int = ReceiverConfig.wearable_id  # same wearer as the strap
+    scenario_wearable_ids: tuple[int, ...] = (101, 102, 103, 104, 105, 106)  # the waiting room's sim wearables, in patient order
 
 
 @dataclass(frozen=True)

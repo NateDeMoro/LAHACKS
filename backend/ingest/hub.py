@@ -49,6 +49,10 @@ class DashboardHub:
         for c in self._clients:
             self._put(c, env)
 
+    def open_alerts(self, patient_id: str) -> list[dict]:
+        return [e["data"] for e in self._alerts.values()
+                if e["data"].get("patient_id") == patient_id and not e["data"].get("resolved")]
+
     def forget(self, patient_id: str) -> None:
         """Drops a patient who is no longer being monitored from what new clients are sent."""
         self._latest = {k: v for k, v in self._latest.items() if k[1] != patient_id}

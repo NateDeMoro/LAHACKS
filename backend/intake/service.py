@@ -29,8 +29,11 @@ class UnknownWearable(ValueError):
 
 class IntakeService:
     def __init__(self, engine: RiskEngine, on_assign: Callable[[WearableAssignment], None], *,
-                 cfg: Config = CONFIG, adjust_fn: Callable[[PatientContext], A.Outcome] = A.adjust):
-        self._engine, self._on_assign, self._adjust = engine, on_assign, adjust_fn
+                 cfg: Config = CONFIG, adjust_fn: Callable[[PatientContext], A.Outcome] = A.adjust,
+                 on_submit: Callable[[PatientContext], None] = lambda ctx: None):
+        self._engine, self._on_assign, self._adjust, self._on_submit = engine, on_assign, adjust_fn, on_submit
+        self._sim_wearables = set(cfg.simulator.scenario_wearable_ids)
+        self._structured_only: set[str] = set()  # scenario patients: no LLM call, so ranges never move mid-demo
         self._labels = dict(cfg.beds.labels)
         self._valid = set(self._labels) | {cfg.receiver.wearable_id}
         self._by_wearable: dict[int, str] = {}
@@ -45,7 +48,7 @@ class IntakeService:
 
     def wearables(self) -> list[dict]:
         return [{"wearable_id": w, "label": self._labels.get(w, f"Strap {w}"),
-                 "patient_id": self._by_wearable.get(w)} for w in self.wearer_ids()]
+                 "patient_id": self._by_wearable.get(w), "simulated": w in self._sim_wearables} for w in self.wearer_ids()]
 
     def card(self, patient_id: str) -> dict | None:
         """Profile card: I4, current I8, I5, I15 items and adjuster state. None for an unknown patient."""
@@ -78,12 +81,17 @@ class IntakeService:
         if self._engine.ranges_listener:
             self._engine.ranges_listener(ranges)
 
-    async def submit(self, rec: IntakeRecord) -> WearableAssignment:
-        """Use when POST /intake arrives. Needs the running event loop. Raises UnknownWearable."""
+    async def submit(self, rec: IntakeRecord, *, structured_only: bool = False) -> WearableAssignment:
+        """Use when POST /intake arrives. Needs the running event loop. Raises UnknownWearable.
+        structured_only skips the LLM step (the scenario); a resubmit keeps that choice and the first arrival time."""
         if rec.wearable_id not in self._valid:
             raise UnknownWearable(rec.wearable_id)
+        prior = self._card.get(rec.patient_id) if rec.patient_id else None
+        if structured_only:
+            self._structured_only.add(rec.patient_id)
+        structured_only = structured_only or rec.patient_id in self._structured_only
         rec = rec.model_copy(update={"patient_id": rec.patient_id or f"pt-{secrets.token_hex(3)}",
-                                     "arrival_ts": rec.arrival_ts or now_la()})
+                                     "arrival_ts": rec.arrival_ts or (prior["ctx"].arrival_ts if prior else None) or now_la()})
         ctx = self._build_context(rec)
         pid = ctx.patient_id
         seq = self._seq[pid] = self._seq.get(pid, 0) + 1
@@ -92,6 +100,10 @@ class IntakeService:
         out = A.adjust_structured(ctx)
         self._card[pid] = {"ctx": ctx, "i5": out.i5, "i15": out.i15, "state": PENDING}
         self._apply(ctx, out.i5)
+        self._on_submit(ctx)
+        if structured_only:
+            self._card[pid]["state"] = STRUCTURED_ONLY
+            return assignment
         task = asyncio.create_task(self._finish(ctx, seq))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)

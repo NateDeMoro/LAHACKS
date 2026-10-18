@@ -82,4 +82,7 @@ If code already exists, skim the layout and fit the plan to it; no deep groundin
 | notes/simulation-layer.md | Sample patients, run scripts and targets, trend pre-roll, end of run, how the simulator connects | Building or changing the simulator, run buttons, or sample-patient prefill |
 | backend/intake/, scripts/check_lookup.py, scripts/intake_app.py | S5 demo intake: drug-class lookup (small table), intake service (I2 to I3, I4, two-step I5), /intake routes; lookup check; dev app with --selftest | Changing intake, medication lookup or the form contract |
 | backend/simulator/ | Models, six sample patients, run generator, player, controller, routes | Changing a run, adding a sample patient, or wiring runs into ingest |
+| backend/patients/ | Patient registry (name, arrival, called-in, I9 history) and /patients routes | Changing the board's patient list or history |
+| backend/simulator/scenario.py, clock.py | Waiting-room scenario (six patients, John, lead-in, skip replay) and the sim clock | Changing the scenario, a scenario patient or the skip |
+| scripts/spike_john.py | Replays John's script through the real engine on a fake clock | Retuning John's keyframes |
 | frontend/ | Nurse dashboard: React + Vite + Tailwind. src/api.ts (all HTTP, mock mode), store.ts + ws.ts (dashboard socket state), pages Board / Patient / CheckIn. Run: `cd frontend && npm i && npm run dev` (`VITE_MOCK=1` for fixtures) | Building or changing the dashboard, check-in form, or sensor modal |

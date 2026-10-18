@@ -2,7 +2,7 @@
 
 Oct 17, 2026 · @Nate
 
-Every functional component, its owner, and the 15 interfaces between them. Build to these contracts so systems work and risk-model work run in parallel. Mirrors the [component map artifact](https://claude.ai/artifact/K5NvykgaQGoM5qhpP95fXL); if a contract changes, change it here first.
+Every functional component, its owner, and the 17 interfaces between them (I16 and I17 serve the agentic condition path in [agentic-llm-plan.md](agentic-llm-plan.md)). Build to these contracts so systems work and risk-model work run in parallel. Mirrors the [component map artifact](https://claude.ai/artifact/K5NvykgaQGoM5qhpP95fXL); if a contract changes, change it here first.
 
 The demo has one patient, the wearer, in one of two modes. In live mode the strap supplies real heart rate and breathing rate and the simulator fills in SpO2 and temperature. In run mode the nurse loads one of six sample patients and starts a fixed-length run in which the simulator supplies every vital and the strap is ignored; BP, alertness and the oxygen flag come from the sample's intake record ([simulation-layer.md](simulation-layer.md)). No real/simulated tag in the data; the pitch says which is which.
 
@@ -19,6 +19,10 @@ flowchart LR
   INT -- I4 --> RE
   ADJ -- I5 --> RE
   ADJ -- I15 --> LOG[(Evaluation log)]
+  INT -- I4 --> RES[Condition resolver<br/>normalize · lookup · rule match]
+  RES -- I16 --> ADJ
+  RES -- I16 --> EVI[Evidence agent<br/>PubMed search · code gates]
+  EVI -- I17 --> ADJ
   ING -- I6, I13 --> RE[Risk engine<br/>ranges · personal baseline<br/>NEWS2 · fast trend]
   TRAIN[Offline training] -- I7 --> RE
   ING -- I13 --> DASH[Nurse dashboard]
@@ -49,7 +53,9 @@ Inside the risk engine, baseline ranges pass I8 to the personal baseline, scorer
 | Risk engine | Stats | Python module, entry points at intake, every second (NEWS2), every period (baseline, fast trend), and a history seed for the trend model | I4, I5, I6, I7, I13, trend history | I8, I9, I14 | I6/I13 rows from eICU and recorded strap data |
 | Alert logic | Stats | Persistence windows; NEWS2 ≥5 urgent, ≥7 high; one alert per problem; worsening supersedes; stays until acknowledged, then resolved | I9, I11 | I10 | Recorded I9 rows |
 | Nurse dashboard | Systems | Live vitals + NEWS2 each second; reason and NEWS2 points; ranges and trends; acknowledge, run buttons and a "Run ended" label | I8, I9, I10, I13, I14 | I11, I12 | Stub risk engine (plain NEWS2) |
-| Fetch.ai agent | Systems | ASI:One chat: "who needs a recheck right now?" | I9 | Chat answers | Stored I9 rows |
+| Condition resolver | Both | Normalizes typed conditions (one model call), looks each up in public vocabularies, matches a table rule; ambiguous matches go back to the nurse as a question | I2 custom conditions, I4 | I16 | Hand-written typed conditions |
+| Evidence agent | Both | For a real condition with no table rule: searches PubMed read-only, drafts a limit with passages, runs the code gates; evidence is saved and reused per condition | I16 | I17 | The sources already in `rules.json` |
+| Fetch.ai agents (four) | Systems | ASI:One chat through the coordinator: register a patient with typed conditions, show risk status and open alerts, start a sample run. No messaging, no acknowledge, no ranking | I9, I10, intake and simulator routes | Chat answers | Stored I9 rows |
 
 ## Interface contracts
 
@@ -72,6 +78,8 @@ Shared rules: timestamps are LA local time with the UTC offset (`2026-10-18T10:1
 | I13 | Live window | Ingest → NEWS2 scorer (function call), Dashboard (WebSocket) | Every second | Tentative |
 | I14 | Live NEWS2 | NEWS2 scorer → Dashboard | WebSocket · every second | Decided |
 | I15 | Adjustment evidence | Context adjuster → Evaluation log | Append to file · once per intake | Tentative |
+| I16 | Condition resolution | Condition resolver → Context adjuster, Evidence agent, profile card | Function call · once per intake, off the critical path | Tentative |
+| I17 | Drafted rule | Evidence agent → Context adjuster | Function call · once per novel condition, then served from the evidence store | Tentative |
 
 ### Wire and scoring rules (fixed in P0)
 
@@ -160,6 +168,7 @@ While the strap is disconnected or off the skin, the receiver sends `contact: fa
 | height_cm, weight_kg | number |
 | pregnant | bool |
 | conditions | [hypertension, asthma, cancer, diabetes, thyroid, copd, liver, heart_disease, stroke, heart_failure] |
+| custom_conditions | [text] typed by the nurse beside the checklist; at most 5 entries of 80 characters, control characters stripped (limits tentative) |
 | medications | [names as typed] |
 | chief_complaint | free text |
 | triage.sbp, triage.dbp | mmHg, taken once (simulated for the demo) |
@@ -186,19 +195,21 @@ One active patient per wearable; readings from an unassigned wearable are droppe
 | bmi | computed from height and weight |
 | drug_classes | [lookup classes: beta_blocker, ssri, snri, opioid, corticosteroid, immunosuppressant. The NHANES fit uses beta_blocker, ssri, snri; the adjuster rules use beta_blocker, opioid, corticosteroid, immunosuppressant] |
 | unmatched_medications | [names the lookup missed] |
+| resolved_conditions | the I16 items for each custom condition; null until the resolver finishes |
 
 ### I5 Context adjustments
 
 | Field | Type / values |
 | --- | --- |
 | patient_id | string |
-| adjustments | [{rule_id, vital, bound, value}] |
-| rule_id | from `models/rules.json`: chemo_fever, suspected_infection, opioid, steroid_immunosuppressed, age65, beta_blocker, pregnancy |
+| adjustments | [{rule_id, vital, bound, value, tier}] |
+| rule_id | from `models/rules.json`: chemo_fever, suspected_infection, opioid, steroid_immunosuppressed, age65, beta_blocker, pregnancy; or `draft:` plus the vocabulary code for a drafted rule (I17) |
 | vital | hr \| resp_rate \| spo2 \| temp_c \| sbp |
 | bound | low \| high |
-| value | new danger threshold, in the vital's units |
+| value | new limit for the tier, in the vital's units |
+| tier | danger (the default when null) \| warning. Table rules use danger; drafted rules use warning |
 
-Tighten only: a high bound can only move down and a low bound only up. The engine clamps anything else. Facts and quotes are not passed here; they go to I15.
+Tighten only: a high bound can only move down and a low bound only up. The engine clamps anything else. Facts and quotes are not passed here; they go to I15. A warning-tier adjustment narrows the safe band to the value and leaves the danger edge where it is, so the vital reads as warning beyond that value and danger only at the unchanged edge. It applies to that one patient, must sit inside the current warning band, and is never written back to `rules.json`. Its reason line on I8 says "unreviewed".
 
 ### I6 Period summary
 
@@ -316,13 +327,42 @@ Alerts still go through alert logic and its persistence windows.
 | Field | Type / values |
 | --- | --- |
 | patient_id, ts | string, timestamp |
-| items | [{rule_id, fact, quote}] |
+| items | [{rule_id, fact, quote, sources, unreviewed}] |
 | quote_found | bool, word-for-word match in the chief complaint (after lowercasing, straight quotes, collapsed whitespace). True when every logged text quote matched, which the validator guarantees; null when there are no text items |
 | model | model and prompt version, or "structured only" when the LLM call failed or was skipped (empty chief complaint) |
 
 One item per fired rule, in rules.json order. Structured items name the field in `fact` and have a null `quote`; text items carry the model's fact and quote. Proposals the validator dropped are not logged here; the score script counts them.
 
+Drafted items (I17) have a rule_id of `draft:` plus the vocabulary code, a null `quote`, `unreviewed` true and `sources` (id, title, year, passage); they sort after table rules. `quote_found` still refers only to complaint quotes.
+
 Never read by the risk engine. Used to score the adjuster against the labeled test set.
+
+### I16 Condition resolution
+
+| Field | Type / values |
+| --- | --- |
+| patient_id, ts | string, timestamp |
+| items | [{typed, canonical, vocabulary, code, status, candidates, rule_id}] |
+| typed | the nurse's text, as entered |
+| canonical, vocabulary, code | the matched entry (NLM conditions or ICD-10-CM) and its code; null unless found |
+| status | found \| ambiguous \| not_found |
+| candidates | for ambiguous, up to 5 {canonical, code}; the coordinator asks the nurse which was meant, then intake is submitted again with the pick |
+| rule_id | the table rule the code maps to, or null |
+
+The model only proposes the canonical term and search terms; matching is done in code. `found` means the vocabulary holds an entry within the match threshold, not that the condition is real by definition. `not_found` changes nothing and is logged.
+
+### I17 Drafted rule
+
+| Field | Type / values |
+| --- | --- |
+| vocabulary, code | the condition the rule is for |
+| adjustments | [{vital, bound, value}], warning tier by construction |
+| sources | [{kind (pmid \| doi \| guideline_url), id, title, year, passage}] |
+| evidence_label | strong \| medium \| weak |
+| retrieved_ts, evidence_hash | when the evidence was fetched and a hash of it; the same code returns the same I17 from the store |
+| gates | each gate and whether it passed |
+
+Emitted only when every gate passes: the IDs resolve, titles match, the passage is in the abstract, code reads the number out of the passage, a second distinct source gives the same number, the source is a guideline, review or trial, and the value is inside the per-vital window. When a gate fails, nothing is applied and the failed draft is kept for the reply and the log.
 
 ## Decisions and open questions
 
@@ -333,3 +373,5 @@ Never read by the risk engine. Used to score the adjuster against the labeled te
 - The simulator is run-based (six sample patients, a fixed-length run each) rather than event buttons; see [simulation-layer.md](simulation-layer.md).
 - The context adjustment rule list is decided (B2, `models/rules.json`).
 - T5 (slow sepsis model) is dropped; there are no Photon or ElevenLabs channels, alerts are dashboard only.
+- The Fetch.ai agents have no messaging, no acknowledge from chat (I11 stays dashboard only) and no recheck ranking; risk shows as level colors and open alerts. Drafted rules are on from the start with one kill-switch flag ([agentic-llm-plan.md](agentic-llm-plan.md)).
+- Affected by I2, I4, I5, I15, I16, I17: intake form (custom conditions input), intake service, schema export, `ranges.py` (warning tier), the Fetch.ai agents. The dashboard needs no change: the "unreviewed" label rides the I8 reasons.

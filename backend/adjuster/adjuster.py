@@ -3,7 +3,11 @@ should be tightened, or when scoring the adjuster.
 
 Code decides everything it can: structured rules (age, drug classes, pregnant flag) fire in code, values
 come from models/rules.json. See rules.py. Intake never blocks on the LLM part."""
+import hashlib
+import json
+import os
 import re
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
@@ -12,7 +16,7 @@ from pydantic import BaseModel, ConfigDict
 
 from backend.adjuster import prompt as P
 from backend.adjuster import rules as R
-from backend.config import CONFIG, LlmConfig
+from backend.config import CONFIG, AdjusterConfig, LlmConfig
 from backend.contracts import (AdjustmentEvidence, ContextAdjustments, EvidenceItem, PatientContext)
 from backend.llm import LlmError, json_completion
 
@@ -88,20 +92,69 @@ def validate(proposals: list[TextProposal], ctx: PatientContext, structured: dic
     return kept, dropped
 
 
-def adjust(ctx: PatientContext, *, client=None, cfg: LlmConfig | None = None, llm: bool = True,
-           ts: datetime | None = None) -> Outcome:
-    """Full result: structured rules plus one LLM call for facts only the complaint holds. If the call fails,
-    the structured result is returned (intake never blocks on the LLM)."""
-    cfg = cfg or CONFIG.llm
-    structured = R.structured_facts(ctx)
-    if not llm or not (ctx.chief_complaint or "").strip():
-        return _build(ctx, structured, [], STRUCTURED_ONLY, ts)
+_LOCK = threading.Lock()
+
+
+def _cache_get(path, key) -> list[TextProposal] | None:
     try:
-        res = json_completion(P.messages(ctx), TextReply, cfg, client)
-    except LlmError:
-        return _build(ctx, structured, [], STRUCTURED_ONLY, ts)
-    kept, dropped = validate(res.value.proposals, ctx, structured)
-    out = _build(ctx, structured, [(p.rule_id, p.fact, p.quote) for p in kept],
-                 f"{cfg.model} {P.PROMPT_VERSION}", ts)
-    out.dropped, out.latency_s, out.llm_ok = dropped, res.latency_s, True
+        raw = json.loads(path.read_text())[key]
+    except (OSError, ValueError, KeyError):
+        return None
+    return [TextProposal(**p) for p in raw]
+
+
+def _cache_put(path, key, kept: list[TextProposal]):
+    with _LOCK:
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            data = {}
+        data[key] = [p.model_dump() for p in kept]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data))
+        os.replace(tmp, path)
+
+
+def _log(path, i15: AdjustmentEvidence):
+    with _LOCK:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a") as f:
+            f.write(i15.model_dump_json() + "\n")
+
+
+def adjust(ctx: PatientContext, *, client=None, cfg: LlmConfig | None = None, llm: bool = True,
+           ts: datetime | None = None, adj: AdjusterConfig | None = None,
+           use_cache: bool | None = None, write_log: bool | None = None) -> Outcome:
+    """Full result: structured rules plus one LLM call for facts only the complaint holds. If the call fails,
+    the structured result is returned (intake never blocks on the LLM) and nothing is cached. Only validated
+    text proposals are cached, keyed on the exact messages and model; structured rules are always recomputed.
+    Appends I15 to the evaluation log unless write_log is off (scoring turns both off)."""
+    cfg, adj = cfg or CONFIG.llm, adj or CONFIG.adjuster
+    use_cache = adj.use_cache if use_cache is None else use_cache
+    write_log = adj.write_log if write_log is None else write_log
+    structured = R.structured_facts(ctx)
+    out = None
+    if llm and (ctx.chief_complaint or "").strip():
+        msgs = P.messages(ctx)
+        key = hashlib.sha256(json.dumps([msgs, cfg.model]).encode()).hexdigest()
+        kept = _cache_get(adj.cache_path, key) if use_cache else None
+        dropped, latency = [], 0.0
+        if kept is None:
+            try:
+                res = json_completion(msgs, TextReply, cfg, client)
+                kept, dropped = validate(res.value.proposals, ctx, structured)
+                latency = res.latency_s
+                if use_cache:
+                    _cache_put(adj.cache_path, key, kept)
+            except LlmError:
+                pass
+        if kept is not None:
+            out = _build(ctx, structured, [(p.rule_id, p.fact, p.quote) for p in kept],
+                         f"{cfg.model} {P.PROMPT_VERSION}", ts)
+            out.dropped, out.latency_s, out.llm_ok = dropped, latency, True
+    if out is None:
+        out = _build(ctx, structured, [], STRUCTURED_ONLY, ts)
+    if write_log:
+        _log(adj.log_path, out.i15)
     return out

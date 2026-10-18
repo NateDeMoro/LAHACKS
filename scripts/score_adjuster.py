@@ -8,6 +8,7 @@ Test split: score it once, after tuning on dev. Never writes the evaluation log;
 import argparse
 import json
 import statistics
+import tempfile
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -16,7 +17,7 @@ from types import SimpleNamespace
 from backend.adjuster import adjuster as A
 from backend.adjuster import prompt as P
 from backend.adjuster import rules as R
-from backend.config import CONFIG, LlmConfig
+from backend.config import CONFIG, AdjusterConfig, LlmConfig
 from backend.adjuster.testset import TestCase, load_cases
 from backend.contracts import ContextAdjustments, PatientContext, PatientRanges
 from backend.risk_engine import ranges
@@ -139,19 +140,44 @@ def selftest():
     cfg = LlmConfig(api_key="stub")
     ctx = PatientContext(patient_id="p", age=30, sex="female", chief_complaint="On chemo, shaking chills since last night.")
     props = [("suspected_infection", "shaking chills"), ("chemo_fever", "On chemo")]
-    o1 = A.adjust(ctx, client=stub(reply(*props)), cfg=cfg)
-    o2 = A.adjust(ctx, client=stub(reply(*props[::-1])), cfg=cfg)
+    off = dict(use_cache=False, write_log=False)
+    o1 = A.adjust(ctx, client=stub(reply(*props)), cfg=cfg, **off)
+    o2 = A.adjust(ctx, client=stub(reply(*props[::-1])), cfg=cfg, **off)
     assert o1.i15.items == o2.i15.items and o1.i5 == o2.i5
     assert [i.rule_id for i in o1.i15.items] == ["chemo_fever", "suspected_infection"] and o1.i15.quote_found is True
     assert [(a.rule_id, a.vital, a.value) for a in o1.i5.adjustments] == [("chemo_fever", "temp_c", 38.3), ("suspected_infection", "resp_rate", 22)]
     assert o1.i15.model.endswith(P.PROMPT_VERSION) and o1.llm_ok
     # a bad quote from the model is dropped and counted, not applied
-    o = A.adjust(ctx, client=stub(reply(("chemo_fever", "on chemotherapy"))), cfg=cfg)
+    o = A.adjust(ctx, client=stub(reply(("chemo_fever", "on chemotherapy"))), cfg=cfg, **off)
     assert o.i15.items == [] and o.dropped == ["chemo_fever: quote not in complaint"] and o.i15.quote_found is None
     # a failed call falls back to structured only
-    o = A.adjust(ctx, client=stub(RuntimeError("down")), cfg=cfg)
+    o = A.adjust(ctx, client=stub(RuntimeError("down")), cfg=cfg, **off)
     assert o.i15.model == A.STRUCTURED_ONLY and not o.llm_ok and o.i15.items == []
-    print("selftest passed: structured firing, merge, order, tighten-only I5 on I8, quote check, drops, stub LLM, fallback")
+    # cache: same intake twice -> one call; failure caches nothing; log appends; scoring flags keep both off
+    with tempfile.TemporaryDirectory() as d:
+        adj = AdjusterConfig(log_path=Path(d) / "log.jsonl", cache_path=Path(d) / "cache.json")
+        c1 = stub(reply(*props))
+        a1 = A.adjust(ctx, client=c1, cfg=cfg, adj=adj)
+        a2 = A.adjust(ctx, client=c1, cfg=cfg, adj=adj)  # a second call would raise StopIteration
+        assert len(c1.calls) == 1 and a1.i15.items == a2.i15.items and a2.latency_s == 0
+        ctx2 = ctx.model_copy(update={"chief_complaint": ctx.chief_complaint + " Also tired."})
+        c2 = stub(reply())
+        A.adjust(ctx2, client=c2, cfg=cfg, adj=adj)
+        assert len(c2.calls) == 1  # any intake change changes the key
+        ctx3 = ctx.model_copy(update={"patient_id": "q", "age": 80, "drug_classes": ["opioid"]})
+        c3 = stub(reply())
+        a3 = A.adjust(ctx3, client=c3, cfg=cfg, adj=adj)
+        assert [i.rule_id for i in a3.i15.items] == ["opioid", "age65"]  # structured recomputed
+        n_cache = len(json.loads(adj.cache_path.read_text()))
+        bad = PatientContext(patient_id="z", age=30, chief_complaint="Fever and chills.")
+        fb = A.adjust(bad, client=stub(RuntimeError("down")), cfg=cfg, adj=adj)
+        assert fb.i15.model == A.STRUCTURED_ONLY and len(json.loads(adj.cache_path.read_text())) == n_cache
+        fixed = A.adjust(bad, client=stub(reply(("suspected_infection", "Fever and chills"))), cfg=cfg, adj=adj)
+        assert fixed.llm_ok  # the failure was not cached
+        assert len(adj.log_path.read_text().splitlines()) == 6
+        A.adjust(ctx, client=stub(reply()), cfg=cfg, adj=adj, use_cache=False, write_log=False)
+        assert len(adj.log_path.read_text().splitlines()) == 6
+    print("selftest passed: structured firing, merge, order, tighten-only I5 on I8, quote check, drops, stub LLM, fallback, cache, log")
 
 
 def main():
@@ -175,8 +201,8 @@ def main():
     cfg = LlmConfig()
     results = []
     for run in range(a.repeat):
-        with ThreadPoolExecutor(CONFIG.adjuster.parallelism) as ex:  # cache is not used here
-            outs = list(ex.map(lambda c: A.adjust(to_ctx(c), cfg=cfg), cases))
+        with ThreadPoolExecutor(CONFIG.adjuster.parallelism) as ex:  # cache and log are off: scoring measures fresh calls
+            outs = list(ex.map(lambda c: A.adjust(to_ctx(c), cfg=cfg, use_cache=False, write_log=False), cases))
         failed = sum(not o.llm_ok for o in outs)
         s = score(cases, outs, f"{a.split} run {run + 1} (prompt {P.PROMPT_VERSION}, LLM failures {failed})", verbose)
         results.append((outs, s))

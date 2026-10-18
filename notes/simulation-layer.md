@@ -107,4 +107,20 @@ The simulator talks to ingest and the engine through a small `RunSink` interface
 
 ## Status
 
-Backend first. Built: models, profiles, generator, pre-roll, player, controller, routes, console run script. Not built: an app that mounts the router and an I12 handler that calls the controller (S2, S6), the form's "Load sample patient" and the dashboard's run button and "Run ended" label (S5, S6), live-mode filler (S3 for C2), the ingest and engine sides of `RunSink` (S2, T5/T6), and the run-mode rules in ingest.
+Backend built, unit-tested and merged. **Integration testing is blocked** until the pieces below exist; it has not been done. What was checked without them: each run replayed through the real risk engine with an emulated 60-second window (results above), the JSON schemas, the I1 wire format, and the routes on a throwaway app.
+
+Built: models, profiles, generator, pre-roll, player, controller, routes, console run script.
+
+## Blocked: integration checks to run later
+
+| Needs | Check |
+| --- | --- |
+| Ingest, S2 | Start a run through an app that mounts the router. Ingest sees readings with `source` simulator, drops strap readings during the run, and still merges strap and simulator in live mode. I13 goes out each second with `run_state` running, then ended; at the end the window is frozen and no I6 rows follow. |
+| Engine `seed_trend_history`, T5/T6 | Called once with 120 rows before the first reading. The personal baseline stays population (the pre-roll must not reach `on_minute`). |
+| Alert logic, T4 | Alerts match the target alerts above: none for H1 and H2, urgent then high for U1, U2, C1, high at once for C2. Alerts stay up after the run ends. |
+| Dashboard and I12 handler, S4/S6 | The run button reaches `controller.start`; the screen shows the last values and "Run ended" after the data stops. |
+| Intake form and service, S5 | Prefill from `GET /sim/profiles/{id}`, `POST /intake`, then a run with the returned patient and the I3 wearable. |
+| Strap, live mode | Run mode ignores a connected strap. Live mode merges real heart rate and breathing with simulated SpO2 and temperature (C2). |
+| Everything | One full 10-minute real-time run from button to "Run ended". |
+
+Not built: an app that mounts the router and an I12 handler that calls the controller (S2, S6), the form's "Load sample patient" and the dashboard's run button and "Run ended" label (S5, S6), live-mode filler (S3 for C2), the ingest and engine sides of `RunSink` (S2, T5/T6), and the run-mode rules in ingest.

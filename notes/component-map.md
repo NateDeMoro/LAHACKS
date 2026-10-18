@@ -102,6 +102,7 @@ Affects S2, S4, S5, T1, B1. Models live in `backend/contracts.py`; JSON Schema i
   - The risk engine gains `seed_trend_history(patient_id, rows)`, taking I6-shaped rows for the trend models only. The personal baseline, alert logic and storage never see them. I6 itself is unchanged.
   - The simulator sends `contact` true with its readings.
   - `scenario_id` in I12 is a run id, one per sample patient.
+  - The simulator is unit-tested only. Integration against ingest, `seed_trend_history`, alert logic and the dashboard waits on those steps (checks in [simulation-layer.md](simulation-layer.md), "Blocked").
 - Open items: I5 rule list, I11 state, I9 fast-model fields (stub sets both trend probabilities null).
 
 ### I1 Vitals reading

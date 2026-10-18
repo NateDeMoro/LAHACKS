@@ -11,6 +11,7 @@ Where to look next:
 | [component-map.md](component-map.md) | Components, owners, interface contracts I1–I15. The source of truth for anything passed between components |
 | [build-order.md](build-order.md) | Parallel lanes, step dependencies, checkpoints C1–C4 |
 | [stack-reference.md](stack-reference.md) | Libraries and tools per component |
+| [simulation-layer.md](simulation-layer.md) | Sample patients, run scripts, trend pre-roll, end of run |
 | [risk-model-training-plan.md](risk-model-training-plan.md) | Datasets, methods and evaluation for every part of the risk engine |
 
 ## Why it matters
@@ -21,8 +22,8 @@ Where to look next:
 
 ## Demo
 
-- **One patient: the wearer.** The Polar H10 strap supplies real heart rate and breathing rate. The simulator fills in SpO2, temperature and the triage blood pressure from the wearer's predicted ranges, shown alongside the real values. The data carries no real/simulated tag; we say which is which in the pitch.
-- **Event buttons.** The dashboard plays scripted scenarios (list decided later), e.g. heart rate rising while breathing rate falls. Any vital the script covers replaces the real reading for the event, then hands back to the strap.
+- **One patient: the wearer, in two modes.** Live mode: the Polar H10 strap supplies real heart rate and breathing rate and the simulator fills in SpO2 and temperature, shown alongside the real values. Run mode: the simulator supplies every vital and the strap is ignored. The data carries no real/simulated tag; we say which is which in the pitch.
+- **Sample patients and runs.** Six fictional patients (two healthy, two at risk, two critical) can prefill the intake form. A dashboard button starts that patient's 10-minute run: every vital follows a script, the trend models get two hours of starting-value history first, and at the end the data stops and the screen shows a pause with alerts still up. See [simulation-layer.md](simulation-layer.md).
 - **Live feel.** Vitals and NEWS2 update every second on the dashboard; trend models and alerts run every minute.
 
 ## Hardware
@@ -40,12 +41,12 @@ The seven NEWS2 parts, plus beat intervals.
 
 | Vital | Source | Cadence |
 | --- | --- | --- |
-| Heart rate | Strap (real) | About 1/s |
+| Heart rate | Strap (real); scripted in a run | About 1/s |
 | Beat intervals | Strap (real) | Every beat |
 | Breathing rate | Computed in the receiver from beat intervals (respiratory sinus arrhythmia) | About 1/s, over a rolling window |
-| SpO2 | Simulated from the wearer's ranges | About 1/s |
-| Temperature | Simulated from the wearer's ranges | About 1/s |
-| Blood pressure | One reading at triage, never repeated (simulated for the demo) | Once |
+| SpO2 | Simulated (filler in live mode, scripted in a run) | About 1/s |
+| Temperature | Simulated (filler in live mode, scripted in a run) | About 1/s |
+| Blood pressure | One reading at triage, never repeated (a sample patient carries it) | Once |
 | Alertness | Nurse enters at triage | Once |
 | On supplemental oxygen | Intake yes/no | Once |
 
@@ -94,6 +95,5 @@ Not targeted:
 ## Open decisions
 
 - Context adjuster rule list (I5).
-- Scenario list for the event buttons (I12).
 - Alert acknowledgment state (I11).
 - Fast-model fields in the risk result (I9): one field for two models, and no field yet for trend reasons.

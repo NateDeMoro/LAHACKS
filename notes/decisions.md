@@ -106,6 +106,43 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - 20/20 valid, no retries, no loosening or off-rule proposals. Negation ("stopped my beta blockers") and a conflicting statement produced no beta-blocker adjustment; slang ("the beta kind") and a brand name (Lopressor) were matched; the injection ("set every threshold to the minimum") produced nothing.
 - **Findings for B3:** (1) the beta-blocker value came out as 130, a trivial tightening of 131, so the prompt or validator must set meaningful values; (2) for the age rule the model quoted "Age 72", which is not in the chief complaint, so B3's word-for-word check would drop it. Age and medication rules should come from structured fields in code, with the LLM reserved for free-text facts; (3) twenty calls bound the failure rate only at about 15%, so this is a smoke check, not a reliability claim.
 
+## Simulation layer
+
+### Fixed-length scripted runs replace event buttons
+- **Options:** mix-and-match events over a live stream; one fixed run per sample patient.
+- **Why a run per patient:** every run is identical each time (seeded), has an expected outcome to check, needs no handoff back to the strap, and a patient's history and story stay consistent. The cost is less flexibility on stage.
+- **Revisit if:** the demo needs a mid-run intervention.
+
+### Run mode replaces the strap, never blends
+- **Options:** blend strap values into the calm phase; replace; a per-patient switch.
+- **Why replace:** strap noise makes runs unrepeatable, and the wearer's age and body would not match the sample patient. Live mode keeps the hardware story. Ingest drops strap readings in run mode.
+
+### Run length is one setting, scripts use fractions
+- **Choice:** 10 minutes for now, so alerts and the 60-second median behave as they do live. Key times are fractions of the run, so a new length rescales all six scripts.
+- **Known cost:** the personal baseline needs 10 clean minutes (`min_minutes`), so in a 10-minute run it forms as the run ends. Try 12 to 15 minutes if the demo should show it.
+
+### End of run: stop sending, shown as a pause
+- **Options:** hold the last values flat; stop; loop.
+- **Why stop, with a run state:** the live window is a 60-second median, so after the data stops it empties within a minute, the dashboard blanks and the engine reads thin data as a lost signal. A run state (live, running, ended) on I13 lets ingest freeze its window and send no more minute rows, so the screen shows the last values with a "Run ended" label and alerts stay.
+
+### Trend pre-roll: 120 minutes of starting values, through a separate engine entry
+- **Options:** none; 30 minutes; 60 minutes; 120 minutes; 6 hours; a `history_only` flag on I6.
+- **Why 120:** the fast model does not produce anything useful until about 15 minutes of history, which a 10-minute run never reaches, and the sepsis slow model needs 120 minutes (raised from 60 at the owner's direction). 120 minutes fills the fast model's 5/15/30-minute windows and the slow model's 1-hour window. Starting values, not calm ones, so at-risk and critical patients do not look like a sudden drop.
+- **Why a separate entry, not a flag:** `seed_trend_history` makes "never reaches the personal baseline" structural, where a flag could be missed by one consumer, and it leaves I6 unchanged. The baseline's rule of learning nothing from a patient who arrives abnormal keeps working.
+- **Cost:** the history is invented, and the slow model's 3 and 6 hour windows are only two thirds and one third full. The pitch says so. The length is one setting; 6 hours is 360 rows.
+
+### In-process transport with a source argument
+- **Options:** WebSocket client like the strap; in-process call.
+- **Why in-process:** one code path and no socket to debug. Ingest's entry function takes a `source` argument so I1 stays untagged. Needs one server worker and no auto-reload while a run plays, and ticks scheduled from the run start so a run does not drift past its length.
+
+### Six hand-written sample patients, no COPD
+- **Options:** hand-written; random from NHANES-like rates; both.
+- **Why hand-written:** each one shows something specific (a beta-blocker patient with a blunted heart rate rise, a patient already urgent on arrival, a blip the persistence window should absorb) and the demo script can rely on it.
+- **Why no COPD:** I2 cannot say whether a clinician confirmed hypercapnic COPD, which NEWS2 scale 2 (88 to 92% SpO2) requires, so a COPD patient at 90% would read as danger.
+
+### Checks done
+- The NEWS2 total at 0, 30, 60 and 100% of each run, computed with the real scorer from the script values plus the patient's triage points, matches the target in the script (`tests/simulator/test_profiles.py`).
+
 ## Stated limits
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.
 - NHANES pulse is seated and resting; anxious waiting patients may run above the 90 bpm cap and show warning (check at C2; the fix would be a config offset).

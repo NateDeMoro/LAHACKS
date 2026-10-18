@@ -154,7 +154,8 @@ def build_population_ranges(ctx: PatientContext | None, rf: RangesFile | None = 
     out["spo2"] = _vital_range("spo2", *clamp_safe("spo2", *SCORE0["spo2"]), [])
     t = ref.get("temp_c")
     if isinstance(t, TempReference) and t.safe_low is not None and t.safe_high is not None:
-        shift = (t.shift_per_decade or 0) * ((feats.get("age", t.ref_age) - (t.ref_age or 0)) / 10)
+        age = feats.get("age")
+        shift = 0.0 if age is None or t.ref_age is None else (t.shift_per_decade or 0) * (age - t.ref_age) / 10
         reasons = []
         if abs(shift) >= MIN_SHIFT["temp_c"]:
             reasons.append(f"typical temperature {abs(shift):.1f} C {'lower' if shift < 0 else 'higher'}: age")

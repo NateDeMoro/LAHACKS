@@ -194,16 +194,18 @@ class AdjustmentEvidence(Model):  # I15
 
 
 class BaselineConfig(Model):
-    """Personal baseline settings (T3). Times are minutes of wall-clock, not row counts."""
-    min_minutes: float | None = None
-    arrival_check_minutes: float | None = None
-    learn_minutes: float | None = None
-    min_clean_seconds: int | None = None
-    n0_min: float | None = None
-    n0_max: float | None = None
-    k: float | None = None
-    spread_floor: dict[str, float] | None = None  # per vital, vital units
-    min_width: dict[str, float] | None = None
+    """Personal baseline settings (T3). Times are minutes of wall-clock, not row counts.
+    Unlike other models these have real defaults (the shipped config.json values) so a missing
+    field can never crash the engine."""
+    min_minutes: float = 10
+    arrival_check_minutes: float = 3
+    learn_minutes: float = 30
+    min_clean_seconds: int = 40
+    n0_min: float = 0.5
+    n0_max: float = 5
+    k: float = 2.5
+    spread_floor: dict[str, float] = {"hr": 5, "resp_rate": 1}  # per vital, vital units
+    min_width: dict[str, float] = {"hr": 16, "resp_rate": 6}
 
 
 class ModelConfig(Model):  # I7 config.json

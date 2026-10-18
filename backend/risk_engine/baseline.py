@@ -20,11 +20,19 @@ class _VitalBaseline:
         self.vital, self.pop, self.mu0, self.cfg = vital, pop, mu0, cfg
         self.samples: list[tuple[float, float]] = []  # (minutes since first clean sample, value)
         self.t0 = None
-        self.status = "learning"  # learning | frozen | skipped
+        self.status, self.why = "learning", ""  # status: learning | frozen | skipped
         self.range = pop
 
+    def rebase(self, pop: VitalRange, mu0: float):
+        """Take a new population range (a later intake) and refit from the samples already seen."""
+        self.pop, self.mu0, self.range = pop, mu0, pop
+        if self.status == "skipped":
+            self._skip(self.why)
+        elif len(self.samples) >= 3 and self.samples[-1][0] >= self.cfg.min_minutes:
+            self._fit(self.samples[-1][0])
+
     def _skip(self, why: str) -> bool:
-        self.status = "skipped"
+        self.status, self.why = "skipped", why
         self.range = self.pop.model_copy(update={"reasons": [*(self.pop.reasons or []), why]})
         return True
 
@@ -64,7 +72,9 @@ class _VitalBaseline:
             low, high = mid - cfg.min_width[v] / 2, mid + cfg.min_width[v] / 2
         low, high = max(low, pop.safe_low), min(high, pop.safe_high)
         if (low, high) == (pop.safe_low, pop.safe_high):
-            return False
+            changed = self.range != pop  # a refit as wide as the population band drops an earlier narrow one
+            self.range = pop
+            return changed
         new = pop.model_copy(update={
             "safe_low": round(low, 1), "safe_high": round(high, 1), "source": "personal",
             "reasons": [*(pop.reasons or []), f"narrowed to your readings over {elapsed:.0f} min"]})
@@ -78,6 +88,12 @@ class PersonalBaseline:
         self.population = population
         self.vitals = {v: _VitalBaseline(v, getattr(population, v), centres[v], cfg) for v in VITALS}
         self.min_clean_seconds = cfg.min_clean_seconds or 0
+
+    def rebase(self, population: PatientRanges, centres: dict[str, float]):
+        """A later intake replaces the population ranges but keeps what was learned so far."""
+        self.population = population
+        for v, b in self.vitals.items():
+            b.rebase(getattr(population, v), centres[v])
 
     def update(self, m: MinuteSummary) -> bool:
         """Feed one I6 row; returns True when the ranges changed."""

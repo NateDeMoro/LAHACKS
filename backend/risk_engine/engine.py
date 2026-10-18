@@ -54,7 +54,11 @@ class RiskEngine:
 
     def _start(self, patient_id: str, population: PatientRanges, centres: dict[str, float]):
         self.intake_ranges[patient_id] = population
-        self.baselines[patient_id] = PersonalBaseline(self.config.baseline, population, centres)
+        if patient_id in self.baselines:  # intake after readings started (or repeated): keep what was learned
+            self.baselines[patient_id].rebase(population, centres)
+        else:
+            self.baselines[patient_id] = PersonalBaseline(
+                self.config.baseline or BaselineConfig(), population, centres)
 
     def on_intake(self, ctx: PatientContext, adjustments: ContextAdjustments | None = None
                   ) -> PatientRanges:

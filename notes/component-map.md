@@ -44,7 +44,7 @@ Inside the risk engine, baseline ranges pass I8 to the personal baseline, scorer
 | Intake service | Systems | Validates and stores the record; medication name → drug class (RXQ_DRUG); builds patient context | I2 | I3, I4 | Hand-written intake records |
 | Context adjuster | Both | step-5-preview reads the full profile + chief complaint; tightens danger limits per vital, allowed rules only; evidence logged separately | I4 | I5, I15 | The ~100 self-written test texts |
 | Evaluation log | Both | Facts + exact quotes per adjustment; scored against the test set | I15 | — | — |
-| Offline training | Stats | NHANES quantile fit; PhysioNet 2019 (slow) and MIMIC-III minutes (fast); eICU replay to tune n₀, windows, cutoffs | Public datasets | I7 | Nothing |
+| Offline training | Stats | NHANES quantile fit; PhysioNet 2019 (slow) and MIMIC-III minutes (fast); eICU replay to tune baseline settings (k, floors), windows, cutoffs | Public datasets | I7 | Nothing |
 | Risk engine | Stats | Python module, entry points at intake, every second (NEWS2), every minute (baseline, trends) | I4, I5, I6, I7, I13 | I8, I9, I14 | I6/I13 rows from eICU and recorded strap data |
 | Alert logic | Stats | Persistence windows; NEWS2 ≥5 urgent, ≥7 high; trend cutoffs; one alert per problem; stays until acknowledged | I9, I11 | I10 | Recorded I9 rows |
 | Nurse dashboard | Systems | Live vitals + NEWS2 each second; reason and NEWS2 points; ranges and trends; acknowledge and event buttons | I8, I9, I10, I13, I14 | I11, I12 | Stub risk engine (plain NEWS2) |

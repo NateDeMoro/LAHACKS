@@ -2,121 +2,64 @@
   "$defs": {
     "BaselineConfig": {
       "additionalProperties": false,
-      "description": "Personal baseline settings (T3). Times are minutes of wall-clock, not row counts.",
+      "description": "Personal baseline settings (T3). Times are minutes of wall-clock, not row counts.\nUnlike other models these have real defaults (the shipped config.json values) so a missing\nfield can never crash the engine.",
       "properties": {
         "min_minutes": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Min Minutes"
+          "default": 10,
+          "title": "Min Minutes",
+          "type": "number"
         },
         "arrival_check_minutes": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Arrival Check Minutes"
+          "default": 3,
+          "title": "Arrival Check Minutes",
+          "type": "number"
         },
         "learn_minutes": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Learn Minutes"
+          "default": 30,
+          "title": "Learn Minutes",
+          "type": "number"
         },
         "min_clean_seconds": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Min Clean Seconds"
+          "default": 40,
+          "title": "Min Clean Seconds",
+          "type": "integer"
         },
         "n0_min": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "N0 Min"
+          "default": 0.5,
+          "title": "N0 Min",
+          "type": "number"
         },
         "n0_max": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "N0 Max"
+          "default": 5,
+          "title": "N0 Max",
+          "type": "number"
         },
         "k": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "K"
+          "default": 2.5,
+          "title": "K",
+          "type": "number"
         },
         "spread_floor": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "type": "number"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Spread Floor"
+          "additionalProperties": {
+            "type": "number"
+          },
+          "default": {
+            "hr": 5,
+            "resp_rate": 1
+          },
+          "title": "Spread Floor",
+          "type": "object"
         },
         "min_width": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "type": "number"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Min Width"
+          "additionalProperties": {
+            "type": "number"
+          },
+          "default": {
+            "hr": 16,
+            "resp_rate": 6
+          },
+          "title": "Min Width",
+          "type": "object"
         }
       },
       "title": "BaselineConfig",

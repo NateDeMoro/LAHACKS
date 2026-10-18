@@ -52,3 +52,10 @@ def test_contract_rejects_nan_and_infinity(model, field):
     for bad in (math.nan, math.inf):
         with pytest.raises(ValueError):
             model(**{field: bad})
+
+
+def test_raw_eicu_row_scores_as_the_chart_does():
+    # eICU stay 197617, offset 4064, scored by hand from the NEWS2 chart: HR 117 -> 2, RR 48 -> 3,
+    # SpO2 93 -> 2, temp 37.7 -> 0
+    _, pts = news2.score(hr=117, resp_rate=48, spo2=93, temp_c=37.7)
+    assert (pts.hr, pts.resp_rate, pts.spo2, pts.temp_c) == (2, 3, 2, 0)

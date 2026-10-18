@@ -23,9 +23,7 @@ def rf():
 
 @pytest.fixture
 def cfg():
-    return BaselineConfig(min_minutes=10, arrival_check_minutes=3, learn_minutes=30, min_clean_seconds=40,
-                          n0_min=0.5, n0_max=5, k=2.5, spread_floor={"hr": 5, "resp_rate": 2},
-                          min_width={"hr": 16, "resp_rate": 6})
+    return BaselineConfig()  # the shipped defaults
 
 
 @pytest.fixture

@@ -30,7 +30,7 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - **Small flags:** a flag with fewer than 300 users (heart failure 259, SNRI 163) gets its median effect applied to all three quantiles, because its outer-quantile estimate is noise (SNRI standard error 2-3 bpm in review).
 
 ### NHANES cleaning
-- Skipped-by-pattern, refused (7) and don't-know (9) answers count as "no"; ages 18-19 have no MCQ items and count as "no"; age is top-coded at 80. Without the skip rule the BP-medication-style items were blank for most adults and the regression would have silently dropped them.
+- Missing BMI is filled with the cohort mean. Skipped-by-pattern, refused (7) and don't-know (9) answers count as "no"; ages 18-19 have no MCQ items and count as "no"; age is top-coded at 80. Without the skip rule the BP-medication-style items were blank for most adults and the regression would have silently dropped them.
 
 ### Population safe band = fitted band ∩ NEWS2 score-0
 - **Options:** use the fitted band as is; intersect with score-0 everywhere; intersect only the low side.
@@ -51,12 +51,12 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 
 ### Prior weight n0 comes from the data, not a tuned constant
 - **Options:** fixed n0 = 10 (training plan); n0 from the variance ratio; centre on the patient's own median.
-- **Why:** with n0 = 10 a patient whose normal HR is 85 (population 70, own spread 3) got a band of about 69-81 and their normal showed as warning for the whole stay. In the conjugate model n0 should be own-variance / between-person-variance; with sigma = own spread and tau = population band width / 3.92 this is about 0.1-0.2 for HR, so n0 is that ratio bounded to 0.5-5.
+- **Why:** with n0 = 10 a patient whose normal HR is 85 (population 70, own spread 3) got a band of about 69-81 and their normal showed as warning for the whole stay. In the conjugate model n0 should be own-variance / between-person-variance; with sigma = own spread and tau = population band width / 3.92 this is below 0.5 for HR (about 0.25 with the floor of 5), so n0 is that ratio bounded to 0.5-5 and the lower bound usually applies.
 - **Revisit if:** replay shows the blend trusting too little or too much data.
 
 ### Band shape: contains the patient's median, k = 2.5, spread floors, minimum widths
-- **Why:** the band is for single minutes, not the mean. Plus/minus 1.96 sigma from 5 minutes flags about 95% of normal patients within an hour, and a median absolute deviation from 5 points underestimates spread. So: half-width = k * sigma * sqrt(1 + 1/(n0 + n)) with k = 2.5, spread floors (HR 5 bpm, breathing 2/min), minimum widths (HR 16, breathing 6), 10 minutes minimum before any personal band, and the band is widened to include the patient's median. The band is clipped to the population band (no sliding), so it can only narrow.
-- **Finding from tests:** with the breathing floor at 2, the band is about 10 wide, wider than the 8-wide population range, so breathing never narrows. The floor needs tuning (T3b).
+- **Why:** the band is for single minutes, not the mean. Plus/minus 1.96 sigma from 5 minutes flags about 95% of normal patients within an hour, and a median absolute deviation from 5 points underestimates spread. So: half-width = k * sigma * sqrt(1 + 1/(n0 + n)) with k = 2.5, spread floors (HR 5 bpm, breathing 1/min), minimum widths (HR 16, breathing 6), 10 minutes minimum before any personal band, and the band is widened to include the patient's median. The band is clipped to the population band (no sliding), so it can only narrow.
+- **Breathing floor (review finding):** with a breathing spread floor of 2 the band was at least 10 wide, wider than the 8-wide population range (12-20), so it only "narrowed" when the patient's median sat near an edge and the clip trimmed it. The floor is now 1 (band about 6 wide, the minimum width), so a steady breather really gets a narrower band (tests/risk_engine/test_baseline.py::test_steady_breathing_gets_a_narrower_band).
 - **Revisit if:** tuning on eICU (5-minute aggregates, so smaller spread than live) or the strap at C2 shows constant warnings or none.
 
 ### Arrival check uses NEWS2 points
@@ -69,14 +69,23 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 ### Windows count time, not rows
 - eICU rows are 5 minutes, live rows 1 minute. Windows and n use `minute_ts` so both behave alike.
 
-### Chosen start values: k = 2.5, floor multiplier 1.0 (HR floor 5, breathing 2; min widths 16 and 6)
-- **Evidence** (`training/tune_baseline.py`, first 4 hours of 1,945 eICU stays: 1,778 survivors, 167 non-survivors): relative to population bands only, k=2.5 / x1.0 raises the survivor flag rate to 1.04x and the non-survivor flag share to 1.01x. Looser settings (k=3.0 with floor x1.5) do almost nothing (1.00x) and never personalize breathing; tighter ones (k=2.0 / x0.5) raise survivor flags to 1.18x. Under the chosen setting a personal HR band forms in 54% of survivor stays and breathing in 33%.
+### Chosen start values: k = 2.5, floor multiplier 1.0 (HR floor 5, breathing 1; min widths 16 and 6)
+- **Evidence** (`training/tune_baseline.py`, first 4 hours of 1,945 eICU stays: 1,778 survivors, 167 non-survivors): relative to population bands only, k=2.5 / x1.0 raises the survivor flag rate to 1.07x and the non-survivor flag share to 1.03x. k=3.0 / x1.0 gives 1.04x / 1.03x; k=2.0 / x0.5 gives 1.19x / 1.04x; x1.5 gives about 1.02x but narrows less. Under the chosen setting a personal HR band forms in 53% of survivor stays and breathing in 42%.
+- **Trade-off seen on the normal-start stay (1048833):** 26 of 220 rows are warnings (12%), mostly breathing against a 15-20 personal band. k = 3.0 would reduce this. We keep 2.5 because eICU is 5-minute aggregates (smaller spread than live) and the sweep cannot show the benefit; C2 on the strap decides.
 - **What this does and does not show:** about 95% of ICU stays are already in warning or danger on HR or breathing under the plain NEWS2 bands, so false-alarm rates and time-to-first-flag cannot separate the settings (median time to first flag is 0 everywhere). The sweep confirms the mechanics and that personalization adds few flags; it cannot show the benefit. The synthetic wearer replay and the strap at C2 are the real tests.
 - **Revisit if:** the strap at C2 shows frequent warnings in a calm wearer (raise k or the floors) or misses a real drift (lower them).
 
+### Other T3 behaviours (added after review)
+- **Late or repeated intake keeps what was learned.** `RiskEngine.on_intake` after readings started rebases the population ranges and refits from the samples seen; it does not reset the baseline.
+- **I8 changes are pushed by callback, not returned.** `on_minute` returns I9 as before, and `engine.ranges_listener(PatientRanges)` is called when a patient's I8 changes, so existing callers (replay, dashboard stand-ins) keep working. Documented in component-map.
+- **BaselineConfig has real defaults** (the shipped values), the one model that breaks the "every field nullable" rule, so a missing setting can never crash the engine.
+- **Known limits, left as is:** one abnormal reading in the first 3 minutes skips that vital for the whole stay, and so does a median outside the population band at the first fit (a stressed arrival that settles stays unpersonalized). A vital can also drop from personal back to population if its median later leaves the band (stay eicu-2621632 does). A simple rule is easier to defend than a retry heuristic we can't tune on this data.
+- **Two minimum widths:** `ranges.py` MIN_WIDTH (HR 20, SBP 20, temperature 0.6) is the narrowest fitted population band we trust before falling back to NEWS2 score-0; the config `min_width` (HR 16, breathing 6) is the narrowest personal band. A personal band may be tighter than a population one because it describes one person.
+
 ### Checks done
-- A raw eICU row (stay 197617, offset 4064: HR 117, RR 48, SpO2 93, temp 37.7) scored by hand from the NEWS2 chart (2, 3, 2, 0 points) matches the engine.
-- One survivor who starts normal (stay 1048833) was added to the fixtures so the personal band has a real stay to learn from: it personalizes at minute 18 and has 10 warning rows of 220. The synthetic wearer (fixtures/wearer_drift_i6.jsonl) personalizes at 15 minutes, freezes at 30, and the later rise reaches warning at 87 bpm.
+- A raw eICU row (stay 197617, offset 4064: HR 117, RR 48, SpO2 93, temp 37.7) scored by hand from the NEWS2 chart (2, 3, 2, 0 points) matches the engine; the case is pinned in tests/risk_engine/test_news2.py.
+- Expired stays replay identically with and without intake (they are in danger from the first rows), so the bands are no later than P0's at flagging them.
+- One survivor who starts normal (stay 1048833) was added to the fixtures so the personal band has a real stay to learn from: it personalizes at minute 18 with 26 warning rows of 220. The synthetic wearer (fixtures/wearer_drift_i6.jsonl) personalizes at 15 minutes, freezes at 30, and the later rise reaches warning at 87 bpm.
 
 ## Stated limits
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.

@@ -153,6 +153,8 @@ A patient who arrives already deteriorating would teach the system that abnormal
 
 ### Tuning and checking n₀
 
+_Superseded: n₀ is now derived from the data and bounded, and tuning targets k and the spread floors. See [decisions.md](decisions.md) (T3 Personal baseline)._
+
 - **Data:** eICU demo, 5-minute vitals for about 2,500 ICU stays with hospital-death labels ([dataset](https://physionet.org/content/eicu-crd-demo/2.0.1/)); vitals present for 94% of stays, checked by download.
 - **Procedure:** replay each stay through the update with n₀ from 3 to 30. For each value, count warnings per patient-hour among survivors (false-alarm proxy) and how often patients who died were flagged at any point.
 - **Choice:** the smallest n₀ that keeps survivor warnings near the population-band rate while not reducing flags in non-survivors.

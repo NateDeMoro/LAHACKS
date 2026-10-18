@@ -51,11 +51,43 @@ def test_danger_edges_never_move(cfg, pop):
     assert (b.ranges.hr.danger_low, b.ranges.hr.danger_high) == (40, 131)
 
 
-def test_prior_weight_follows_the_variance_ratio(cfg, pop):
-    # a very steady patient trusts their own data (n0 at its floor): the band centres on their level
+def test_very_steady_patient_band_centres_on_their_own_level(cfg, pop):
     b = make(cfg, pop, mu0=60)
     feed(b, steady(80, 12, sd=0.1))
     assert abs((b.ranges.hr.safe_low + b.ranges.hr.safe_high) / 2 - 80) < 2
+
+
+def test_steady_breathing_gets_a_narrower_band(cfg, pop):
+    b = make(cfg, pop)
+    feed(b, [75.0] * 15, rrs=steady(16, 15, sd=0.3))
+    rr = b.ranges.resp_rate
+    assert rr.source == "personal" and rr.safe_high - rr.safe_low < 8
+
+
+def test_default_config_has_every_setting():
+    c = BaselineConfig()
+    assert c.k and c.spread_floor["resp_rate"] and c.min_width["hr"] and c.learn_minutes
+
+
+def test_late_intake_keeps_what_was_learned():
+    eng = RiskEngine()
+    for i, hr in enumerate(steady(72, 20)):
+        eng.on_minute(minute(i, hr=hr))  # readings arrive before any intake
+    assert eng.ranges["p"].hr.source == "personal"
+    eng.on_intake(ctx())
+    assert eng.ranges["p"].hr.source == "personal"
+    assert eng.intake_ranges["p"].hr.source == "population"
+    eng.on_intake(ctx())  # a repeated intake does not reset either
+    assert eng.ranges["p"].hr.source == "personal"
+
+
+def test_late_intake_keeps_a_skipped_vital_skipped():
+    eng = RiskEngine()
+    for i in range(20):
+        eng.on_minute(minute(i, hr=95.0))  # scores NEWS2 points on arrival
+    eng.on_intake(ctx())
+    assert eng.ranges["p"].hr.source == "population"
+    assert "abnormal on arrival" in " ".join(eng.ranges["p"].hr.reasons)
 
 
 def test_spread_floor_and_min_width_hold_on_a_flat_signal(cfg, pop):
@@ -66,9 +98,6 @@ def test_spread_floor_and_min_width_hold_on_a_flat_signal(cfg, pop):
 
 
 def test_abnormal_on_arrival_is_skipped_per_vital(cfg, pop):
-    # with the starting RR floor of 2 the band (about 10 wide) is wider than 12-20, so breathing would
-    # never narrow; a floor of 1 stands in for the tuned value
-    cfg = cfg.model_copy(update={"spread_floor": {"hr": 5, "resp_rate": 1}})
     b = make(cfg, pop)
     feed(b, [95.0] + steady(95, 20), rrs=[16.0] * 21)  # HR 95 scores 1; breathing is fine
     assert b.ranges.hr.source == "population"

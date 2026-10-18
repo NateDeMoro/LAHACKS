@@ -1,9 +1,9 @@
-# Waiting-Room Triage Agent
+# Rider Triage Agent (waiting room)
 
 ![tag:innovationlab](https://img.shields.io/badge/innovationlab-3D8BD3) ![tag:hackathon](https://img.shields.io/badge/hackathon-5F43F1)
 
-Agent name: `waiting-room-triage`
-Address: `agent1q...` (fill in from the agent's startup log)
+Agent name: `rider-triage`
+Address: `agent1q0gpg656yj08w8ssyy8d3lwnygthzhmszpe3wwxwr2dystersw8fgxl3xf8`
 
 ## What it does
 A triage assistant for an ER waiting room monitored by wearable sensors, driven entirely from ASI:One chat. A nurse can:
@@ -18,7 +18,7 @@ Example prompts:
 ## Agents (all registered on Agentverse, all use messages between agents)
 | Agent | Role |
 |---|---|
-| `waiting-room-triage` (this one) | The only agent users talk to. Chat Protocol with ASI:One tool calling. Reads the board and starts intakes through the backend. |
+| `rider-triage` (this one) | The only agent users talk to. Chat Protocol with ASI:One tool calling. Reads the board and starts intakes through the backend. |
 | `rider-intake` | Applies the reviewed table rules to an intake and looks up typed conditions. Asks the evidence agent for a draft for each real condition, in parallel. |
 | `rider-evidence` | Searches PubMed for one condition and drafts a cited, warning-only limit from the preset menu, or abstains. |
 
@@ -32,7 +32,7 @@ Per-clinic subscription for the monitoring dashboard, with the agent as an inclu
 2. Start the backend with agents on: `USE_AGENTS=1 uv run --group agent --env-file .env uvicorn backend.app:create_app --factory --port 8000` (omit `USE_AGENTS` to run everything in-process).
 3. Start the three agents: `./scripts/run_agents.sh` (ports 8001-8003, logs in `logs/agents/`).
 4. Register them as mailbox agents: `uv run --group agent --env-file .env python scripts/connect_agents.py`.
-5. ASI:One test: in asi1.ai enable Agents, find `waiting-room-triage`, and ask one of the example prompts.
+5. ASI:One test: in asi1.ai enable Agents, find `rider-triage`, and ask one of the example prompts.
 6. Keep the backend and the agents running during any test; a mailbox only delivers while the agent process is up.
 
 ## Devpost deliverables

@@ -5,7 +5,7 @@ import sys
 
 import httpx
 
-AGENTS = {"waiting-room-triage": 8001, "rider-intake": 8002, "rider-evidence": 8003}
+AGENTS = {"rider-triage": 8001, "rider-intake": 8002, "rider-evidence": 8003}
 
 
 def main() -> int:

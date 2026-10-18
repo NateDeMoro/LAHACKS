@@ -24,8 +24,8 @@ SYSTEM = (
     "warning level only. If a condition was not found or nothing changed, say that. Advice is advisory; the nurse decides."
 )
 
-agent = Agent(name="waiting-room-triage", seed=os.getenv("AGENT_SEED", "dev-seed-change-me"), port=8001, mailbox=True,
-              handle_messages_concurrently=True, readme_path="agent/README.md",
+agent = Agent(name="rider-triage", seed=os.getenv("AGENT_SEED", "dev-seed-change-me"), port=8001, mailbox=True,
+              handle="rider-triage", handle_messages_concurrently=True, readme_path="agent/README.md",
               description="Waiting-room triage assistant: who needs a recheck, and add a patient with typed conditions.")
 chat = Protocol(spec=chat_protocol_spec)
 

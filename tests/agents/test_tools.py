@@ -47,6 +47,23 @@ def test_submit_picks_the_lowest_free_wearable_and_sends_only_what_was_given(mon
     assert out["patient_id"] == "pt-1"
 
 
+def test_submit_prefers_a_chat_bed_over_the_strap_and_scenario_beds(monkeypatch):
+    sent = {}
+
+    async def get(path):
+        return [{"wearable_id": 1, "patient_id": None}, {"wearable_id": 101, "patient_id": None},
+                {"wearable_id": 202, "patient_id": None}, {"wearable_id": 201, "patient_id": None}]
+
+    async def post(path, body):
+        sent.update(body)
+        return {"patient_id": "pt-2"}
+
+    monkeypatch.setattr(tools, "_get", get)
+    monkeypatch.setattr(tools, "_post", post)
+    asyncio.run(tools.submit_intake(30, "female"))
+    assert sent["wearable_id"] == 201
+
+
 def test_submit_reports_when_no_wearable_is_free(monkeypatch):
     async def get(path):
         return [{"wearable_id": 1, "patient_id": "taken"}]

@@ -53,9 +53,9 @@ async def _post(path: str, body: dict):
 
 
 async def _free_wearable() -> int | None:
-    """The real strap if nobody wears it, else any free simulated one."""
+    """A free chat bed (ids from 200) first, so the strap and the scenario beds stay as they are; else any free one."""
     free = [w["wearable_id"] for w in await _get("/intake/wearables") if not w.get("patient_id")]
-    return min(free) if free else None
+    return min(free, key=lambda w: (w < 200, w)) if free else None
 
 
 async def submit_intake(age: float, sex: str, conditions: list[str] | None = None, chief_complaint: str | None = None,

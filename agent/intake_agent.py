@@ -13,7 +13,7 @@ SEED = os.getenv("AGENT_SEED", "dev-seed-change-me")
 EVIDENCE = role_address(SEED, "evidence")
 
 agent = Agent(name="rider-intake", seed=role_seed(SEED, "intake"), port=8002, mailbox=True,
-              handle_messages_concurrently=True, readme_path="agent/README_intake.md",
+              handle="rider-intake", handle_messages_concurrently=True, readme_path="agent/README_intake.md",
               description="Applies context rules to a new waiting-room intake and looks up typed conditions.")
 caller, proto = Caller(), Protocol("rider-intake", "0.1")
 

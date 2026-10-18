@@ -55,7 +55,7 @@ Inside the risk engine, baseline ranges pass I8 to the personal baseline, scorer
 | Nurse dashboard | Systems | Live vitals + NEWS2 each second; reason and NEWS2 points; ranges and trends; acknowledge, run buttons and a "Run ended" label | I8, I9, I10, I13, I14 | I11, I12 | Stub risk engine (plain NEWS2) |
 | Condition resolver | Both | Normalizes typed conditions (one model call), looks each up in public vocabularies, matches a table rule; ambiguous matches go back to the nurse as a question | I2 custom conditions, I4 | I16 | Hand-written typed conditions |
 | Evidence step | Both | For a real condition with no table rule: code searches PubMed and fetches abstracts, one model call picks a vital, a bound and a menu step (never a number) with supporting passages, runs the code gates; evidence is saved and reused per condition | I16, limit menu (I7) | I17 | The sources already in `rules.json` |
-| Fetch.ai agents | Systems | ASI:One chat entry (coordinator `waiting-room-triage`), intake agent and evidence agent on Agentverse; the backend bridge sends adjust and condition requests to them and falls back in-process. No messaging, no acknowledge, no ranking from the new tools. See agentic-llm-plan.md, "Fetch.ai agents" | I9, I10, intake routes, I2, I4, I5, I15, I16, I17 | Chat answers | Stored I9 rows |
+| Fetch.ai agents | Systems | ASI:One chat entry (coordinator `rider-triage`), intake agent and evidence agent on Agentverse; the backend bridge sends adjust and condition requests to them and falls back in-process. No messaging, no acknowledge, no ranking from the new tools. See agentic-llm-plan.md, "Fetch.ai agents" | I9, I10, intake routes, I2, I4, I5, I15, I16, I17 | Chat answers | Stored I9 rows |
 
 ## Interface contracts
 

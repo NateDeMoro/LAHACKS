@@ -78,7 +78,7 @@ class AgentsConfig:
     falls back to the in-process code whenever an agent does not answer."""
     enabled: bool = os.environ.get("USE_AGENTS") == "1"
     seed: str = os.environ.get("AGENT_SEED", "dev-seed-change-me")  # specialist seeds derive from it
-    bridge_port: int = 8010  # the backend's own agent, which sends the requests
+    bridge_port: int = int(os.environ.get("AGENT_BRIDGE_PORT", "8010"))  # the backend's own agent, which sends the requests
     accept_s: float = 20.0  # the peer must say "accepted" within this, or it counts as down
     adjust_s: float = 120.0
     conditions_s: float = 300.0  # lookup plus the slowest draft; a live evidence step took 85 s
@@ -89,7 +89,8 @@ class BedConfig:
     """Bed label per wearable, used in alert messages."""
     labels: dict[int, str] = field(default_factory=lambda: {1: "Polar H10", 101: "Wearable 1", 102: "Wearable 2",
                                                              103: "Wearable 3", 104: "Wearable 4", 105: "Wearable 5",
-                                                             106: "Wearable 6"})
+                                                             106: "Wearable 6", 201: "Chat bed 1", 202: "Chat bed 2",
+                                                             203: "Chat bed 3", 204: "Chat bed 4"})  # 20x: patients added from chat
 
 
 @dataclass(frozen=True)

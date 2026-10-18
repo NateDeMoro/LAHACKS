@@ -11,7 +11,7 @@ from agent.wire import role_seed
 SEED = os.getenv("AGENT_SEED", "dev-seed-change-me")
 
 agent = Agent(name="rider-evidence", seed=role_seed(SEED, "evidence"), port=8003, mailbox=True,
-              handle_messages_concurrently=True, readme_path="agent/README_evidence.md",
+              handle="rider-evidence", handle_messages_concurrently=True, readme_path="agent/README_evidence.md",
               description="Drafts a cited, warning-only limit for a medical condition from PubMed abstracts.")
 proto = Protocol("rider-evidence", "0.1")
 

@@ -83,6 +83,7 @@ class IngestConfig:
         "hr": (20, 250), "resp_rate": (3, 60), "spo2": (50, 100), "temp_c": (30, 45)})
     default_assignments: dict[int, str] = field(default_factory=lambda: {ReceiverConfig.wearable_id: "demo-001"})
     store_path: str = os.environ.get("INGEST_STORE_PATH", "data/ingest.sqlite")
+    tiger_data_url: str = os.environ.get("TIGER_DATA_URL", "")  # empty = no Tiger Data mirror
     unassigned_log_every_s: float = 30.0
     disabled_vitals: tuple[str, ...] = ()  # breathing re-enabled for the demo (was ("resp_rate",)); list a vital here to drop it from both sources
 

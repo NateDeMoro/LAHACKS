@@ -13,6 +13,7 @@ from backend.contracts import ScenarioTrigger
 from backend.ingest.hub import DashboardHub
 from backend.ingest.service import IngestService
 from backend.ingest.store import Store
+from backend.ingest.tiger import TigerMirror, build_router as build_tiger_router
 from backend.ingest.wire import BadMessage, parse_envelope
 from backend.intake.routes import build_router as build_intake_router
 from backend.intake.service import IntakeService
@@ -31,9 +32,17 @@ def create_app(engine: RiskEngine | None = None, store_path: str | Path | None =
     engine = engine or RiskEngine()
     alerts = AlertLogic(engine.config.alerts, engine.bed_label)
     store = Store(store_path or CONFIG.ingest.store_path)
+    tiger = TigerMirror(CONFIG.ingest.tiger_data_url) if CONFIG.ingest.tiger_data_url else None
+    sink = store
+    if tiger:
+        class FanOut:  # IngestService only calls write()
+            def write(self, *args, **kwargs):
+                store.write(*args, **kwargs)
+                tiger.write(*args, **kwargs)
+        sink = FanOut()
     hub_ref: list[DashboardHub] = []  # the service needs hub.publish and the hub needs service.on_ack
     registry = PatientRegistry()
-    service = IngestService(engine, alerts, lambda t, m: hub_ref[0].publish(t, m), store,
+    service = IngestService(engine, alerts, lambda t, m: hub_ref[0].publish(t, m), sink,
                             on_drop=lambda pid: hub_ref[0].forget(pid), on_risk=registry.add_history)
     sim_wearables = set(CONFIG.simulator.scenario_wearable_ids)
     intake = IntakeService(engine, lambda a: service.assign(a.wearable_id, a.patient_id),
@@ -54,6 +63,8 @@ def create_app(engine: RiskEngine | None = None, store_path: str | Path | None =
     @contextlib.asynccontextmanager
     async def lifespan(_app):
         tasks = [asyncio.create_task(store.run()), asyncio.create_task(service.run())]
+        if tiger:
+            tasks.append(asyncio.create_task(tiger.run()))
         try:
             yield
         finally:
@@ -65,6 +76,8 @@ def create_app(engine: RiskEngine | None = None, store_path: str | Path | None =
     app = FastAPI(lifespan=lifespan)
     app.include_router(build_router(controller))
     app.include_router(build_intake_router(intake))
+    if tiger:
+        app.include_router(build_tiger_router(tiger))
 
     def call_in(patient_id: str) -> None:
         if registry.get(patient_id).simulated:

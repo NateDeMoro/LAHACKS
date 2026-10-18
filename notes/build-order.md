@@ -80,7 +80,7 @@ Read left to right: everything in one column can be built at the same time. A ch
 | **C3 Real risk engine** | Both | S5, T4, B3 | A typed intake changes the wearer's ranges, and live scoring and alerts run on the real engine |
 | S6 Run buttons | Systems | C3 | The intake form prefills a sample patient and a dashboard button starts its run; scores react and the end shows as a pause |
 | Step A Trend wiring | Stats | T3 | I9 carries per-vital levels and trend fields (null with the stub), I10/I11 contracts and typed alert/trend config exist, `trend.py` and a stub `fast_model.py` are wired into the engine. Done: backend/risk_engine/trend.py, tests/risk_engine/test_trend.py |
-| T6 Fast trend model | Stats | Step A | The 15 min model (or the better simple baseline) replaces the stub; beats both baselines or a baseline ships; tier and reason appear in I9 |
+| T6 Fast trend model | Stats | Step A | The 15 min model (or the better simple baseline) replaces the stub; beats both baselines or a baseline ships; tier and reason appear in I9. Done: distance baseline ships (LightGBM lost on held-out MIMIC); training/, backend/risk_engine/fast_features.py, fast_model.py |
 | S8 Add-ons | Systems | any time | Tiger Data stores readings, Sentry tracing + logs, hosted on Vultr behind a domain, Fetch.ai agent answers in ASI:One |
 | **C4 Full demo** | Both | S6 (T6, S8 if done) | The demo script runs start to finish without touching code |
 

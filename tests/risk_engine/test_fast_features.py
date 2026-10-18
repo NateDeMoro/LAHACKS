@@ -53,3 +53,20 @@ def test_baseline_scores_rank_closer_higher():
     falling = {"hr": (t, [75] * 35), "resp_rate": (t, [16] * 35), "spo2": (t, [97 - 0.4 * i for i in t[:35]])}
     assert ff.extrapolation_score(ff.compute_features(falling, 34)) > ff.extrapolation_score(f_far)
     assert ff.distance_score({}) == -1e9
+
+
+def test_live_model_matches_training_features():
+    """fast_model.predict (live TrendHistory) gives the same score as the training path on the same minutes."""
+    from datetime import datetime, timedelta, timezone
+
+    from backend.risk_engine import fast_model
+    from backend.risk_engine.trend import Row, TrendHistory
+    t0 = datetime(2026, 10, 18, tzinfo=timezone.utc)
+    sp = [97 - 0.3 * i for i in range(40)]
+    h = TrendHistory()
+    for i in range(40):
+        h.rows.append(Row(t0 + timedelta(minutes=i), 72.0, 15.0, sp[i]))
+    t = list(range(40))
+    f = ff.compute_features({"hr": (t, [72.0] * 40), "resp_rate": (t, [15.0] * 40), "spo2": (t, sp)}, 39)
+    score, reason = fast_model.predict(h)
+    assert score == ff.distance_score(f) and reason == "SpO2 falling"

@@ -68,18 +68,24 @@ def compute_features(series: dict, now: float) -> dict:
     return out
 
 
-def distance_score(f: dict) -> float:
-    """Baseline 1. Use when scoring by closeness to danger: the closest any vital's 5-minute median sits to a
-    danger edge, in units of that vital's 15-minute spread (floored); higher means closer. Max over vitals and edges."""
-    best = -math.inf
+def distance_detail(f: dict) -> tuple[float, str | None, str | None]:
+    """Baseline 1 with its driver. Use when scoring by closeness to danger: the closest any vital's 5-minute median
+    sits to a danger edge, in units of that vital's 15-minute spread (floored); higher means closer. Max over vitals
+    and edges. Returns (score, vital, "low" or "high")."""
+    best, who = -math.inf, (None, None)
     for v in VITALS:
         spread = f.get(f"{v}_15_spread", math.nan)
         scale = max(SPREAD_FLOOR[v], spread) if math.isfinite(spread) else SPREAD_FLOOR[v]
-        for suffix in ("dlow", "dhigh"):
+        for suffix, edge in (("dlow", "low"), ("dhigh", "high")):
             d = f.get(f"{v}_5_{suffix}", math.nan)
-            if math.isfinite(d):
-                best = max(best, -d / scale)
-    return best if math.isfinite(best) else -1e9
+            if math.isfinite(d) and -d / scale > best:
+                best, who = -d / scale, (v, edge)
+    return (best, *who) if math.isfinite(best) else (-1e9, None, None)
+
+
+def distance_score(f: dict) -> float:
+    """Baseline 1 score only (see distance_detail). Use when ranking minutes by closeness to danger."""
+    return distance_detail(f)[0]
 
 
 def extrapolation_score(f: dict, horizon: float = 15.0) -> float:

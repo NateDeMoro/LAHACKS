@@ -275,6 +275,47 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 ### Known gaps
 - Sample patients carry no `drug_classes` until the S5 lookup exists, and the guide never fires from the medication list alone, so U1 and C1 lose beta_blocker for now. chemo_fever is missed for C2 (capecitabine, no mention of chemo in the complaint); that matches the guide.
 
+## T6 Fast trend model (training/, backend/risk_engine/fast_features.py, fast_model.py)
+
+### MIMIC-III sample: seeded random, 300 patients, up to 2 records each, one-per-second records kept
+- **Speed:** 10 records (3.7 MB) took 41 s at about 90 KB/s with 10 workers. The full pull ran 24 workers (about 190-250 KB/s overall, 19% of fetches timing out at 60 s, retried by rerun): 375 of 450 records and 781 MB in 56 min, then a second pass with 8 workers added about 110 MB before it was stopped. 448 complete records (from 300 sampled patients) were used; 2 partial files were ignored. Once-a-second records were not capped (222 of 634 segments).
+- **Sample is seeded** (`--seed 0`), so the same patients come back on a rerun.
+
+### Cleaning filters and counts (448 records read)
+- 11 records lacked HR, breathing or SpO2 and were skipped; 228 gap splits (> 10 min with none of the three vitals); 23 segments under 50 minutes dropped; physiologic limits reused from `build_eicu_fixtures.LIMITS` (zeros from probe-off fall outside and become null; PULSE fills only where HR is null); 2,228 SpO2 minutes nulled by the artifact filter (a fall of more than 10 points from the last accepted value, for at most 4 consecutive minutes, so a sustained low is kept).
+- **Neonate / mostly-in-danger filter:** first-hour median HR > 130 or breathing > 30, or > 40% of minutes in danger. It dropped 119 of 634 segments (281,901 of 1,263,308 minutes). It also removes some very sick adults; accepted, because the label is undefined for people who are already in danger.
+- **Kept:** 515 segments, 259 patients, 981,407 minutes. One-second records collapse to a minute median needing >= 30 of 60 samples.
+- **Source-rate check** (kept minutes): once-a-second vs once-a-minute records have similar medians (HR 81 vs 84, breathing 18 vs 18, SpO2 98 vs 98) and event rates (12.4 vs 12.9 per 100 h), so the two are pooled.
+
+### Label (15 minutes ahead, NEWS2 score 3)
+- As in the plan: danger = HR <= 40 or >= 131, breathing <= 8 or >= 25, SpO2 <= 91 (the engine's own bands); an event is 5 consecutive observed minutes, a null minute breaks the run; onset within 15 minutes; negatives need 15 observed minutes per vital in the next 20; in-event and 30 minutes after excluded; rows start at the 15th observed minute.
+- **Result:** 658,999 labeled rows, 22,434 positives (3.4%), 2,064 fresh events. Events by vital: breathing 1,513, SpO2 557, HR 53 (HR positives come from only 17 patients). The model is therefore mostly a breathing and SpO2 model; HR is too rare to say anything about.
+- **Eyeballed 20 random positives:** the SpO2 ones look right (a slide or dips to 90-91 sustained 5+ minutes); most breathing ones are patients hovering at 22-26/min who tip over 25 for 5 minutes, i.e. real by the label but near-threshold noise; two are low-breathing runs (<= 8). One positive's displayed window was mostly null for SpO2 (valid because other vitals were observed).
+
+### Features: 60 per minute, two dropped for train/serve parity
+- Median, slope, spread, min, max over 5/15/30 min by timestamp, plus distance of the median to each danger edge; a window with < 60% of its minutes observed is NaN.
+- **Dropped:** change versus the first 15 minutes (means "since arrival" live, "since some gap" in MIMIC) and missing-data fractions (live SpO2 is simulated and never missing).
+
+### Baselines and ship rule
+- **Distance:** closest 5-min median to any edge divided by max(15-min spread, floor 5/1/1 for HR/breathing/SpO2), max over vitals and edges. **Extrapolation:** 5-min median plus 15 x the 15-min slope, overshoot past an edge in raw units, max over vitals.
+- **Setup:** 80% / 20% patient split (207 / 52 patients, seed 0), 5-fold patient-grouped CV for LightGBM (patient-weighted, scale_pos_weight, early stopping on AUPRC), cutoffs matched on training patients to partial-NEWS2 >= 5 alerts per monitored hour (0.716/h; held-out 0.655/h; SBP held 30 min from the last NBP). Alerts have a 15-minute refractory period.
+- **Held-out (388 events):**
+
+| Method | Alerts/h | Minutes of warning | Share detected | AUPRC |
+| --- | --- | --- | --- | --- |
+| LightGBM | 0.95 | 19.5 [15.2, 23.2] | 0.48 [0.38, 0.56] | 0.158 |
+| Distance | 0.69 | 26.6 [23.8, 29.0] | 0.76 [0.70, 0.80] | 0.107 |
+| Extrapolation | 0.71 | 23.5 [20.9, 26.1] | 0.73 [0.67, 0.78] | 0.062 |
+| Hourly nurse recheck | 1.0 | 0 | 0.16 | |
+
+- **Ships: the distance baseline** (better of the two on training patients). LightGBM has the best AUPRC (it ranks all minutes better) but alerts more often on held-out than its OOF-matched cutoff promised and warns less at the same budget; the paired bootstrap says it is worse (warning -11 to -3 min, detected -0.35 to -0.21). Distance vs extrapolation overlap on held-out, so that choice is close.
+- **Cutoff:** distance score -0.47 (about half a spread inside the edge), stored as `trend.fast_warning_cutoff`. I9 `trend_prob_fast` carries the score, not a probability. At stricter budgets (0.25/h and 0.5/h) distance still warns 9.6 and 18.7 min on average.
+- **Warning only**, raise-only, reasons from the driving vital and edge ("SpO2 falling" vs "SpO2 near danger").
+
+### Known skews
+- Strap breathing rate is not the impedance RESP in MIMIC; SpO2 is simulated in the demo; the label uses fixed NEWS2 limits while live levels use personal ranges; ICU patients sit near edges so the matched cutoff is tight; the eICU second check from section 4b is dropped (5-minute spacing cannot feed timestamp windows).
+- **Demo consequence:** the distance baseline ignores slope, so on the gradual demo slide (`fixtures/fast_spo2_drop_i6.jsonl`, 97 to 90 over 20 minutes) the score reaches the cutoff only about at SpO2 91, and the trend tier never appears before the danger level. Extrapolation (cutoff 3.26) would warn near SpO2 94. Left as shipped per the rule; revisit at C3.
+
 ## Stated limits
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.
 - NHANES pulse is seated and resting; anxious waiting patients may run above the 90 bpm cap and show warning (check at C2; the fix would be a config offset).

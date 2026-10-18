@@ -71,15 +71,15 @@ def test_raise_only(model):
 
 
 def test_below_cutoff_leaves_level_alone(model):
-    model["out"] = (0.2, "x")
+    model["out"] = (-9.0, "x")  # the shipped baseline scores closeness; the cutoff is in models/config.json
     r = run([row(i) for i in range(16)])[-1]
-    assert r.level == "safe" and r.trend_prob_fast == 0.2 and r.trend_tier is None
+    assert r.level == "safe" and r.trend_prob_fast == -9.0 and r.trend_tier is None
 
 
-def test_stub_returns_nothing():
+def test_shipped_baseline_calm_patient_gets_score_but_no_tier():
     res = run([row(i) for i in range(20)])
-    assert all(r.trend_prob_fast is None and r.trend_tier is None and r.trend_reason_fast is None
-               for r in res)
+    assert all(r.trend_prob_fast is None for r in res[:15])
+    assert all(r.trend_prob_fast is not None and r.trend_tier is None and r.level == "safe" for r in res[15:])
 
 
 def test_model_returning_none(model):
@@ -96,15 +96,10 @@ def test_throwing_model_is_logged_once(model, caplog):
     assert len([x for x in caplog.records if "fast trend model failed" in x.message]) == 1
 
 
-def test_missing_lightgbm_import(monkeypatch, tmp_path, caplog):
-    path = tmp_path / "fast_15.txt"
-    path.write_text("")
-    monkeypatch.setattr(fast_model, "MODEL_PATH", path)
+def test_baseline_needs_no_lightgbm(monkeypatch):
     monkeypatch.setitem(sys.modules, "lightgbm", None)  # makes `import lightgbm` raise ImportError
-    with caplog.at_level(logging.WARNING):
-        assert fast_model.load() is False
-    assert "lightgbm" in caplog.text
-    assert all(r.trend_prob_fast is None for r in run([row(i) for i in range(20)]))
+    assert fast_model.load() is True
+    assert run([row(i) for i in range(20)])[-1].trend_prob_fast is not None
 
 
 def test_stale_news2_is_nulled():

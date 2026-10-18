@@ -55,7 +55,7 @@ Inside the risk engine, baseline ranges pass I8 to the personal baseline, scorer
 | Nurse dashboard | Systems | Live vitals + NEWS2 each second; reason and NEWS2 points; ranges and trends; acknowledge, run buttons and a "Run ended" label | I8, I9, I10, I13, I14 | I11, I12 | Stub risk engine (plain NEWS2) |
 | Condition resolver | Both | Normalizes typed conditions (one model call), looks each up in public vocabularies, matches a table rule; ambiguous matches go back to the nurse as a question | I2 custom conditions, I4 | I16 | Hand-written typed conditions |
 | Evidence step | Both | For a real condition with no table rule: code searches PubMed and fetches abstracts, one model call picks a vital, a bound and a menu step (never a number) with supporting passages, runs the code gates; evidence is saved and reused per condition | I16, limit menu (I7) | I17 | The sources already in `rules.json` |
-| Fetch.ai agents (deferred) | Systems | Later: ASI:One chat wrapping the intake and simulator routes (see agentic-llm-plan.md, "Later: Fetch.ai"). No messaging, no acknowledge, no ranking | I9, I10, intake and simulator routes | Chat answers | Stored I9 rows |
+| Fetch.ai agents | Systems | ASI:One chat entry (coordinator `waiting-room-triage`), intake agent and evidence agent on Agentverse; the backend bridge sends adjust and condition requests to them and falls back in-process. No messaging, no acknowledge, no ranking from the new tools. See agentic-llm-plan.md, "Fetch.ai agents" | I9, I10, intake routes, I2, I4, I5, I15, I16, I17 | Chat answers | Stored I9 rows |
 
 ## Interface contracts
 
@@ -374,5 +374,5 @@ Emitted only when every gate passes: the IDs resolve, titles match, the passage 
 - The simulator is run-based (six sample patients, a fixed-length run each) rather than event buttons; see [simulation-layer.md](simulation-layer.md).
 - The context adjustment rule list is decided (B2, `models/rules.json`).
 - T5 (slow sepsis model) is dropped; there are no Photon or ElevenLabs channels, alerts are dashboard only.
-- The Fetch.ai agents are deferred. When built they have no messaging, no acknowledge from chat (I11 stays dashboard only) and no recheck ranking; risk shows as level colors and open alerts. Drafted rules are on from the start with one kill-switch flag ([agentic-llm-plan.md](agentic-llm-plan.md)).
+- The Fetch.ai agents are built (`agent/`). They have no messaging, no acknowledge from chat (I11 stays dashboard only) and no recheck ranking; risk shows as level colors and open alerts. Drafted rules are on from the start with one kill-switch flag ([agentic-llm-plan.md](agentic-llm-plan.md)).
 - Affected by I2, I4, I5, I15, I16, I17: intake form (custom conditions input), intake service, schema export, `ranges.py` (warning tier), and `GET /intake/{patient_id}`, which adds I16 and drafted items. The dashboard needs no change: the "unreviewed" label rides the I8 reasons.

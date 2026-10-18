@@ -45,9 +45,15 @@ def create_app(engine: RiskEngine | None = None, store_path: str | Path | None =
     service = IngestService(engine, alerts, lambda t, m: hub_ref[0].publish(t, m), sink,
                             on_drop=lambda pid: hub_ref[0].forget(pid), on_risk=registry.add_history)
     sim_wearables = set(CONFIG.simulator.scenario_wearable_ids)
+    agent_fns = {}
+    if CONFIG.agents.enabled:  # the adjuster and condition steps run in the Fetch.ai agents, in-process on failure
+        from backend.agent_bridge import AgentBridge, agent_fns as make_fns
+        bridge = AgentBridge()
+        bridge.start()
+        agent_fns = dict(zip(("adjust_fn", "condition_fn"), make_fns(bridge)))
     intake = IntakeService(engine, lambda a: service.assign(a.wearable_id, a.patient_id),
                            on_submit=lambda ctx: registry.upsert(ctx, engine.bed_label(ctx.patient_id),
-                                                                 ctx.wearable_id in sim_wearables))
+                                                                 ctx.wearable_id in sim_wearables), **agent_fns)
     scenario = ScenarioRunner(service, intake, registry)
     controller = SimController(service, scenario=scenario)
 

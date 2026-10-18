@@ -136,10 +136,11 @@ Findings pinned by tests:
 - Open risk: a patient whose resting reading is already past a drafted edge (HR 88 against a drafted 85) stays in warning and a warning alert opens at 10 minutes and never clears, because the baseline will not learn from an out-of-range level.
 - Unverified: StepFun accepting `maxLength` and `maxItems` in the strict schema; the full model-plus-PubMed path end to end.
 
-## Later: Fetch.ai
+## Fetch.ai agents
 
-Deferred; nothing above depends on it. The Fetch.ai track needs four registered agents (coordinator, intake, evidence, monitor), the Chat Protocol and an Agentverse mailbox, with the whole primary workflow running in ASI:One and no custom frontend. Steps F1–F3 in [build-order.md](build-order.md) describe it. Choices made now so the wrap stays thin:
+Built after the condition path; nothing above depends on it. Three agents (coordinator `waiting-room-triage`, `rider-intake`, `rider-evidence`) are registered on Agentverse with mailboxes. The coordinator is the only chat entry; it starts intakes and reads cards through the backend routes. The backend's bridge (`backend/agent_bridge.py`, on with `USE_AGENTS=1`) sends adjust and condition requests to the intake agent, which asks the evidence agent for drafts; any failure runs the in-process code. Measured: a chat-started intake with three typed terms finished in about 70 s end to end; mailbox replies up to 90 s were delivered; the agent handles messages concurrently. Not measured: ASI:One's own timeout. The original plan follows. The Fetch.ai track needs four registered agents (coordinator, intake, evidence, monitor), the Chat Protocol and an Agentverse mailbox, with the whole primary workflow running in ASI:One and no custom frontend. Steps F1–F3 in [build-order.md](build-order.md) describe it. Choices made now so the wrap stays thin:
 
+- `backend/handlers.py` is the seam: `adjust`, `resolve_conditions` (I16) and `draft_rule` (I17) take plain data and return contract models, and `IntakeService` calls them. An agent serves the same three functions and sends the JSON form.
 - Keep all logic in `backend/`; an agent only calls the existing routes (`POST /intake` and its poll, `POST /sim/run`, stored I9 and I10 for risk status).
 - Return structured results (I16, I17, I15 items); the card-text function from typed data also serves a chat reply.
 - Keep the two-step pattern (structured result first, model results after), which a chat turn needs for a 25–45 s call.

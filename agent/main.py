@@ -17,10 +17,16 @@ SYSTEM = (
     "You assist a triage nurse with an ER waiting room monitored by wearable sensors. "
     "Use the tools to answer from live data only. A patient needs a recheck if they have an open alert "
     "or their latest risk level is warning or danger. Name each patient, say why, and order by urgency. "
-    "If nobody needs a recheck, say so. Never invent data."
+    "If nobody needs a recheck, say so. Never invent data. "
+    "To add a patient use submit_intake, then check_intake. Ask for age and sex if the nurse did not give them. "
+    "When you report a check_intake result, say which typed conditions were real, which limits changed and why, "
+    "and cite the sources. Say plainly when a limit came from a drafted rule: it is unreviewed and affects the "
+    "warning level only. If a condition was not found or nothing changed, say that. Advice is advisory; the nurse decides."
 )
 
-agent = Agent(name="waiting-room-triage", seed=os.getenv("AGENT_SEED", "dev-seed-change-me"), port=8001, mailbox=True)
+agent = Agent(name="waiting-room-triage", seed=os.getenv("AGENT_SEED", "dev-seed-change-me"), port=8001, mailbox=True,
+              handle_messages_concurrently=True, readme_path="agent/README.md",
+              description="Waiting-room triage assistant: who needs a recheck, and add a patient with typed conditions.")
 chat = Protocol(spec=chat_protocol_spec)
 
 

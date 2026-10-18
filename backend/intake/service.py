@@ -10,7 +10,9 @@ import logging
 import secrets
 from typing import Callable
 
+from backend import handlers
 from backend.adjuster import adjuster as A
+from backend.conditions import service
 from backend.config import CONFIG, Config
 from backend.contracts import (AdjustmentEvidence, ContextAdjustments, IntakeRecord, PatientContext,
                                WearableAssignment)
@@ -29,12 +31,9 @@ def _terms_key(terms: list[str] | None) -> tuple[str, ...]:
 
 
 def default_condition_fn(ctx: PatientContext):
-    """Real lookup and evidence step; imported here so the intake service loads without them."""
-    from backend.conditions import evidence, lookup, service
-    from backend.conditions import normalize
-    norm = normalize.for_config()
-    return service.process(ctx, resolve_fn=lambda terms: lookup.resolve(terms, normalize_fn=norm),
-                           draft_fn=lambda code, name: evidence.draft(code, name, vocabulary="nlm_conditions"))
+    """Real lookup and evidence step."""
+    return service.process(ctx, resolve_fn=lambda terms: handlers.resolve_conditions(ctx).items,
+                           draft_fn=handlers.draft_rule)
 
 
 class UnknownWearable(ValueError):
@@ -43,7 +42,7 @@ class UnknownWearable(ValueError):
 
 class IntakeService:
     def __init__(self, engine: RiskEngine, on_assign: Callable[[WearableAssignment], None], *,
-                 cfg: Config = CONFIG, adjust_fn: Callable[[PatientContext], A.Outcome] = A.adjust,
+                 cfg: Config = CONFIG, adjust_fn: Callable[[PatientContext], A.Outcome] = handlers.adjust,
                  on_submit: Callable[[PatientContext], None] = lambda ctx: None,
                  condition_fn: Callable[[PatientContext], object] = default_condition_fn):
         self._engine, self._on_assign, self._adjust, self._on_submit = engine, on_assign, adjust_fn, on_submit

@@ -73,6 +73,18 @@ class ConditionsConfig:
 
 
 @dataclass(frozen=True)
+class AgentsConfig:
+    """Run the adjuster and the condition step in the Fetch.ai agents (agent/). Off by default; the backend
+    falls back to the in-process code whenever an agent does not answer."""
+    enabled: bool = os.environ.get("USE_AGENTS") == "1"
+    seed: str = os.environ.get("AGENT_SEED", "dev-seed-change-me")  # specialist seeds derive from it
+    bridge_port: int = 8010  # the backend's own agent, which sends the requests
+    accept_s: float = 20.0  # the peer must say "accepted" within this, or it counts as down
+    adjust_s: float = 120.0
+    conditions_s: float = 300.0  # lookup plus the slowest draft; a live evidence step took 85 s
+
+
+@dataclass(frozen=True)
 class BedConfig:
     """Bed label per wearable, used in alert messages."""
     labels: dict[int, str] = field(default_factory=lambda: {1: "Polar H10", 101: "Wearable 1", 102: "Wearable 2",
@@ -111,6 +123,7 @@ class Config:
     llm: LlmConfig = field(default_factory=LlmConfig)
     adjuster: AdjusterConfig = field(default_factory=AdjusterConfig)
     conditions: ConditionsConfig = field(default_factory=ConditionsConfig)
+    agents: AgentsConfig = field(default_factory=AgentsConfig)
     simulator: SimulatorConfig = field(default_factory=SimulatorConfig)
     ingest: IngestConfig = field(default_factory=IngestConfig)
 

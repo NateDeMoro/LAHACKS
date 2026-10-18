@@ -24,6 +24,8 @@ Decision support. Not a diagnosis. A research prototype.
 - Alert logic. Persistence windows. One alert per problem.
 - Backend app. Two WebSockets. SQLite storage.
 - Adjuster pieces. StepFun call. 100 labeled test cases.
+- Custom conditions. A nurse types any condition; it is checked against NLM and PubMed, and only a cited, warning-level limit can result.
+- Fetch.ai agents. Three agents on Agentverse; chat with them in ASI:One (see `agent/README.md`).
 
 ## Not built yet
 
@@ -32,7 +34,6 @@ Decision support. Not a diagnosis. A research prototype.
 - Context adjuster wiring.
 - Fast trend model.
 - Photon and ElevenLabs alerts.
-- Fetch.ai agent.
 
 ## Run it
 
@@ -42,6 +43,8 @@ uv run --env-file .env uvicorn backend.app:create_app --factory
 uv run --env-file .env python -m receiver.main
 uv run pytest
 ```
+
+To run the Fetch.ai agents too, follow the setup in `agent/README.md`.
 
 Close the Polar phone app first. It holds the strap's connection.
 

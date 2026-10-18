@@ -95,7 +95,7 @@ T5 (the slow sepsis model) was dropped and has no row; the fast model is the onl
 
 The K steps (the custom-condition path) are specified in [agentic-llm-plan.md](agentic-llm-plan.md); the diagram above does not show them.
 
-Fetch.ai steps, deferred until the K steps work without it (later wrap, no change to K):
+Fetch.ai steps, built after the K steps (F1 spiked, F2 as coordinator tools in `agent/tools.py`, F3 as intake and evidence agents with a backend bridge; see agentic-llm-plan.md, "Fetch.ai agents"):
 
 | Step | Owner | Needs | Done when |
 | --- | --- | --- | --- |

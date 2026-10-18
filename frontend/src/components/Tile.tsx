@@ -1,5 +1,5 @@
 import { go, Glyph, levelBorder, SEV, VITALS, fmtClock, show, useApp, waitingMin } from '../lib'
-import { rankedAlerts, tileSeverity, useStore } from '../store'
+import { alertText, rankedAlerts, tileSeverity, useStore } from '../store'
 import type { PatientRow } from '../types'
 
 export default function Tile({ p, index }: { p: PatientRow; index: number }) {
@@ -11,7 +11,7 @@ export default function Tile({ p, index }: { p: PatientRow; index: number }) {
   const top = rankedAlerts(s, p.patient_id)[0]
   const news2 = mode === 'live' ? 0 : i14?.news2 ?? i9?.news2
   const wait = waitingMin(p.arrival_ts, now)
-  const note = top?.message ?? (i9?.level && i9.level !== 'safe' ? i9.reason : null)
+  const note = (top && alertText(top)) || (i9?.level && i9.level !== 'safe' ? i9.reason : null)
   return (
     <button onClick={() => go(`/patient/${p.patient_id}`)} className={`text-left flex flex-col grow basis-0 min-w-0 py-4 px-4.5 rounded-[8px] gap-2.5 ${c.card}`}>
       <div className="flex items-center justify-between h-4.5 shrink-0">

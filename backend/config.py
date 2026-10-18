@@ -59,8 +59,9 @@ class AdjusterConfig:
 @dataclass(frozen=True)
 class BedConfig:
     """Bed label per wearable, used in alert messages."""
-    labels: dict[int, str] = field(default_factory=lambda: {1: "Polar H10", 101: "Bed 5", 102: "Bed 6", 103: "Bed 7",
-                                                             104: "Bed 8", 105: "Bed 9", 106: "Bed 10"})
+    labels: dict[int, str] = field(default_factory=lambda: {1: "Polar H10", 101: "Wearable 1", 102: "Wearable 2",
+                                                             103: "Wearable 3", 104: "Wearable 4", 105: "Wearable 5",
+                                                             106: "Wearable 6"})
 
 
 @dataclass(frozen=True)

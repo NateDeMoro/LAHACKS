@@ -39,6 +39,8 @@ const rank: Record<string, number> = { warning: 1, urgent: 1, high: 2 }
 export function openAlerts(s: State, pid: string): I10[] {
   return Object.values(s.alerts).filter((a) => a.patient_id === pid)
 }
+/** Alert text without the "<wearable label>: " prefix the alert logic adds. */
+export const alertText = (a: I10) => (a.message ?? '').replace(/^[^:]*:\s*/, '')
 /** "Outside usual" (personal baseline) alerts: shown quietly, never colour a tile. */
 export const isMinor = (a: I10) => a.trigger === 'warning_persisted'
 /** Alerts with the ones that matter first, minor ones last. */

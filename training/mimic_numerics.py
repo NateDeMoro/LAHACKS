@@ -203,6 +203,7 @@ def load_segments(root: Path = RAW, use_cache: bool = True):
             counts["minutes_kept"] += len(s)
             kept.append(s)
     counts["patients_kept"] = len({s.patient for s in kept})
-    CACHE.parent.mkdir(parents=True, exist_ok=True)
-    CACHE.write_bytes(pickle.dumps((kept, counts)))
+    if root == RAW:  # a different records dir must never overwrite the main cache
+        CACHE.parent.mkdir(parents=True, exist_ok=True)
+        CACHE.write_bytes(pickle.dumps((kept, counts)))
     return kept, counts

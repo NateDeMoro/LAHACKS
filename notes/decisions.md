@@ -342,6 +342,42 @@ Same 52 held-out patients (3,149 monitored hours), a third look at them. False a
 - **Demo fixture** (`METHOD = "extrapolation"`, one run per cutoff): trend tier first appears at minute 38 (SpO2 93.5) for cutoff 0, 39 (94.2) for 0.5, 40 (93.6) for 1.0 and 1.5, 41 (93.2) for 2.0 and 2.5, 45 (91.6) for 3.258; danger is minute 46. A trend alert (5-minute persistence) fires only for cutoffs 0 to 1.5: at 09:42 (minute 42, SpO2 93.4), 09:43 (92.7), 09:44 (92.2) and 09:44 (92.2). Cutoffs 2.0 and above never fire a trend alert, because danger at minute 46 nulls the trend before the 5 minutes pass. Config and method restored to the committed Rule 1.
 - Reproduce: `uv run python -m training.fast_cutoff_sweep`.
 
+### Option 1: forecast each vital, alert when the cautious forecast crosses the line (no ship decision)
+- **Further look at the same 52 held-out patients** (fourth comparison on this set, after LightGBM yes/no, logistic, and the Rule 2 sweep). Numbers are optimistic by that much; the fresh batch (`mimic3wdb_batch2`) is the real test and was not touched. Re-run on any records dir: `uv run python -m training.fast_forecast eval --records-dir DIR` (uses the saved models and the training-matched cutoff; never overwrites caches).
+- **What:** LightGBM regression per target on the existing 60 shared features (same 515 segments, 207/52 patient split, rows from the 15th observed minute, not in danger). Targets: lowest SpO2, lowest and highest breathing, lowest and highest HR over the next 15 minutes, skipped when the window leaves the segment or has under 12 of 15 observed minutes (75%, the old 15-of-20 rule). Models predict the change from the current 5-minute median; each target has a median model and a cautious quantile model (0.1 for lowest, 0.9 for highest). Patient-weighted; fit on every 3rd minute; 4-config search (leaves 7/15, min leaf 200/800) by patient-grouped 5-fold CV on pinball loss, early stopping. No monotone constraints (the features mix levels, slopes and spreads; no sign is clearly safe).
+- **Score:** edge minus cautious forecast (lowest) or cautious forecast minus edge (highest), max over targets: Rule 2's units, so 0 means the cautious forecast sits exactly on the edge. Warning only.
+- **Forecast MAE on held-out** (Rule 2 line = lower/higher of current median and median + 15 x slope):
+
+| Target | Median forecast | No change | Rule 2 line | Share beyond cautious (nominal) |
+| --- | --- | --- | --- | --- |
+| SpO2 lowest | 0.92 | 1.25 | 1.26 | 9.5% (10) |
+| Breathing lowest | 1.46 | 3.14 | 3.03 | 11.0% (10) |
+| Breathing highest | 2.09 | 3.86 | 3.63 | 9.9% (10) |
+| HR lowest | 1.69 | 2.90 | 3.06 | 9.9% (10) |
+| HR highest | 2.81 | 3.93 | 3.98 | 9.0% (10) |
+
+- **Alerts, held-out** (3,149 h, 388 events). Rule 2 rows are at the same alert rate as the forecast row above them:
+
+| Method | Cutoff | Alerts/h | False/h | False share | Warning min (95% CI) | Caught (95% CI) |
+| --- | --- | --- | --- | --- | --- | --- |
+| Forecast | 0 | 2.62 | 2.33 | 88.8% | 48.3 [46.9, 49.4] | 0.995 [0.99, 1.00] |
+| Rule 2 | -3.29 | 2.62 | 2.35 | 89.6% | 47.0 [45.3, 48.3] | 0.992 [0.98, 1.00] |
+| Forecast | 0.5 | 2.39 | 2.10 | 87.8% | 46.8 [45.3, 48.0] | 0.992 [0.98, 1.00] |
+| Rule 2 | -2.67 | 2.38 | 2.11 | 88.7% | 45.4 [43.3, 47.0] | 0.985 [0.97, 0.99] |
+| Forecast | 1.0 | 2.17 | 1.88 | 86.8% | 45.6 [43.8, 47.1] | 0.982 [0.97, 0.99] |
+| Rule 2 | -2.04 | 2.17 | 1.91 | 88.1% | 43.8 [41.7, 45.5] | 0.979 [0.97, 0.99] |
+| Forecast | 1.5 | 1.95 | 1.68 | 85.9% | 42.8 [40.3, 44.9] | 0.956 [0.93, 0.97] |
+| Rule 2 | -1.46 | 1.95 | 1.70 | 87.1% | 42.6 [40.6, 44.2] | 0.974 [0.96, 0.99] |
+| Forecast | 2.0 | 1.74 | 1.48 | 84.9% | 40.9 [37.6, 43.3] | 0.920 [0.87, 0.95] |
+| Rule 2 | -0.84 | 1.74 | 1.50 | 86.4% | 41.3 [39.1, 43.2] | 0.964 [0.95, 0.98] |
+| Forecast | 4.86 (NEWS2-matched, 0.716/h on training) | 0.72 | 0.54 | 75.3% | 24.6 [20.9, 27.8] | 0.634 [0.54, 0.71] |
+| Rule 2 | 3.18 | 0.72 | 0.60 | 83.7% | 23.9 [21.3, 26.4] | 0.732 [0.67, 0.79] |
+
+- **Read:** the forecasts are clearly better forecasts (MAE 30-55% below no-change and the straight line, quantiles well calibrated: 9-11% beyond the 10% line), but as an alarm they tie Rule 2 at equal alert rates: tiny warning-time gain at high rates, fewer false alerts at the matched rate (75% vs 84% of alerts) but fewer events caught (0.63 vs 0.73). Same-cutoff comparisons are not like for like because the forecast score is more cautious: cutoffs 0 to 2 give 2.6 to 1.7 alerts/h, versus 1.5 to 0.9 for Rule 2.
+- **Demo slide** (`fast_spo2_drop_i6`, danger at minute 46; shipped config left on Rule 1): trend tier first warning at minute 39 (SpO2 94.2) for cutoff 0, 41 (93.2) for 0.5, 45 (91.6) for 1.0; never for 1.5, 2.0 or 4.86. A trend alert fires only at cutoff 0 (09:43, "SpO2 may reach 90% within 15 min"). The cautious SpO2 forecast reads 91 to 90 from minute 38 to 45 while SpO2 is 93.5 to 91.6.
+- **Speed:** `predict()` (features + the 5 cautious models, one patient, 15,797 minutes) median 0.20 ms, p99 0.24 ms; all 10 models 0.28 / 0.33 ms. Lazy load 0.5 s (mostly LightGBM import). Model files 3.9 MB for all ten (cautious ones 1.1 MB; serving loads only those).
+- **Wiring:** `fast_model.METHOD = "forecast"` loads `models/fast_15_forecast.json` + `fast_15_forecast_*_cautious.txt`; the cutoff is in the JSON (4.86). METHOD and config are still Rule 1. `training/mimic_numerics.load_segments` no longer writes its cache when given a different root.
+
 ### Known skews
 - Strap breathing rate is not the impedance RESP in MIMIC; SpO2 is simulated in the demo; the label uses fixed NEWS2 limits while live levels use personal ranges; ICU patients sit near edges so the matched cutoff is tight; the eICU second check from section 4b is dropped (5-minute spacing cannot feed timestamp windows).
 - **Demo consequence:** the distance baseline ignores slope, so on the gradual demo slide (`fixtures/fast_spo2_drop_i6.jsonl`, 97 to 90 over 20 minutes) the score reaches the cutoff only about at SpO2 91, and the trend tier never appears before the danger level. Extrapolation (cutoff 3.26) would warn near SpO2 94. Left as shipped per the rule; revisit at C3.

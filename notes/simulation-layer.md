@@ -63,12 +63,12 @@ The replay table above predates B3. With `on_intake(ctx, i5)` applying the adjus
 
 ## Trend pre-roll
 
-The fast trend model reads 5, 15 and 30 minute windows and the slow model 1, 3 and 6 hours. A 10-minute run would never fill them, so at run start the simulator hands the risk engine 120 one-minute rows (I6 format), all at once.
+The fast trend model reads 5, 15 and 30 minute windows and the slow model 1, 3 and 6 hours. A 10-minute run would never fill them, so at run start the simulator hands the risk engine 60 one-minute rows (I6 format), all at once.
 
 - **Contents:** the run's 0:00 values with the same wobble. Starting values, not "calm" ones, because at-risk and critical patients arrive already off normal.
 - **Entry point:** a separate risk-engine call, `seed_trend_history(patient_id, rows)`, read by the trend models only. The personal baseline never sees these rows, so its "abnormal on arrival, learn nothing" rule still works. Alert logic, storage and the dashboard never see them either.
-- **Why 120:** the sepsis slow model needs 120 minutes of history. It also fills the fast model's windows. _Note: T5 (the slow model) has since been dropped (decisions.md, Step A), so the fast model's 30-minute windows are the only consumer; 120 can likely come down. Not changed yet._
-- **Limit:** the slow model's 1-hour window is full, but its 3 and 6 hour windows are only two thirds and one third full. The length is `SimulatorConfig.preroll_minutes`.
+- **Why 60:** T5 (the slow model) was dropped, so the fast model's 30-minute windows are the only consumer, and `trend.HISTORY` keeps 60 minutes. The length is `SimulatorConfig.preroll_minutes`.
+- **Replace, not append:** `seed_trend_history` replaces the patient's trend history (clean rows only), so a second run never leaves stale or out-of-order rows.
 - **Pitch wording:** in a run, the trend models' first two hours of history are scripted, not recorded.
 
 ## End of run
@@ -126,7 +126,7 @@ Built: models, profiles, generator, pre-roll, player, controller, routes, consol
 | Needs | Check |
 | --- | --- |
 | Ingest, S2 | Start a run through an app that mounts the router. Ingest sees readings with `source` simulator, drops strap readings during the run, and still merges strap and simulator in live mode. I13 goes out each second with `run_state` running, then ended; at the end the window is frozen and no I6 rows follow. |
-| Engine `seed_trend_history`, T5/T6 | Called once with 120 rows before the first reading. The personal baseline stays population (the pre-roll must not reach `on_minute`). |
+| Engine `seed_trend_history` (exists, T6) | Called once with 60 rows before the first reading. The personal baseline stays population (the pre-roll must not reach `on_minute`). |
 | Alert logic, T4 | Alerts match the target alerts above: none for H1 and H2, urgent then high for U1, U2, C1, high at once for C2. Alerts stay up after the run ends. |
 | Dashboard and I12 handler, S4/S6 | The run button reaches `controller.start`; the screen shows the last values and "Run ended" after the data stops. |
 | Intake form and service, S5 | Prefill from `GET /sim/profiles/{id}`, `POST /intake`, then a run with the returned patient and the I3 wearable. |

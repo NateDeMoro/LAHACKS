@@ -435,6 +435,10 @@ Same 52 held-out patients (3,149 monitored hours), a third look at them. False a
 - **Why:** on the capped metric (fresh batch, 203 patients) 4.856 caught only 43% of events in time; 2.0 catches 87% [0.83, 0.90] with 9.8 min mean capped warning (about 11 min when caught), at 1.61 alerts/h and 83% false. Trend alerts are warning tier only, so recall was weighted over quietness. Not tuned further; the slide fixture still peaks at a score of about 1.0, so the demo needs its own labelled setting.
 - **Would change our mind:** a waiting-room alert budget from C2/C3, or the retrain on the full fresh batch.
 
+### Trend pre-roll trimmed to 60 minutes, seeding added
+- **Decided:** `RiskEngine.seed_trend_history` replaces a patient's trend history with the seeded clean rows; `SimulatorConfig.preroll_minutes` is 60 to match `trend.HISTORY`. The baseline, alerts and store never see the rows.
+- **Why:** the slow model that needed 120 is gone; replacing avoids stale `first_clean` on a repeat run.
+
 ### Known skews
 - Strap breathing rate is not the impedance RESP in MIMIC; SpO2 is simulated in the demo; the label uses fixed NEWS2 limits while live levels use personal ranges; ICU patients sit near edges so the matched cutoff is tight; the eICU second check from section 4b is dropped (5-minute spacing cannot feed timestamp windows).
 - **Demo consequence (Rule 1, superseded by "T6 ship"):** the distance baseline ignores slope, so on the gradual demo slide (`fixtures/fast_spo2_drop_i6.jsonl`, 97 to 90 over 20 minutes) the score reaches the cutoff only about at SpO2 91, and the trend tier never appears before the danger level. Extrapolation (cutoff 3.26) would warn near SpO2 94. Left as shipped per the rule; revisit at C3.

@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta
 
 from backend.config import IngestConfig
-from backend.contracts import PatientRanges, VitalsReading
+from backend.contracts import MinuteSummary, PatientRanges, VitalsReading
 from backend.ingest.service import IngestService
 from backend.risk_engine.alerts import AlertLogic
 from backend.risk_engine.engine import RiskEngine
@@ -174,4 +174,12 @@ def test_trend_history_goes_to_the_engine_when_it_can_take_it():
     svc, _, _ = make(engine=eng)
     svc.seed_trend_history("p1", [1, 2])
     assert eng.seeded == ("p1", [1, 2])
-    make()[0].seed_trend_history("p1", [1, 2])  # the real engine has no such method yet: no error
+
+
+def test_seeded_history_reaches_trend_and_not_the_baseline():
+    svc, _, _ = make()
+    rows = [MinuteSummary(patient_id="p1", minute_ts=datetime(2026, 1, 1, tzinfo=LA) + timedelta(minutes=i),
+                          hr=70, resp_rate=15, spo2=98, clean_seconds=60) for i in range(5)]
+    svc.seed_trend_history("p1", rows)
+    assert len(svc.engine.trend.histories["p1"].rows) == 5
+    assert "p1" not in svc.engine.baselines

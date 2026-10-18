@@ -65,7 +65,7 @@ class BedConfig:
 @dataclass(frozen=True)
 class SimulatorConfig:
     run_length_s: int = 600  # every run script is stored as fractions of this, so changing it rescales all six
-    preroll_minutes: int = 120  # trend-model look-back fed before 0:00; the sepsis slow model needs 120 minutes
+    preroll_minutes: int = 60  # trend-model look-back fed before 0:00; matches trend.HISTORY
     default_wearable_id: int = ReceiverConfig.wearable_id  # same wearer as the strap
 
 

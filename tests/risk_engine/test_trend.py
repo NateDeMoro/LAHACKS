@@ -110,3 +110,30 @@ def test_stale_news2_is_nulled():
     fresh = eng.on_minute(row(0))
     stale = eng.on_minute(row(2))  # 120 s after the last I14
     assert fresh.news2 is not None and stale.news2 is None and stale.news2_points is None
+
+
+def seed_rows(n, **kw):
+    return [row(i, **kw) for i in range(-int(n), 0)]
+
+
+def test_second_seed_replaces_history():
+    eng = RiskEngine()
+    eng.seed_trend_history("p", seed_rows(30))
+    eng.seed_trend_history("p", seed_rows(10))
+    hist = eng.trend.histories["p"]
+    assert len(hist.rows) == 10 and hist.first_clean == T0 - timedelta(minutes=10)
+    assert [r.ts for r in hist.rows] == sorted(r.ts for r in hist.rows)
+
+
+def test_seed_keeps_clean_rows_only_and_leaves_baseline_alone():
+    eng = RiskEngine()
+    eng.seed_trend_history("p", seed_rows(5) + [row(-9, clean=0)])
+    assert len(eng.trend.histories["p"].rows) == 5
+    assert "p" not in eng.baselines
+
+
+def test_seeded_rows_satisfy_the_trend_gate(model):
+    eng = RiskEngine()
+    eng.seed_trend_history("p", seed_rows(eng.trend.cfg.fast_min_clean_minutes + 1))
+    eng.on_minute(row(0))
+    assert model["calls"] == 1

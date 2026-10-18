@@ -1,16 +1,21 @@
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
+from backend.config import BreathingConfig
 from receiver.breathing import BreathingEstimator
 from tests.receiver.synth import drop_beats, feed, make_beats
 
 WINDOW = 60
+# The accuracy checks below were validated at 60 s; the shipped default is 30 s (see config).
+CFG_60 = replace(BreathingConfig(), window_s=WINDOW)
 
 
 def settled(bpm, seed=1, duration=120, **kw):
     """Estimates over the last 20 s after the window has filled."""
     times, rr = make_beats(duration, bpm, seed=seed, **kw)
-    return feed(BreathingEstimator(), times, rr, 0, duration)[-20:]
+    return feed(BreathingEstimator(CFG_60), times, rr, 0, duration)[-20:]
 
 
 @pytest.mark.parametrize("bpm", [6, 15, 25])
@@ -54,7 +59,7 @@ def test_no_value_on_noise_without_breathing_signal():
     late = []
     for seed in range(6):
         times, rr = make_beats(240, 15, amp=0, jitter=25, drift=0, n_ectopic=0, seed=seed)
-        out = feed(BreathingEstimator(), times, rr, 0, 240)
+        out = feed(BreathingEstimator(CFG_60), times, rr, 0, 240)
         late += [v for now, v in out if now >= WINDOW]
     assert sum(v is None for v in late) >= 0.9 * len(late)
 

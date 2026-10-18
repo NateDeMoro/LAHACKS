@@ -1,11 +1,14 @@
 """Waiting-room scenario scripts (separate from the single-run scripts in profiles.py).
 Each patient's keyframes are minutes since that patient arrived; patients join the scenario at staggered times."""
 import asyncio
+import json
 import secrets
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 
+from backend.adjuster.adjuster import from_saved
 from backend.config import CONFIG
 from backend.contracts import IntakeRecord, Triage, VitalsReading
 from backend.simulator.clock import SimClock
@@ -96,6 +99,15 @@ END_MINUTE = _JOHN_JOIN + 60
 CALLED_IN_KEY, CALLED_IN_MINUTE = "h1", _JOHN_JOIN + 25
 
 
+def _prerun(key: str):
+    """The patient's pre-run adjuster result, if fixtures/scenario_adjuster_<key>.json exists (see scripts/prerun_scenario_adjuster.py)."""
+    path = Path(__file__).resolve().parents[2] / "fixtures" / f"scenario_adjuster_{key}.json"
+    if not path.exists():
+        return None
+    saved = json.loads(path.read_text())
+    return lambda ctx: from_saved(ctx, saved)
+
+
 class ScenarioRunner:
     """The waiting room: starts the six patients, plays their scripts on a sim clock, and replays skips.
     Use when POST /sim/scenario or /sim/skip arrives."""
@@ -137,7 +149,7 @@ class ScenarioRunner:
             self._svc.set_clock(pid, self.clock)
             rec = p.record.model_copy(update={"patient_id": pid, "name": p.name, "wearable_id": p.wearable_id,
                                               "arrival_ts": self.clock()})
-            await self._intake.submit(rec, structured_only=True)
+            await self._intake.submit(rec, structured_only=True, preset=_prerun(p.key))
             self._svc.set_run_state(pid, "running")
             self._active.add(p.key)
         await self._replay(LEAD_IN_MINUTES * 60)

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import * as api from '../api'
 import { Glyph, SEV, VITALS, fmtClock, fmtStale, go, levelBorder, levelFromPoints, show, useApp, useStale, waitingMin } from '../lib'
+import Adjustments from '../components/Adjustments'
+import RangeBars from '../components/RangeBars'
 import WhyUrgent from '../components/WhyUrgent'
 import { rankedAlerts, tileSeverity, useStore } from '../store'
 import type { I9, IntakeCard, VitalKey, VitalRange } from '../types'
@@ -25,7 +27,12 @@ export default function Patient({ id }: { id: string }) {
   const i9 = s.i9[id], i13 = s.i13[id], i14 = s.i14[id], i8 = s.i8[id] ?? card?.ranges ?? undefined
   const tsKey = i9?.ts
   useEffect(() => { api.getHistory(id).then(setRows).catch(() => {}) }, [id, tsKey])
-  useEffect(() => { api.getCard(id).then(setCard).catch(() => setCard(null)) }, [id, modal])
+  useEffect(() => {
+    let t: number | undefined
+    const load = () => api.getCard(id).then((c) => { setCard(c); if (c.adjuster === 'pending') t = window.setTimeout(load, 3000) }).catch(() => setCard(null))
+    load()
+    return () => window.clearTimeout(t)
+  }, [id, modal])
 
   const alerts = rankedAlerts(s, id)
   const news2 = mode === 'live' ? 0 : i14?.news2 ?? i9?.news2
@@ -157,6 +164,8 @@ export default function Patient({ id }: { id: string }) {
               </div>
             </div>
           </div>
+          <Adjustments card={card} />
+          <RangeBars ranges={i8} values={{ hr: i13?.hr ?? i9?.vital_values?.hr, resp_rate: i13?.resp_rate ?? i9?.vital_values?.resp_rate, spo2: i13?.spo2 ?? i9?.vital_values?.spo2, temp_c: i13?.temp_c ?? i9?.vital_values?.temp_c }} />
         </div>
       </div>
       {modal && <SensorModal patientId={id} onClose={() => setModal(false)} />}

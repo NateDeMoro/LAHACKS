@@ -78,3 +78,88 @@ async def test_reset_cancels_a_running_run_and_returns_to_live():
     await c.reset()
     assert c.status().state == "live" and c.status().profile_id is None
     assert sink.calls[-1] == ("state", "sim-c2", "live")
+
+
+async def test_start_takes_the_patient_and_wearable_from_intake():
+    sink = FakeSink()
+    c = controller(Gate(open_=True), sink)
+    c.start("h1", patient_id="p-9", wearable_id=7)
+    await c.wait()
+    assert {r.wearable_id for r in sink.readings()} == {7}
+    assert next(call for call in sink.calls if call[0] == "seed")[1] == "p-9"
+    assert c.status().patient_id == "p-9"
+
+
+async def test_a_finished_run_can_be_followed_by_another():
+    sink = FakeSink()
+    c = controller(Gate(open_=True), sink)
+    c.start("u1")
+    await c.wait()
+    c.start("c1")
+    await c.wait()
+    assert len(sink.readings()) == 2 * CFG.run_length_s
+    assert sink.states() == ["running", "ended", "running", "ended"]
+
+
+async def test_stop_right_after_start_leaves_the_controller_usable():
+    sink = FakeSink()
+    c = controller(Gate(open_=True), sink)
+    c.start("h1")
+    await c.stop()  # cancelled before the run's first step
+    assert c.status().state == "ended" and sink.readings() == []
+    c.start("h2")
+    await c.wait()
+    assert len(sink.readings()) == CFG.run_length_s
+
+
+async def test_a_start_that_lands_while_stop_is_finishing_keeps_running():
+    c = controller(Gate())
+    c.start("h1")
+    await asyncio.sleep(0.01)
+    stopping = asyncio.create_task(c.stop())
+    while c.status().state == "running":  # the old run is done but stop has not returned yet
+        await asyncio.sleep(0)
+    c.start("h2")
+    await stopping
+    assert c.status().state == "running" and c.status().profile_id == "h2"
+    await c.stop()
+
+
+async def test_a_start_that_lands_while_reset_is_finishing_is_not_wiped():
+    sink = FakeSink()
+    c = controller(Gate(), sink)
+    c.start("h1")
+    await asyncio.sleep(0.01)
+    resetting = asyncio.create_task(c.reset())
+    while c.status().state == "running":
+        await asyncio.sleep(0)
+    c.start("h2")
+    await resetting
+    assert c.status().state == "running" and c.status().profile_id == "h2"
+    assert "live" not in sink.states()
+    await c.stop()
+
+
+async def test_a_bad_length_does_not_wedge_the_controller():
+    c = controller(Gate(open_=True))
+    with pytest.raises(ValueError):
+        c.start("h1", length_s=1)
+    assert c.status().state == "live"
+    c.start("h1")
+    await c.wait()
+    assert c.status().state == "ended"
+
+
+async def test_a_failing_sink_ends_the_run_without_crashing():
+    class FailsOnSecondReading(FakeSink):
+        def ingest(self, reading, source):
+            super().ingest(reading, source)
+            if len(self.readings()) == 2:
+                raise RuntimeError("sink down")
+
+    sink = FailsOnSecondReading()
+    c = controller(Gate(open_=True), sink)
+    c.start("h1")
+    await c.wait()
+    assert c.status().state == "ended"
+    assert sink.states() == ["running", "ended"] and len(sink.readings()) == 2

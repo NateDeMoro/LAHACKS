@@ -30,6 +30,8 @@ def keyframe_sample(script: RunScript, at: float) -> Sample:
 
 
 def generate(script: RunScript, length_s: int) -> list[Sample]:
+    if length_s < 2:
+        raise ValueError("a run needs at least 2 seconds")
     rngs = _rngs(script, "")
     glitched = {}
     for g in script.glitches:

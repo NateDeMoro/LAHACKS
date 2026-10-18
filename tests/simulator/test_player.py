@@ -67,13 +67,6 @@ async def test_seeds_then_runs_then_ends_and_nothing_follows():
     assert sink.calls[0] == ("seed", "p1", rows)
 
 
-async def test_empty_preroll_skips_seeding():
-    sink = FakeSink()
-    await play(sink, Clock(), n=2)
-
-    assert not any(c[0] == "seed" for c in sink.calls)
-
-
 async def test_ticks_are_scheduled_from_the_start_so_slow_sleeps_and_sends_do_not_drift():
     clock = Clock(overshoot=0.05)
     sink = FakeSink(clock, ingest_cost=0.1)

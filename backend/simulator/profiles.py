@@ -1,7 +1,6 @@
 """The six scripted patients: two healthy, two at risk and two critical. Key values sit at
 fractions 0, 0.3, 0.6 and 1 of the run; expect.news2 is checked against the real scorer in tests.
 No profile has copd: the schema cannot express confirmed-COPD SpO2 targets."""
-from backend.config import CONFIG
 from backend.contracts import IntakeRecord, Triage
 from backend.simulator.models import KEY_FRACTIONS, Expect, Glitch, Keyframe, Profile, RunScript, Track
 
@@ -23,7 +22,7 @@ def _profile(id, name, tier, age, sex, height_cm, weight_kg, conditions, medicat
              sbp, dbp, alertness, pain, on_oxygen, level, script) -> Profile:
     id = id.lower()  # ids appear in URLs and I12 scenario ids
     record = IntakeRecord(
-        patient_id=f"sim-{id}", wearable_id=CONFIG.simulator.default_wearable_id, arrival_ts=None,
+        patient_id=f"sim-{id}", arrival_ts=None,  # the nurse picks the wearable at intake
         age=age, sex=sex, height_cm=height_cm, weight_kg=weight_kg, pregnant=False,
         conditions=conditions, medications=medications, chief_complaint=complaint,
         triage=Triage(sbp=sbp, dbp=dbp, alertness=alertness, pain=pain, on_oxygen=on_oxygen, level=level),

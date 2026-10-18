@@ -1,4 +1,4 @@
-"""Starts, stops and resets the one active simulated run. The HTTP routes and the I12 handler both call it."""
+"""Starts, stops and resets the one active simulated run. The HTTP routes call it now; the I12 handler will once the dashboard socket exists."""
 import asyncio
 import logging
 import time
@@ -61,14 +61,16 @@ class SimController:
             raise RunInProgress(self._profile_id)
         patient_id = patient_id or profile.record.patient_id
         start_ts = self._clock()
-        self._profile_id, self._patient_id, self._state = profile_id, patient_id, "running"
-        self._task = asyncio.create_task(self._run(
+        # Built before any state changes, so a bad length cannot leave the controller stuck as running.
+        samples = generate(profile.script, length_s if length_s is not None else self._cfg.run_length_s)
+        preroll = preroll_rows(profile.script, patient_id, start_ts, self._cfg.preroll_minutes)
+        task = asyncio.create_task(self._run(
             patient_id=patient_id,
             wearable_id=wearable_id if wearable_id is not None else self._cfg.default_wearable_id,
-            start_ts=start_ts,
-            samples=generate(profile.script, length_s or self._cfg.run_length_s),
-            preroll=preroll_rows(profile.script, patient_id, start_ts, self._cfg.preroll_minutes),
+            start_ts=start_ts, samples=samples, preroll=preroll,
         ))
+        task.add_done_callback(self._finish)
+        self._profile_id, self._patient_id, self._task, self._state = profile_id, patient_id, task, "running"
         return self.status()
 
     async def wait(self) -> None:
@@ -76,24 +78,28 @@ class SimController:
             await asyncio.wait([self._task])
 
     async def stop(self) -> RunStatus:
-        if self._task and not self._task.done():
-            self._task.cancel()
-            await asyncio.wait([self._task])
-        if self._state == "running":  # cancelled before it began, so the run never marked itself ended
-            self._state = "ended"
+        task = self._task
+        if task and not task.done():
+            task.cancel()
+            await asyncio.wait([task])
+            self._finish(task)  # a run cancelled before its first step never reaches the player's own ending
         return self.status()
 
     async def reset(self) -> RunStatus:
+        task, patient_id = self._task, self._patient_id
         await self.stop()
-        if self._patient_id:
-            self._sink.set_run_state(self._patient_id, "live")
-        self._state, self._profile_id, self._patient_id, self._task = "live", None, None, None
+        if self._task is task:  # a start that landed while stop was finishing must not be wiped
+            if patient_id:
+                self._sink.set_run_state(patient_id, "live")
+            self._state, self._profile_id, self._patient_id, self._task = "live", None, None, None
         return self.status()
+
+    def _finish(self, task: asyncio.Task) -> None:
+        if self._task is task:
+            self._state = "ended"
 
     async def _run(self, **play_args) -> None:
         try:
             await self._player.play(**play_args)
         except Exception:
             log.exception("simulated run failed")
-        finally:
-            self._state = "ended"

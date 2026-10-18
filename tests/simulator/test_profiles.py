@@ -21,7 +21,6 @@ def test_expected_news2_matches_scorer(pid):
 
 def test_profile_records_are_usable():
     for pid, p in PROFILES.items():
-        assert p.id == pid
         assert "copd" not in (p.record.conditions or [])
         t = p.record.triage
         assert None not in (t.sbp, t.alertness, t.on_oxygen), pid

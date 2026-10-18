@@ -44,4 +44,5 @@ def test_run_lifecycle_over_http():
                                            "kind": "single", "sim_now": None}
         assert http.post("/sim/run", json={"profile_id": "h1"}).status_code == 409
         assert http.post("/sim/run/stop").json()["state"] == "ended"
-        assert http.post("/sim/run/reset").json() == {"state": "live", "profile_id": None, "patient_id": None}
+        assert http.post("/sim/run/reset").json() == {"state": "live", "profile_id": None, "patient_id": None,
+                                                       "kind": None, "sim_now": None}

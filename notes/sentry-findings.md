@@ -27,7 +27,7 @@ What Sentry showed us and what we changed because of it. Fill a row only after t
 
 | Question | What Sentry showed | What we changed | Result |
 | --- | --- | --- | --- |
-| Spike notes say 25–45 s per LLM call. Is it reasoning tokens or the network? | | | |
+| Spike notes say 25–45 s and 3–4.5k tokens per LLM call. Is that still true? | 30 dev-set calls (prompt b3-0, reasoning low, env `eval`, Oct 18): median 3.9 s, p95 9.2 s, max 11.2 s; average 757 tokens in and 309 out; 0 retries, 0 failures, 30/30 cases correct. The scoring script's own latency (median 3.9 s, slowest 11.2 s) matches Sentry's | Nothing in the code. The 25–45 s figure in `backend/llm.py`, `backend/config.py` and `notes/agentic-llm-plan.md` is stale; one afternoon of calls, so recheck under load | Timeouts and the "minutes after intake" wording can be tighter |
 | Do breathing rates glitch around dropouts? | | | |
 | Which hop owns the time on a reading? | | | |
 | Does the per-period engine slow the one-second path? | | | |

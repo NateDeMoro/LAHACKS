@@ -98,7 +98,7 @@ def test_run_mode_drops_strap_readings():
         st.on_reading(at(s), strap(hr=70), "strap")
         st.on_reading(at(s), sim(hr=90, resp_rate=18, spo2=97, temp_c=37.0), "simulator")
         t = st.tick(at(s))
-    assert (t.live.hr, t.live.resp_rate, t.live.spo2, t.live.temp_c) == (90, 18, 97, 37.0)
+    assert (t.live.hr, t.live.spo2, t.live.temp_c) == (90, 97, 37.0)
     assert t.live.run_state == "running"
 
 
@@ -140,12 +140,28 @@ def test_period_with_no_clean_data_still_reports_zero_seconds():
     assert len(periods) == 1 and periods[0].hr is None and periods[0].clean_seconds == 0
 
 
+def test_breathing_rate_is_off_for_strap_and_simulator():
+    st = PatientStream("p1", at(0))
+    ticks = run_live(st, 6)  # the strap sends rr=15
+    assert ticks[-1].live.hr == 70 and ticks[-1].live.resp_rate is None
+    st.set_run_state(at(6), "running")
+    ticks = []
+    for s in range(7, 70):
+        st.on_reading(at(s), sim(hr=90, resp_rate=18, spo2=97), "simulator")
+        ticks.append(st.tick(at(s)))
+    assert ticks[-1].live.hr == 90 and ticks[-1].live.spo2 == 97 and ticks[-1].live.resp_rate is None
+    periods = [t.period for t in ticks if t.period]
+    assert periods and periods[0].hr == 90 and periods[0].resp_rate is None
+
+
 def test_implausible_values_are_dropped():
     st = PatientStream("p1", at(0))
     ticks = run_live(st, 6, lambda: strap(hr=300))
     assert ticks[-1].live.hr is None and ticks[-1].live.clean_seconds == 0
-    ticks = run_live(st, 6, lambda: strap(hr=70, rr=200), start=7)
-    assert ticks[-1].live.hr == 70 and ticks[-1].live.resp_rate is None
+    for s in range(7, 13):
+        st.on_reading(at(s), sim(hr=70, spo2=120), "simulator")
+        t = st.tick(at(s))
+    assert t.live.hr == 70 and t.live.spo2 is None
 
 
 def test_custom_config_changes_min_samples():

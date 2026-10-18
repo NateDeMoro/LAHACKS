@@ -84,6 +84,8 @@ class PatientStream:
         strap = self._strap[1] if self._strap and self._fresh(self._strap[0], now, cfg.strap_ttl_s) else None
         merged: dict[str, float | None] = {}
         for v in VITALS:
+            if v in cfg.disabled_vitals:
+                continue
             sim = self._sim.get(v)
             if sim and self._fresh(sim[0], now, cfg.sim_ttl_s):
                 merged[v] = sim[1]

@@ -43,7 +43,7 @@ _LIST = [
         "H2", "Sore throat", "healthy", 41, "female", 165, 63, [], [],
         "Sore throat and a mild cough for three days.",
         112, 70, "alert", 2, False, 5,
-        _script([78, 78, 105, 80], [15, 15, 22, 16], [97, 97, 96, 97], [36.8] * 4, 102, [0, 0, 3, 0],
+        _script([78, 78, 105, 80], [15, 15, 22, 16], [97, 97, 96, 97], [36.8] * 4, 102, [0, 0, 1, 0],
                 "None: warning at most, then clears"),
     ),
     _profile(
@@ -51,15 +51,15 @@ _LIST = [
         ["hypertension", "diabetes"], ["metoprolol", "lisinopril", "metformin"],
         "Fever and chills for two days, barely eating, feel weak.",
         128, 80, "alert", 3, False, 3,
-        _script([82, 88, 98, 104], [18, 20, 23, 26], [95, 94, 93, 92], [37.8, 38.2, 38.7, 39.2], 103,
-                [1, 2, 6, 8], "Urgent between 3 and 6 minutes, high near the end"),
+        _script([82, 88, 98, 112], [18, 20, 23, 26], [95, 94, 91, 89], [37.8, 38.2, 38.7, 39.2], 103,
+                [1, 2, 5, 7], "Urgent from about minute 6, high (7) at the end"),
     ),
     _profile(
         "U2", "Asthma flare", "at_risk", 31, "female", 168, 82, ["asthma"], ["albuterol inhaler"],
         "Wheezing since last night, inhaler isn't helping as much.",
         122, 78, "alert", 1, False, 3,
-        _script([96, 104, 114, 120], [20, 24, 27, 28], [95, 94, 92, 91], [36.9] * 4, 104,
-                [2, 4, 7, 8], "Urgent after 3 minutes, high by about 6 minutes"),
+        _script([96, 104, 118, 132], [20, 24, 27, 28], [95, 94, 91, 89], [36.9] * 4, 104,
+                [2, 2, 5, 6], "Urgent from about minute 6"),
     ),
     _profile(
         "C1", "Heart failure, short of breath", "critical", 72, "male", 175, 88,
@@ -67,7 +67,7 @@ _LIST = [
         "Short of breath, can't lie flat, legs swollen, worse over three days.",
         104, 66, "alert", 2, True, 2,
         _script([88, 90, 112, 134], [20, 20, 25, 30], [95, 94, 92, 89], [36.8] * 4, 105,
-                [4, 4, 10, 12], "Below urgent (4) for about 3 minutes, then high (7+) from about minute 4 and 10+ by minute 7"),
+                [4, 4, 7, 9], "Below urgent (4) for about 3 minutes, then high (7+) from about minute 6"),
     ),
     _profile(
         "C2", "Septic-looking, confused", "critical", 58, "female", 160, 70,
@@ -75,7 +75,7 @@ _LIST = [
         "Fever, shaking chills, confused since this morning, family says she isn't making sense.",
         92, 58, "new_confusion", 0, False, 2,
         _script([96, 108, 122, 136], [20, 23, 26, 30], [96, 95, 93, 92], [38.6, 38.9, 39.2, 39.5], 106,
-                [7, 10, 14, 15], "High from the first minute"),
+                [7, 8, 11, 12], "High from the first minute"),
     ),
 ]
 PROFILES: dict[str, Profile] = {p.id: p for p in _LIST}

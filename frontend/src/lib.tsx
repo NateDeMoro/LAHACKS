@@ -33,7 +33,7 @@ export const show = (v: number | null | undefined) => (v == null ? '' : Number.i
 
 export type Sev = 'low' | 'amber' | 'high'
 export const SEV = {
-  low: { word: 'Low', text: 'text-muted', num: 'text-ink', card: 'bg-ground border border-line', box: 'bg-low-tint border border-low' },
+  low: { word: 'Low', text: 'text-muted', num: 'text-ink', card: 'bg-low-tint border border-low', box: 'bg-low-tint border border-low' },
   amber: { word: 'Medium', text: 'text-urgent', num: 'text-urgent', card: 'bg-urgent-tint border-2 border-urgent-solid', box: 'bg-urgent-tint border border-urgent-solid' },
   high: { word: 'High', text: 'text-high', num: 'text-high', card: 'bg-high-tint border-2 border-high', box: 'bg-high-tint border border-high' },
 } as const

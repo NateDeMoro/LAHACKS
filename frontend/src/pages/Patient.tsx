@@ -53,9 +53,9 @@ export default function Patient({ id }: { id: string }) {
           {patients.map((q, i) => {
             const n = mode === 'live' ? 0 : s.i14[q.patient_id]?.news2 ?? s.i9[q.patient_id]?.news2
             const qs = tileSeverity(s, q.patient_id, n), qc = SEV[qs], cur = q.patient_id === id
-            const border = cur ? 'border-2 border-navy' : qs === 'low' ? 'border border-line' : qs === 'amber' ? 'border-2 border-urgent-solid' : 'border-2 border-high'
+            const border = cur ? 'border-2 border-navy' : qs === 'low' ? 'border border-low' : qs === 'amber' ? 'border-2 border-urgent-solid' : 'border-2 border-high'
             return (
-              <button key={q.patient_id} onClick={() => go(`/patient/${q.patient_id}`)} className={`basis-42 min-w-42 w-42 h-13 shrink-0 flex items-center justify-between px-3 rounded-[6px] ${qs === 'low' ? 'bg-ground' : qc.card.split(' ')[0]} ${border}`}>
+              <button key={q.patient_id} onClick={() => go(`/patient/${q.patient_id}`)} className={`basis-42 min-w-42 w-42 h-13 shrink-0 flex items-center justify-between px-3 rounded-[6px] ${qc.card.split(' ')[0]} ${border}`}>
                 <div className="flex flex-col text-left">
                   <div className="font-mono text-[11px] leading-3.5 text-muted">{i + 1}</div>
                   <div className="text-[13px] leading-4.5 font-[600] text-ink truncate max-w-24">{(q.name ?? q.patient_id).split(' ').slice(-1)[0]}</div>

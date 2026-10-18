@@ -292,7 +292,7 @@ The biggest limit is setting: every training dataset is survey or ICU data, and 
 - **Population shift.** NHANES is healthy people at rest; PhysioNet 2019 and eICU are ICU patients. Waiting-room patients sit in between.
 - **Coverage of vitals.** Only heart rate and BP have feature-conditioned population data; SpO2, breathing rate and temperature rely on single published studies and NEWS2.
 - **SpO2, temperature and triage BP are simulated** in the demo: in live mode SpO2 and temperature are filled in, in a run every vital follows a script, and the six sample patients carry their own triage BP, until real sensors are added.
-- **Trend history in demo runs is scripted.** Each run starts the trend models with 60 minutes of starting-value rows, so their first hour of look-back is invented; the slow model's 3 and 6 hour windows stay mostly empty.
+- **Trend history in demo runs is scripted.** Each run starts the trend models with 120 minutes of starting-value rows (what the sepsis slow model needs), so their first two hours of look-back are invented; the slow model's 3 and 6 hour windows are still only partly filled.
 - **Blood pressure is a single triage reading,** so a BP drop during the wait goes unseen.
 - **NEWS2 in a waiting room.** It was validated mainly on admitted patients.
 - **Small subgroups.** Some drug classes will have too few NHANES users to estimate their own shift; those fall back to guideline rules.

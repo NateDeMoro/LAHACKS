@@ -41,12 +41,13 @@ The target alerts are design targets to compare with alert logic (T4) when it ex
 
 ## Trend pre-roll
 
-The fast trend model reads 5, 15 and 30 minute windows and the slow model 1, 3 and 6 hours. A 10-minute run would never fill them, so at run start the simulator hands the risk engine 60 one-minute rows (I6 format), all at once.
+The fast trend model reads 5, 15 and 30 minute windows and the slow model 1, 3 and 6 hours. A 10-minute run would never fill them, so at run start the simulator hands the risk engine 120 one-minute rows (I6 format), all at once.
 
 - **Contents:** the run's 0:00 values with the same wobble. Starting values, not "calm" ones, because at-risk and critical patients arrive already off normal.
 - **Entry point:** a separate risk-engine call, `seed_trend_history(patient_id, rows)`, read by the trend models only. The personal baseline never sees these rows, so its "abnormal on arrival, learn nothing" rule still works. Alert logic, storage and the dashboard never see them either.
-- **Limit:** 60 minutes fills the fast model's windows and the slow model's 1-hour window. Its 3 and 6 hour windows stay mostly empty. The length is `SimulatorConfig.preroll_minutes`.
-- **Pitch wording:** in a run, the trend models' first hour of history is scripted, not recorded.
+- **Why 120:** the sepsis slow model needs 120 minutes of history. It also fills the fast model's windows.
+- **Limit:** the slow model's 1-hour window is full, but its 3 and 6 hour windows are only two thirds and one third full. The length is `SimulatorConfig.preroll_minutes`.
+- **Pitch wording:** in a run, the trend models' first two hours of history are scripted, not recorded.
 
 ## End of run
 

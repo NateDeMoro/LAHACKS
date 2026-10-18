@@ -125,11 +125,11 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - **Options:** hold the last values flat; stop; loop.
 - **Why stop, with a run state:** the live window is a 60-second median, so after the data stops it empties within a minute, the dashboard blanks and the engine reads thin data as a lost signal. A run state (live, running, ended) on I13 lets ingest freeze its window and send no more minute rows, so the screen shows the last values with a "Run ended" label and alerts stay.
 
-### Trend pre-roll: 60 minutes of starting values, through a separate engine entry
-- **Options:** none; 30 minutes; 60 minutes; 6 hours; a `history_only` flag on I6.
-- **Why 60:** the fast model does not produce anything useful until about 15 minutes of history, which a 10-minute run never reaches. 60 minutes fills its 5/15/30-minute windows and the slow model's 1-hour window. Starting values, not calm ones, so at-risk and critical patients do not look like a sudden drop.
+### Trend pre-roll: 120 minutes of starting values, through a separate engine entry
+- **Options:** none; 30 minutes; 60 minutes; 120 minutes; 6 hours; a `history_only` flag on I6.
+- **Why 120:** the fast model does not produce anything useful until about 15 minutes of history, which a 10-minute run never reaches, and the sepsis slow model needs 120 minutes (raised from 60 at the owner's direction). 120 minutes fills the fast model's 5/15/30-minute windows and the slow model's 1-hour window. Starting values, not calm ones, so at-risk and critical patients do not look like a sudden drop.
 - **Why a separate entry, not a flag:** `seed_trend_history` makes "never reaches the personal baseline" structural, where a flag could be missed by one consumer, and it leaves I6 unchanged. The baseline's rule of learning nothing from a patient who arrives abnormal keeps working.
-- **Cost:** the history is invented, and the slow model's 3 and 6 hour windows stay mostly empty. The pitch says so. The length is one setting; 6 hours is 360 rows.
+- **Cost:** the history is invented, and the slow model's 3 and 6 hour windows are only two thirds and one third full. The pitch says so. The length is one setting; 6 hours is 360 rows.
 
 ### In-process transport with a source argument
 - **Options:** WebSocket client like the strap; in-process call.

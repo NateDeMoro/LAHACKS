@@ -40,7 +40,7 @@ Inside the risk engine, baseline ranges pass I8 to the personal baseline, scorer
 | Component | Owner | Does | Reads | Writes | Start against |
 | --- | --- | --- | --- | --- | --- |
 | Strap receiver | Systems | Polar H10 over Bluetooth (bleakheart); HR + beat intervals about 1 Hz; contact flag; auto-reconnect; computes breathing rate | Bluetooth | I1 | The strap, printing to the console |
-| Simulator | Systems | Six sample patients (I2 records), each with a fixed-length run that scripts every vital while the strap is ignored; 60-minute trend pre-roll; run state; live mode fills SpO2 and temp | I12, I8 (live mode only) | I1, sample I2 records, run state, trend pre-roll | A fake sink; `scripts/simulate_run.py` |
+| Simulator | Systems | Six sample patients (I2 records), each with a fixed-length run that scripts every vital while the strap is ignored; 120-minute trend pre-roll; run state; live mode fills SpO2 and temp | I12, I8 (live mode only) | I1, sample I2 records, run state, trend pre-roll | A fake sink; `scripts/simulate_run.py` |
 | Intake form | Systems | Nurse enters profile, conditions, meds, triage set, chief complaint; auto patient ID; assigns wearable; can prefill from a sample patient | Nurse input, sample I2 records | I2 | Nothing |
 | Ingest service | Systems | FastAPI + WebSocket; one entry function takes the source (strap or simulator); live mode merges strap and simulator per vital, run mode drops strap readings; wearable → patient; signal quality; rolling 60 s and one-minute medians; freezes when a run ends; storage (Tiger Data) | I1, I3 | I6, I13 | Simulator |
 | Intake service | Systems | Validates and stores the record; medication name → drug class (RXQ_DRUG); builds patient context | I2 | I3, I4 | Hand-written intake records |
@@ -184,7 +184,7 @@ Tighten only: a high bound can only move down and a low bound only up. The engin
 
 Same format as the eICU replay and recorded strap files, so the risk engine can be built without the backend.
 
-The simulator's 60-minute trend pre-roll uses this format but goes to the engine's `seed_trend_history` instead of `on_minute`, so it only reaches the trend models.
+The simulator's 120-minute trend pre-roll uses this format but goes to the engine's `seed_trend_history` instead of `on_minute`, so it only reaches the trend models.
 
 ### I7 Model files
 

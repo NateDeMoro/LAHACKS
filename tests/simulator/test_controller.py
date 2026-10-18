@@ -6,7 +6,7 @@ from fakes import FakeSink
 from backend.config import SimulatorConfig
 from backend.simulator.controller import RunInProgress, SimController, UnknownProfile
 
-CFG = SimulatorConfig(run_length_s=5, preroll_minutes=60, default_wearable_id=3)
+CFG = SimulatorConfig(run_length_s=5, preroll_minutes=120, default_wearable_id=3)
 
 
 class Gate:

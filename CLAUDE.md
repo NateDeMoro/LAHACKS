@@ -60,7 +60,7 @@ If code already exists, skim the layout and fit the plan to it; no deep groundin
 | notes/stack-reference.md | Tech stack per component, design rules, LLM and agent layer | Choosing a library or tool, or setting up a new component |
 | notes/project-overview.md | What we're building, demo plan, hardware, inputs, plain-English risk engine, company challenges, open decisions | Starting work, or needing the why behind a decision |
 | notes/risk-model-training-plan.md | Datasets, methods, and evaluation for the risk layer | Building or evaluating the risk scoring, trend models, or alert logic |
-| notes/agentic-llm-plan.md | Plan for custom conditions, drafted rules and the four Fetch.ai agents: guarantees, gates, contracts I16–I17, tests | Building the condition path, the evidence agent, or the Fetch.ai agents |
+| notes/agentic-llm-plan.md | Plan for custom conditions and drafted rules (Fetch.ai deferred): guarantees, gates, contracts I16–I17, tests | Building the condition path or the evidence step, or later the Fetch.ai agents |
 | backend/contracts.py | Pydantic models for I1–I15, WebSocket envelope | Passing or validating any interface data |
 | backend/risk_engine/ | NEWS2 (news2.py), population ranges (ranges.py), personal baseline (baseline.py), alert logic (alerts.py), fast trend (trend.py, fast_model.py), engine (engine.py) | Building or wiring the risk engine, alerts, or dashboard stand-in |
 | backend/fixtures.py, backend/timeutil.py | Fixture loaders, I13 expansion; LA time helpers | Needing stand-in I1/I2/I4/I6/I13 data or timestamps |

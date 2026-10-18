@@ -83,19 +83,25 @@ Read left to right: everything in one column can be built at the same time. A ch
 | T6 Fast trend model | Stats | Step A | The 15 min model replaces the stub; tier and reason appear in I9. Done: LightGBM forecast model ships (METHOD "forecast", cutoff 2.0, warning only; Rule 1/2 and logistic stay selectable); training/, backend/risk_engine/fast_features.py, fast_model.py, models/fast_15_forecast*. Retrain pending when the second MIMIC batch finishes downloading |
 | S8 Add-ons | Systems | any time | Tiger Data stores readings, Sentry tracing + logs, hosted on Vultr behind a domain, Fetch.ai agent answers in ASI:One |
 | **C4 Full demo** | Both | S6, T6 (S8 if done) | The demo script runs start to finish without touching code |
-| F1 Fetch.ai spike | Systems | any time | One uAgent with the Chat Protocol and mailbox, registered on Agentverse, answers "risk status" from stored I9 rows in ASI:One. Riskiest: discovery, venue Wi-Fi, chat timeout against the 25–45 s model call |
-| F2 Tool gateway and coordinator | Systems | F1, S5 | Typed tools over existing routes (register patient, risk status, run scenario), two permission tiers, a call log kept by the gateway, step and token caps. The model writes a JSON plan from a fixed tool list, code validates and runs it, two re-plans at most |
-| F3 Four agents | Systems | F2, K5 | Intake, evidence and monitor agents registered; interactive cards last |
 | K1 Condition test set | Both | B2 | 40 invented and 60 real conditions (lay terms, typos, rare), terms that match several entries, 20 injection strings, about 25 rule-match labels, 10 no-effect conditions; `scripts/score_conditions.py` |
 | K2 Lookup and gate | Both | K1 | Code only: NLM client, fuzzy match, found / ambiguous / not_found (I16); targets 1–3 and 5 pass with no model |
 | K3 Normalizer | Both | K2 | One model call returning the canonical term and search terms, cached; measured on K1 |
 | K4 Rule matcher | Both | K2, B3 | Vocabulary code to a `rules.json` entry; the existing adjuster path runs unchanged. Also write the limit menu (`models/limit_menu.json`) and replay each entry on eICU to measure its alert load |
-| K5 Evidence agent and warning-only apply | Both | K3, K4, T2 | PubMed search, a pick from the limit menu (never a number), code gates, saved evidence (I17); the engine applies the warning tier in `ranges.py`; on from the start with one kill-switch flag |
-| **C5 Agentic demo** | Both | F3, K5, C3 | In ASI:One: register a patient with a typed condition, see the limits and their sources, start a run, read risk status |
+| K5 Evidence step and warning-only apply | Both | K3, K4, T2 | Code-run PubMed search and fetch, one model call picks from the limit menu (never a number), code gates, saved evidence (I17); the engine applies the warning tier in `ranges.py`; on from the start with one kill-switch flag |
+| K6 Intake page wiring | Systems | K2, S4 | Custom-conditions field, a picker for several matches, and a profile card showing status, changed limits, quotes or sources, evidence label and "unreviewed"; `GET /intake/{patient_id}` adds I16 and drafted items |
+| **C5 Custom-condition demo** | Both | K5, K6, C3 | On the intake page: type a condition, see the limits and their sources on the card, start a run, watch the warning fire |
 
 T5 (the slow sepsis model) was dropped and has no row; the fast model is the only trend model (decisions.md). T4 and T6 are done and feed C3 and C4 as listed.
 
-The F and K steps (the agentic condition path and the Fetch.ai agents) are specified in [agentic-llm-plan.md](agentic-llm-plan.md); the diagram above does not show them.
+The K steps (the custom-condition path) are specified in [agentic-llm-plan.md](agentic-llm-plan.md); the diagram above does not show them.
+
+Fetch.ai steps, deferred until the K steps work without it (later wrap, no change to K):
+
+| Step | Owner | Needs | Done when |
+| --- | --- | --- | --- |
+| F1 Fetch.ai spike | Systems | any time (early, timeboxed) | One uAgent with the Chat Protocol and mailbox, registered on Agentverse, answers "risk status" from stored I9 rows in ASI:One. Riskiest: discovery, venue Wi-Fi, chat timeout against the 25–45 s model call |
+| F2 Tool gateway and coordinator | Systems | F1, S5 | Typed tools over existing routes (register patient, risk status, run scenario), two permission tiers, a call log kept by the gateway, step and token caps. The model writes a JSON plan from a fixed tool list, code validates and runs it, two re-plans at most |
+| F3 Four agents | Systems | F2, K5, K6 | Intake, evidence and monitor agents registered; interactive cards last |
 
 ## Order of risk
 

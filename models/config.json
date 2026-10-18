@@ -21,6 +21,6 @@
   },
   "trend": {
     "fast_min_clean_minutes": 15,
-    "fast_warning_cutoff": 4.856
+    "fast_warning_cutoff": 2.0
   }
 }

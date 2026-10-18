@@ -232,7 +232,7 @@ The slow model can't catch deterioration that shows up within 15 minutes, and ho
 ### Model and alert rule
 
 - **Model:** LightGBM regression per target, predicting the change from the current 5-minute median; for each target a median model and a cautious quantile model (10% for lowest, 90% for highest). Split by patient (207 train / 52 held-out, seed 0); patient-weighted; 4-config search by patient-grouped 5-fold CV on pinball loss with early stopping. Median models are for evaluation only; the engine loads the five cautious ones.
-- **Alert rule:** the score is how far the cautious forecast lands past the danger edge (NEWS2 score-3 limit), in points; the maximum over targets. A warning trend tier is raised when the score reaches the cutoff, which was matched on training patients to the alert rate of partial NEWS2 of 5 or more (0.716/h), giving 4.856. Warning only, never lowers a level, only while no vital is in danger and after 15 clean minutes. Reason: "SpO2 may reach 90% within 15 min".
+- **Alert rule:** the score is how far the cautious forecast lands past the danger edge (NEWS2 score-3 limit), in points; the maximum over targets. A warning trend tier is raised when the score reaches the cutoff, first matched on training patients to the alert rate of partial NEWS2 of 5 or more (0.716/h), giving 4.856, then moved to 2.0 to catch more events in time (87% vs 43% on the capped metric, fresh batch). Warning only, never lowers a level, only while no vital is in danger and after 15 clean minutes. Reason: "SpO2 may reach 90% within 15 min".
 
 ### Evaluation
 

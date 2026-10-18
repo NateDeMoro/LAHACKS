@@ -9,7 +9,7 @@ Four interchangeable scorers share fast_features.py with training; METHOD picks 
                   (models/fast_15_forecast.json + fast_15_forecast_*.txt, loaded lazily); score = how far the
                   cautious (10%/90%) forecast lands past the danger edge, same units as Rule 2 (shipped).
 To switch: change METHOD here and set trend.fast_warning_cutoff in models/config.json to CUTOFFS[METHOD]
-(for "logreg" the cutoff is in its JSON; "forecast" ships at 4.856, rounded from the JSON's 4.8562). No model file or LightGBM import is needed for the rules.
+(for "logreg" the cutoff is in its JSON; "forecast" ships at 2.0; the JSON keeps the NEWS2-matched 4.8562 for reference). No model file or LightGBM import is needed for the rules.
 I9 trend_prob_fast carries the score, not a probability. Held-out MIMIC numbers: notes/decisions.md."""
 import json
 import math
@@ -20,7 +20,7 @@ import numpy as np
 from backend.risk_engine import fast_features as ff
 
 METHOD = "forecast"
-CUTOFFS = {"distance": -0.47, "extrapolation": 3.26, "forecast": 4.856}
+CUTOFFS = {"distance": -0.47, "extrapolation": 3.26, "forecast": 2.0}
 MODELS = Path(__file__).resolve().parents[2] / "models"
 LOGREG_PATH = MODELS / "fast_15_logreg.json"
 FORECAST_PATH = MODELS / "fast_15_forecast.json"

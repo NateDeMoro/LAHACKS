@@ -93,7 +93,7 @@ Not targeted:
 
 ## Open decisions
 
-- **Retrain the fast model** on the original sample plus the second MIMIC batch (600 patients, still downloading), then re-match the cutoff and re-test on fresh patients. Shipped cutoff is 4.856; a looser cutoff (0 to 1) warns earlier and catches more but alerts 3 to 4 times as often, and is what the demo slide needs to show a trend warning before danger.
+- **Retrain the fast model** on the original sample plus the second MIMIC batch (600 patients, still downloading), then re-match the cutoff and re-test on fresh patients. Shipped cutoff is 2.0 (87% of events caught in time, 1.6 alerts/h on ICU data). The demo slide still needs a looser, labelled setting to show a trend warning before danger.
 - **Windows under 5 minutes** (urgent alerts) are set on the real strap at C2; the 10-minute warning window came from eICU.
 - **Waiting-room fit:** the models were tuned on ICU data, which overstates alert rates; recheck at C2 and C3.
 

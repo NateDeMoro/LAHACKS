@@ -243,7 +243,7 @@ Warning is everything between safe and danger.
 | vital_values | {hr, resp_rate, spo2, temp_c}: the minute's values |
 | news2 | 0–20 total, latest live value (I14); null if that I14 is over 60 s older than the minute |
 | news2_points | {resp_rate, spo2, on_oxygen, sbp, hr, alertness, temp_c}: 0–3 each; null with news2 |
-| trend_prob_fast | the 15-minute model's score, not a probability: how many points past the danger edge the cautious forecast lands (positive = past it; the shipped warning cutoff is 4.856); null until 15 clean minutes, while any vital is in danger, or with no model. The field name is kept for compatibility |
+| trend_prob_fast | the 15-minute model's score, not a probability: how many points past the danger edge the cautious forecast lands (positive = past it; the shipped warning cutoff is 2.0); null until 15 clean minutes, while any vital is in danger, or with no model. The field name is kept for compatibility |
 | trend_tier | null \| warning; the trend raises the level to warning at most, never lowers it |
 | trend_reason_fast | one line from the forecast, e.g. "SpO2 may reach 90% within 15 min", "breathing may reach 26/min within 15 min", "heart rate may reach 42 bpm within 15 min" |
 

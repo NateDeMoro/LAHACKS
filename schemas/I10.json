@@ -73,6 +73,52 @@
       "default": null,
       "title": "Trigger"
     },
+    "vital": {
+      "anyOf": [
+        {
+          "enum": [
+            "hr",
+            "resp_rate",
+            "spo2",
+            "temp_c",
+            "sbp"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Vital"
+    },
+    "supersedes": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supersedes"
+    },
+    "resolved": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resolved"
+    },
     "message": {
       "anyOf": [
         {

@@ -27,6 +27,7 @@ Level = Literal["safe", "warning", "danger"]
 Severity = Literal["warning", "urgent", "high"]
 Trigger = Literal["vital_danger", "news2_total", "warning_persisted", "trend"]
 RangeSource = Literal["population", "personal"]
+TrendTier = Literal["warning"]
 
 
 class Model(BaseModel):
@@ -140,16 +141,33 @@ class News2Points(Model):
     temp_c: int | None = None
 
 
+class VitalLevels(Model):
+    hr: Level | None = None
+    resp_rate: Level | None = None
+    spo2: Level | None = None
+    temp_c: Level | None = None
+
+
+class VitalValues(Model):
+    hr: float | None = None
+    resp_rate: float | None = None
+    spo2: float | None = None
+    temp_c: float | None = None
+
+
 class RiskResult(Model):  # I9
     patient_id: str | None = None
     ts: Ts = None
     level: Level | None = None
     vital: Vital | None = None
     reason: str | None = None
-    news2: int | None = None
+    vital_levels: VitalLevels | None = None
+    vital_values: VitalValues | None = None
+    news2: int | None = None  # null when the latest I14 is over 60 s older than the minute
     news2_points: News2Points | None = None
     trend_prob_fast: float | None = None
-    trend_prob_slow: float | None = None
+    trend_tier: TrendTier | None = None
+    trend_reason_fast: str | None = None
 
 
 class Alert(Model):  # I10
@@ -158,6 +176,9 @@ class Alert(Model):  # I10
     ts: Ts = None
     severity: Severity | None = None
     trigger: Trigger | None = None
+    vital: Vital | None = None
+    supersedes: list[str] | None = None  # alert_ids this alert replaces
+    resolved: bool | None = None  # true on a re-sent update once the problem has cleared
     message: str | None = None
 
 
@@ -208,10 +229,27 @@ class BaselineConfig(Model):
     min_width: dict[str, float] = {"hr": 16, "resp_rate": 6}
 
 
+class AlertConfig(Model):
+    """Alert logic settings (T4), minutes. Real defaults like BaselineConfig; T4 tunes the windows."""
+    warning_persisted_minutes: float = 5
+    vital_danger_minutes: float = 2
+    news2_total_minutes: float = 2
+    trend_minutes: float = 5
+    max_gap_minutes: float = 10
+    clear_minutes: float = 5
+    ack_cooldown_minutes: float = 15
+
+
+class TrendConfig(Model):
+    """Fast trend settings (T6). The cutoff is set from MIMIC at training time."""
+    fast_min_clean_minutes: float = 15
+    fast_warning_cutoff: float = 0.5
+
+
 class ModelConfig(Model):  # I7 config.json
     baseline: BaselineConfig | None = None
-    persistence_windows: dict[str, int] | None = None
-    probability_cutoffs: dict[str, float] | None = None
+    alerts: AlertConfig | None = None
+    trend: TrendConfig | None = None
 
 
 class QuantileFit(Model):

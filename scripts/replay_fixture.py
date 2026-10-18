@@ -3,6 +3,9 @@ Use when checking the engine on eICU stays (intake from the stays file) or the s
 Usage:
   uv run python -m scripts.replay_fixture [stay_id] [--no-intake] [--out path.jsonl]
   uv run python -m scripts.replay_fixture --wearer
+  uv run python -m scripts.replay_fixture --i6 fixtures/wearer_drift_i6.jsonl
+--i6 replays any one-patient I6 file and prints each minute's vital levels and trend fields
+(the wearer's id gets the fixture intake, anything else runs with no intake).
 --out writes the I9 rows; it is never written by default, so fixtures/eicu_i9.jsonl (the recorded
 stand-in used by alert logic and the Fetch.ai agent) is only replaced when asked for."""
 import argparse
@@ -56,11 +59,29 @@ def replay_wearer():
             print(f"min {i + 1:2d} HR {m.hr:5.1f} band {hr.safe_low}-{hr.safe_high} ({hr.source}) -> {res.level}")
 
 
+def replay_i6(path):
+    eng, rows = RiskEngine(), load_i6(Path(path))
+    ctx = load_context()
+    if rows and rows[0].patient_id == ctx.patient_id:
+        eng.on_intake(ctx)
+    for i, m in enumerate(rows):
+        r = eng.on_minute(m)
+        lv = " ".join(f"{k}={v}" for k, v in r.vital_levels.model_dump().items() if v)
+        print(f"min {i + 1:2d} {r.level:7s} [{lv}] trend prob={r.trend_prob_fast} "
+              f"tier={r.trend_tier} reason={r.trend_reason_fast}")
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("stay", nargs="?")
     ap.add_argument("--no-intake", action="store_true", help="replay with no intake: plain NEWS2 bands")
     ap.add_argument("--wearer", action="store_true")
+    ap.add_argument("--i6", help="replay one patient's I6 file, printing levels and trend fields")
     ap.add_argument("--out")
     a = ap.parse_args()
-    replay_wearer() if a.wearer else replay_stays(a.stay, not a.no_intake, a.out)
+    if a.i6:
+        replay_i6(a.i6)
+    elif a.wearer:
+        replay_wearer()
+    else:
+        replay_stays(a.stay, not a.no_intake, a.out)

@@ -90,6 +90,136 @@
       },
       "title": "News2Points",
       "type": "object"
+    },
+    "VitalLevels": {
+      "additionalProperties": false,
+      "properties": {
+        "hr": {
+          "anyOf": [
+            {
+              "enum": [
+                "safe",
+                "warning",
+                "danger"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hr"
+        },
+        "resp_rate": {
+          "anyOf": [
+            {
+              "enum": [
+                "safe",
+                "warning",
+                "danger"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resp Rate"
+        },
+        "spo2": {
+          "anyOf": [
+            {
+              "enum": [
+                "safe",
+                "warning",
+                "danger"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Spo2"
+        },
+        "temp_c": {
+          "anyOf": [
+            {
+              "enum": [
+                "safe",
+                "warning",
+                "danger"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Temp C"
+        }
+      },
+      "title": "VitalLevels",
+      "type": "object"
+    },
+    "VitalValues": {
+      "additionalProperties": false,
+      "properties": {
+        "hr": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hr"
+        },
+        "resp_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resp Rate"
+        },
+        "spo2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Spo2"
+        },
+        "temp_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Temp C"
+        }
+      },
+      "title": "VitalValues",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -167,6 +297,28 @@
       "default": null,
       "title": "Reason"
     },
+    "vital_levels": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VitalLevels"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "vital_values": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VitalValues"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "news2": {
       "anyOf": [
         {
@@ -202,17 +354,30 @@
       "default": null,
       "title": "Trend Prob Fast"
     },
-    "trend_prob_slow": {
+    "trend_tier": {
       "anyOf": [
         {
-          "type": "number"
+          "const": "warning",
+          "type": "string"
         },
         {
           "type": "null"
         }
       ],
       "default": null,
-      "title": "Trend Prob Slow"
+      "title": "Trend Tier"
+    },
+    "trend_reason_fast": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trend Reason Fast"
     }
   },
   "title": "RiskResult",

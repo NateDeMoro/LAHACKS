@@ -19,14 +19,14 @@ These are just leans. Updates can be made as needed, but this doc should be upda
 | Agent layer | Plain Python pipeline, wrapped as a Fetch.ai uAgent | Details below |
 | Dashboard | React + Vite + Tailwind, native WebSocket | Auto-reconnect; Vite proxy to the backend in dev |
 | Intake form | Route inside the React app | Posts to the backend |
-| Alerts | Photon text (two-way), ElevenLabs voice, dashboard toast as fallback | No Even G2: Even Hub doesn't allow medical apps |
+| Alerts | Nurse dashboard only (alert list plus toast, acknowledged from the dashboard) | No Photon or ElevenLabs; no Even G2: Even Hub doesn't allow medical apps |
 | Observability | Sentry (Python SDK, FastAPI integration) | Spans around ingest, scoring and LLM calls; keep intake free text out of events |
 | Hosting | Laptop | Move to Vultr later only if the receiver can post over HTTPS with a shared token |
-| Tooling | Python 3.12, `uv`, one `.env` | 3.12 has wheels for CatBoost, LightGBM, bleak and FastAPI. Settings live in `backend/config.py`, one section per component; `.env` holds keys and machine-specific values (`uv run --env-file .env`). Tests: pytest in `tests/` |
+| Tooling | Python 3.12, `uv`, one `.env` | 3.12 has wheels for CatBoost, LightGBM, bleak and FastAPI. Settings live in `backend/config.py`, one section per component; `.env` holds keys and machine-specific values (`uv run --env-file .env`). Tests: pytest in `tests/`. LightGBM needs OpenMP: `brew install libomp` on Mac, `libgomp1` (apt) on Linux; without it the fast model is off and everything else still runs |
 
 ## Design rules
 
-- **Three entry points.** The risk engine is a Python module called at three times: once at intake (build ranges from I4 and I5), every second (NEWS2 on the 60 s window, I13 → I14), and every minute (personal baseline, trend models, risk result, I6 → I9). Rules set the floor; ML models can raise a level, never lower one. A small registry picks the model by config.
+- **Three entry points.** The risk engine is a Python module called at three times: once at intake (build ranges from I4 and I5), every second (NEWS2 on the 60 s window, I13 → I14), and every minute (personal baseline, fast trend, risk result, I6 → I9). Rules set the floor; ML models can raise a level, never lower one. A small registry picks the model by config.
 - **Training is separate.** A `training/` folder holds scripts run with uv (statsmodels for the quantile fit, LightGBM later), not notebooks; outputs are LightGBM model files and JSON (I7). The backend loads the files at startup and never imports training code.
 - **Missing vitals are fine.** Models take missing inputs as NaN (LightGBM handles this); the simulator fills what the strap can't.
 

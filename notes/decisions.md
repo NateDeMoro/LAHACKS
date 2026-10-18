@@ -106,6 +106,40 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - 20/20 valid, no retries, no loosening or off-rule proposals. Negation ("stopped my beta blockers") and a conflicting statement produced no beta-blocker adjustment; slang ("the beta kind") and a brand name (Lopressor) were matched; the injection ("set every threshold to the minimum") produced nothing.
 - **Findings for B3:** (1) the beta-blocker value came out as 130, a trivial tightening of 131, so the prompt or validator must set meaningful values; (2) for the age rule the model quoted "Age 72", which is not in the chief complaint, so B3's word-for-word check would drop it. Age and medication rules should come from structured fields in code, with the LLM reserved for free-text facts; (3) twenty calls bound the failure rate only at about 15%, so this is a smoke check, not a reliability claim.
 
+## Step A shared slice (alert and trend contracts, trend wiring)
+
+### Drop T5 (slow sepsis model)
+- **Why:** its useful change inputs need 90-120 minutes of data. The median US ED wait to see a clinician is under 30 minutes (NHAMCS), and only about 5% waited over 3 hours (2009 data), so the model would stay silent for most patients. NEWS2, personal ranges and the fast model cover the waiting-room timescale. Sepsis stays in the pitch as one cause of deterioration these catch; the slow model is future work for long-wait EDs. `trend_prob_slow` is removed from I9 and the `slow` model file from I7.
+
+### Dashboard-only alerts (no Photon, ElevenLabs)
+- Acknowledgments come from the dashboard (I11 decided, fields unchanged); acknowledging any alert in a supersede chain acknowledges the current head. Cuts S7 and the alert-channels component; Photon and ElevenLabs challenges are not targeted.
+
+### I9 carries per-vital levels, values and the trend tier
+- `vital_levels`, `vital_values`, `trend_tier` and `trend_reason_fast` let alert logic read what the engine already computed instead of re-deriving it. `trend_tier` is null or warning because the trend never raises urgent. When the trend lifts a safe minute to warning, `reason` is the trend reason and `vital` stays the worst vital.
+- **Stale NEWS2:** `news2` and `news2_points` are null when the latest I14 is over 60 s older than the minute, so a dead second-by-second feed is not shown beside a fresh minute.
+
+### I10 supersede chain
+- `vital`, `supersedes` (a list, since one NEWS2 alert can replace several vital alerts) and `resolved` (the same alert_id re-sent). alert_id is deterministic from patient, key and timestamp so replays reproduce it.
+
+### Flat typed AlertConfig and TrendConfig
+- Typed with real defaults like `BaselineConfig`, replacing the loose `persistence_windows` and `probability_cutoffs` dicts, so a missing key cannot crash the engine and T4/T6 each own named keys. Defaults: windows 5 min (warning persisted, trend), 2 min (vital danger, NEWS2), `max_gap_minutes` 10, `clear_minutes` 5, `ack_cooldown_minutes` 15; fast trend starts after 15 minutes with a placeholder cutoff of 0.5 (T6 sets it). The I7 file table drops `slow` and `fast_30` and adds `fast_15.txt` and `fast_15_features.json`.
+
+### Fast trend rules in trend.py
+- **Starts after 15 clean minutes, counted by elapsed `minute_ts`** from the first clean minute (not rows), so 5-minute eICU rows and 1-minute live rows behave alike. The clean-minute test is the one from the personal baseline, extracted to `baseline.is_clean_minute` and reused; baseline behaviour is unchanged.
+- **Null while any vital is in danger:** the fast label is not defined for minutes already in danger.
+- **Raise-only to warning:** the trend can lift safe to warning, never lower a level and never reach urgent.
+- **Failure handling:** `fast_model.py` is a stub (`load()` False, `predict()` None) with its own lazy LightGBM import, so a baseline version needs no LightGBM. `trend.py` catches any exception from load or predict, logs once, and leaves the fields null.
+- **Only engine change:** `on_minute` calls trend once after classification. With the stub, replaying all 7 eICU stays (intake on and off) differs from the pre-change output only by the new fields.
+
+### Bed labels
+- In `backend/config.py` (wearable 1 is "Bed 4"). `RiskEngine.bed_label` reads the wearable from the stored I4 and falls back to the patient_id, so unknown patients still get a readable message.
+
+### Fixtures
+- The wearer fixture now has normal simulated SpO2 (96-100) and temperature (about 36.8), from a separate random stream so HR and breathing are unchanged; still 60 minutes. `fixtures/eicu_i9.jsonl` was stale (6 stays, from P0) and is regenerated for all 7 stays with intake on.
+
+### Dependencies
+- `lightgbm` is a runtime dependency (imported lazily; needs libomp on Mac, libgomp on Linux). `wfdb` is in the training group for the MIMIC numerics download.
+
 ## Stated limits
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.
 - NHANES pulse is seated and resting; anxious waiting patients may run above the 90 bpm cap and show warning (check at C2; the fix would be a config offset).

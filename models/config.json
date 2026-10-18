@@ -10,6 +10,17 @@
     "spread_floor": {"hr": 5, "resp_rate": 1},
     "min_width": {"hr": 16, "resp_rate": 6}
   },
-  "persistence_windows": {"warning": 5, "danger": 2},
-  "probability_cutoffs": {"fast": 0.5, "slow": 0.5}
+  "alerts": {
+    "warning_persisted_minutes": 5,
+    "vital_danger_minutes": 2,
+    "news2_total_minutes": 2,
+    "trend_minutes": 5,
+    "max_gap_minutes": 10,
+    "clear_minutes": 5,
+    "ack_cooldown_minutes": 15
+  },
+  "trend": {
+    "fast_min_clean_minutes": 15,
+    "fast_warning_cutoff": 0.5
+  }
 }

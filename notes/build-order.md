@@ -18,7 +18,6 @@ flowchart LR
     S4["S4 Dashboard<br/>live vitals I13 + NEWS2 I14"]
     S5["S5 Intake form + service<br/>I2 → I3, I4 · med lookup"]
     S6["S6 Scenario player<br/>event buttons I12"]
-    S7["S7 Alert channels<br/>Photon two-way, ElevenLabs"]
     S8["S8 Add-ons<br/>Tiger Data, Sentry, Vultr, domain, Fetch.ai"]
   end
 
@@ -28,8 +27,7 @@ flowchart LR
     T2["T2 Baseline ranges<br/>NHANES fit → ranges.json, I8"]
     T3["T3 Personal baseline<br/>I6 → narrowed I8"]
     T4["T4 Alert logic<br/>I9 → I10"]
-    T5["T5 Slow trend model<br/>PhysioNet 2019"]
-    T6["T6 Fast trend models<br/>MIMIC-III minutes, if time"]
+    T6["T6 Fast trend model<br/>MIMIC-III minutes, 15 min only, if time"]
   end
 
   subgraph BOTH[Shared lane]
@@ -42,7 +40,7 @@ flowchart LR
   G1{{"C1 Thin slice<br/>simulator → ingest → stub → dashboard"}}
   G2{{"C2 Real strap live<br/>real HR + breathing beside simulated vitals"}}
   G3{{"C3 Real risk engine<br/>intake → ranges → scores → alerts"}}
-  G4{{"C4 Full demo<br/>events, trends, channels, add-ons"}}
+  G4{{"C4 Full demo<br/>events, fast trend, add-ons"}}
 
   P0 --> S1 & S2 & T1 & B1
   S2 --> S3 --> S4
@@ -54,8 +52,7 @@ flowchart LR
   T1 --> T2 --> T3 --> T4 --> G3
   B1 --> B2 --> B3 --> G3
   G3 --> S6 --> G4
-  G3 --> S7 --> G4
-  T4 --> T5 --> T6 --> G4
+  T4 --> T6 --> G4
   S8 --> G4
 ```
 
@@ -76,17 +73,16 @@ Read left to right: everything in one column can be built at the same time. A ch
 | S5 Intake form + service | Systems | C2 | Submitting the form creates a patient, assigns the wearable (I3) and produces I4 with drug classes |
 | T2 Baseline ranges | Stats | T1 | NHANES quantile fit written to ranges.json; engine builds I8 from I4. Done: training/fit_ranges.py, backend/risk_engine/ranges.py |
 | T3 Personal baseline | Stats | T2 | I6 rows narrow the safe band; danger limits move only via I5. Done: backend/risk_engine/baseline.py (hr and breathing) |
-| T4 Alert logic | Stats | T3 | Recorded I9 rows produce I10 alerts with persistence windows and one alert per problem |
+| T4 Alert logic | Stats | Step A | Recorded I9 rows produce I10 alerts with persistence windows and one alert per problem |
 | B1 step-5-preview call | Both | P0 | A test call returns valid JSON matching the I5/I15 schema |
 | B2 Test set | Both | B1 | About 100 labeled chief complaints, including negations |
 | B3 Context adjuster | Both | B2 | I4 in, I5 to the engine, I15 to the evaluation log; quote check enforced; scored on the test set |
 | **C3 Real risk engine** | Both | S5, T4, B3 | A typed intake changes the wearer's ranges, and live scoring and alerts run on the real engine |
 | S6 Scenario player | Systems | C3 | An event button replaces the scripted vitals, the scores react, then the strap takes back over |
-| S7 Alert channels | Systems | C3 | An alert reaches Photon (two-way: "how is bed 4?") and plays through ElevenLabs |
-| T5 Slow trend model | Stats | T4 | Trained on PhysioNet set A, tested on set B; its probability appears in I9 |
-| T6 Fast trend models | Stats | T5 | 15 and 30 min models beat both simple baselines; probabilities appear in I9 |
+| Step A Trend wiring | Stats | T3 | I9 carries per-vital levels and trend fields (null with the stub), I10/I11 contracts and typed alert/trend config exist, `trend.py` and a stub `fast_model.py` are wired into the engine. Done: backend/risk_engine/trend.py, tests/risk_engine/test_trend.py |
+| T6 Fast trend model | Stats | Step A | The 15 min model (or the better simple baseline) replaces the stub; beats both baselines or a baseline ships; tier and reason appear in I9 |
 | S8 Add-ons | Systems | any time | Tiger Data stores readings, Sentry tracing + logs, hosted on Vultr behind a domain, Fetch.ai agent answers in ASI:One |
-| **C4 Full demo** | Both | S6, S7, T5 (T6, S8 if done) | The demo script runs start to finish without touching code |
+| **C4 Full demo** | Both | S6 (T6, S8 if done) | The demo script runs start to finish without touching code |
 
 ## Order of risk
 

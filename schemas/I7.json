@@ -1,5 +1,48 @@
 {
   "$defs": {
+    "AlertConfig": {
+      "additionalProperties": false,
+      "description": "Alert logic settings (T4), minutes. Real defaults like BaselineConfig; T4 tunes the windows.",
+      "properties": {
+        "warning_persisted_minutes": {
+          "default": 5,
+          "title": "Warning Persisted Minutes",
+          "type": "number"
+        },
+        "vital_danger_minutes": {
+          "default": 2,
+          "title": "Vital Danger Minutes",
+          "type": "number"
+        },
+        "news2_total_minutes": {
+          "default": 2,
+          "title": "News2 Total Minutes",
+          "type": "number"
+        },
+        "trend_minutes": {
+          "default": 5,
+          "title": "Trend Minutes",
+          "type": "number"
+        },
+        "max_gap_minutes": {
+          "default": 10,
+          "title": "Max Gap Minutes",
+          "type": "number"
+        },
+        "clear_minutes": {
+          "default": 5,
+          "title": "Clear Minutes",
+          "type": "number"
+        },
+        "ack_cooldown_minutes": {
+          "default": 15,
+          "title": "Ack Cooldown Minutes",
+          "type": "number"
+        }
+      },
+      "title": "AlertConfig",
+      "type": "object"
+    },
     "BaselineConfig": {
       "additionalProperties": false,
       "description": "Personal baseline settings (T3). Times are minutes of wall-clock, not row counts.\nUnlike other models these have real defaults (the shipped config.json values) so a missing\nfield can never crash the engine.",
@@ -64,6 +107,24 @@
       },
       "title": "BaselineConfig",
       "type": "object"
+    },
+    "TrendConfig": {
+      "additionalProperties": false,
+      "description": "Fast trend settings (T6). The cutoff is set from MIMIC at training time.",
+      "properties": {
+        "fast_min_clean_minutes": {
+          "default": 15,
+          "title": "Fast Min Clean Minutes",
+          "type": "number"
+        },
+        "fast_warning_cutoff": {
+          "default": 0.5,
+          "title": "Fast Warning Cutoff",
+          "type": "number"
+        }
+      },
+      "title": "TrendConfig",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -79,35 +140,27 @@
       ],
       "default": null
     },
-    "persistence_windows": {
+    "alerts": {
       "anyOf": [
         {
-          "additionalProperties": {
-            "type": "integer"
-          },
-          "type": "object"
+          "$ref": "#/$defs/AlertConfig"
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
-      "title": "Persistence Windows"
+      "default": null
     },
-    "probability_cutoffs": {
+    "trend": {
       "anyOf": [
         {
-          "additionalProperties": {
-            "type": "number"
-          },
-          "type": "object"
+          "$ref": "#/$defs/TrendConfig"
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
-      "title": "Probability Cutoffs"
+      "default": null
     }
   },
   "title": "ModelConfig",

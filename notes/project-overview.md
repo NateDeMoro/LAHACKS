@@ -65,8 +65,8 @@ Plain-English version; methods and data are in the training plan.
 2. **Context adjuster (at intake).** step-5-preview reads the full profile and chief complaint and proposes tightened danger thresholds from an allowed rule list (rules decided later). A high edge can only move down and a low edge only up, so danger is reached sooner, never later. A code validator approves each change. The fact and exact quote behind each change go to an evaluation log, not to the risk engine. No red flags: triage acuity stays with the nurse's ESI level.
 3. **Personal baseline (every minute).** It learns the wearer's own normal from their first stretch of clean readings and narrows the safe band toward it. A drift that stays inside the population range still shows up. It never widens a band, never moves danger, and learns nothing if the patient arrives already abnormal.
 4. **NEWS2 (every second).** Scored on the median of the last 60 seconds of each vital. Each part gets 0–3 points and the total runs 0–20. A total of 5 or more is urgent and 7 or more is high. NEWS2 alone treats everyone the same and looks only at now; steps 1–3 personalize it, and step 5 looks ahead. It was validated mainly on admitted patients, which is an assumption we state.
-5. **Trend models (every minute).** Fast (15 and 30 minutes ahead): will a vital enter the danger tier? Trained on MIMIC-III minute data. Slow (about 6 hours ahead): is sepsis developing? Trained on PhysioNet 2019. Each outputs a probability plus its top reasons.
-6. **Alert logic (every minute).** Persistence windows, one alert per problem, alerts stay until a nurse acknowledges them.
+5. **Fast trend model (every minute).** After 15 clean minutes, and only while no vital is in danger: will a vital enter the danger range within 15 minutes? Trained on MIMIC-III minute data. It raises a warning only, never lowers a level, and gives a one-line reason. There is no slow sepsis model (dropped, see decisions.md); sepsis is one cause of deterioration that NEWS2, personal ranges and this model catch.
+6. **Alert logic (every minute).** Persistence windows, one alert per problem, worsening supersedes the old alert, alerts stay on the dashboard until a nurse acknowledges them.
 
 ## Company challenges
 
@@ -77,17 +77,16 @@ Main track: Applied Intelligence.
 | StepFun | The app calls step-5-preview at runtime | Context adjuster | Easy |
 | Tiger Data | Readings in TimescaleDB; continuous aggregates can compute the minute medians | Ingest / storage | Easy |
 | Sentry | At least two products beyond error monitoring: tracing and logs (session replay on the dashboard as a third) | Whole backend | Easy |
-| ElevenLabs | Spoken alert | Alert channels | Easy |
 | GoDaddy | Register a domain | Dashboard | Easy |
 | Cognition | Build part of the project with Devin | Build process | Easy entry, unlikely win |
 | Vultr | Host the backend and dashboard; the laptop posts strap data up | Hosting | Easy, after the laptop version works |
-| Photon | A two-way messaging agent: alerts by text, and the nurse texts "how is bed 4?" for vitals and the reason | Alert channels | Medium |
 | Fetch.ai | Agent on Agentverse with the Agent Chat Protocol, used entirely inside ASI:One with real tool use | Fetch.ai agent | Medium |
 | veri.studio | Fine-tune the context adjuster and show before vs after on the test set | Context adjuster | Medium, if time |
 
 Not targeted:
 - **Espressif:** no ESP32. An ESP32 Bluetooth-to-Wi-Fi bridge would win it back.
 - **Even Realities:** Even Hub doesn't allow medical, financial or emergency-routing apps.
+- **Photon and ElevenLabs:** alerts are dashboard only; no text or voice channel.
 - **Base44:** the project must be built on their platform.
 - Intuit, Visa, Workday, QNX, Solana, Snowflake: no fit.
 
@@ -95,5 +94,3 @@ Not targeted:
 
 - Context adjuster rule list (I5).
 - Scenario list for the event buttons (I12).
-- Alert acknowledgment state (I11).
-- Fast-model fields in the risk result (I9): one field for two models, and no field yet for trend reasons.

@@ -2,7 +2,7 @@
 
 Oct 17, 2026 · @Nate
 
-How every part of the risk layer is built, from data to evaluation. Only the trend model is trained in the machine-learning sense; the baseline ranges are fit from population data, the personal baseline and alert logic are tuned, and the context adjuster is evaluated against labeled examples.
+How every part of the risk layer is built, from data to evaluation. Only the fast trend model is trained in the machine-learning sense; the baseline ranges are fit from population data, the personal baseline and alert logic are tuned, and the context adjuster is evaluated against labeled examples.
 
 ## At a glance
 
@@ -13,7 +13,7 @@ Five pieces, four build methods. Each row is detailed in its own section below.
 | Baseline ranges | Fit (quantile regression) + published reference ranges + guideline rules | NHANES 2017–Mar 2020; NEWS2; reference studies | Safe / warning / danger band per vital, per patient |
 | Context adjuster | LLM extraction, evaluated against labeled examples (optional fine-tune) | Hand-labeled intake texts; MIMIC-IV-ED demo chief complaints | Danger-threshold tightenings (I5); facts and quotes logged separately (I15) |
 | Personal baseline | Bayesian update, one tuned setting | eICU demo (tuning and check) | Bands narrowed toward the patient's own readings |
-| Trend model | Two trained classifiers: fast (minutes ahead) and slow (hours ahead) | MIMIC-III waveform vitals (fast); PhysioNet 2019 (slow); eICU demo | Probability of instability in the next 15–30 min and of sepsis in the next hours, + top reasons |
+| Trend model | One trained classifier, fast (15 min ahead); the slow sepsis model is future work (section 4) | MIMIC-III waveform vitals; eICU demo as a mechanics check | Warning tier when a vital is likely to enter the danger range within 15 min, + a reason |
 | Signal quality, breathing rate, alert logic | Rules with tuned thresholds | eICU replay | Clean vitals, breathing rate, alert decisions |
 
 ## 1. Baseline ranges
@@ -160,9 +160,11 @@ _Superseded: n₀ is now derived from the data and bounded, and tuning targets k
 - **Choice:** the smallest n₀ that keeps survivor warnings near the population-band rate while not reducing flags in non-survivors.
 - **Caveat:** eICU patients are already sick, so this is a sanity check on the mechanics, not proof it works in a waiting room.
 
-## 4. Slow trend model (hours ahead)
+## 4. Slow trend model (hours ahead) — future work, not built
 
-This is the only component trained in the machine-learning sense: a classifier that reads the last few hours of a patient's vitals and predicts whether they are heading toward sepsis, trained on PhysioNet 2019 and checked on eICU.
+Dropped for the hackathon (T5): its useful change inputs need 90–120 minutes of data, while the median US ED wait to see a clinician is under 30 minutes, so it would stay silent for most patients (see decisions.md). Kept as the design for long-wait EDs. Sepsis is presented as one cause of deterioration that NEWS2, personal ranges and the fast model catch.
+
+The design: a classifier that reads the last few hours of a patient's vitals and predicts whether they are heading toward sepsis, trained on PhysioNet 2019 and checked on eICU.
 
 ### Data and label
 
@@ -214,7 +216,7 @@ The live stream is collapsed into one-minute medians, then into the same hourly 
 
 ## 4b. Fast trend model (minutes ahead)
 
-The slow model can't catch deterioration that shows up within 15 minutes, and hourly data can't be stretched to do it: interpolating between hourly points draws smooth lines with no information about what happened inside the hour. So the fast model is trained on minute-level data and predicts short-term instability instead of sepsis.
+The slow model can't catch deterioration that shows up within 15 minutes, and hourly data can't be stretched to do it: interpolating between hourly points draws smooth lines with no information about what happened inside the hour. So the fast model is trained on minute-level data and predicts short-term instability instead of sepsis. It is the only trend model we build.
 
 ### Data
 
@@ -225,7 +227,7 @@ The slow model can't catch deterioration that shows up within 15 minutes, and ho
 
 ### Label, derived from the vitals themselves
 
-At each minute, for a patient not currently in trouble: does a vital enter the NEWS2 danger tier (section 1) and stay there for several minutes, starting within the next 15 minutes? A second model uses 30 minutes. Minutes during and just after an event are excluded, and windows with too much missing data are skipped.
+At each minute, for a patient not currently in trouble: does a vital enter the NEWS2 danger tier (section 1) and stay there for several minutes, starting within the next 15 minutes? There is no 30-minute model. Minutes during and just after an event are excluded, and windows with too much missing data are skipped.
 
 ### Inputs
 
@@ -246,11 +248,11 @@ Headline metric: minutes of warning before the event at a fixed alert rate, comp
 
 ### Output
 
-Two models, 15 and 30 minutes ahead. Each outputs a probability (0–1) that some vital enters the danger tier, plus the top 3 feature contributions. They don't say which vital; one model per vital would, at the cost of more models. Open: I9 has one fast field for two models. Same calibration caveat as the slow model.
+One model, 15 minutes ahead. It outputs a probability (0–1) that some vital enters the danger tier, plus the top 3 feature contributions as a reason. It doesn't say which vital; one model per vital would, at the cost of more models. It raises a warning tier only (never urgent), and the dashboard shows the tier, not the percentage. Training with `scale_pos_weight` inflates raw probabilities, so compare them only against the cutoff.
 
 ### Running it live
 
-It runs every minute on the stream's one-minute medians, the same resolution it was trained on. The slow model keeps running alongside it; both feed the alert logic in section 5.
+It runs every minute on the stream's one-minute medians, the same resolution it was trained on, after 15 clean minutes and never while a vital is already in danger. It can raise the level to warning and never lowers it; the tier feeds the alert logic in section 5.
 
 ## 5. Signal quality, breathing rate and alert logic
 
@@ -295,7 +297,7 @@ The biggest limit is setting: every training dataset is survey or ICU data, and 
 - **Blood pressure is a single triage reading,** so a BP drop during the wait goes unseen.
 - **NEWS2 in a waiting room.** It was validated mainly on admitted patients.
 - **Small subgroups.** Some drug classes will have too few NHANES users to estimate their own shift; those fall back to guideline rules.
-- **Limited outcome types.** The slow model learns sepsis and the fast model learns short-term vital instability; other causes rely on the bands and NEWS2. The fast model's labels come from the same vitals it reads, which is why it must beat simple baselines.
+- **Limited outcome types.** The fast model learns short-term vital instability (no dedicated sepsis model); other causes rely on the bands and NEWS2. The fast model's labels come from the same vitals it reads, which is why it must beat simple baselines.
 - **Self-written adjuster test set.** It reflects what we thought to test.
 - **Research prototype.** A deployed version would be a regulated medical device.
 

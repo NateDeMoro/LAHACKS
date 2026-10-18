@@ -15,6 +15,11 @@ _MAD_TO_SD = 1.4826  # robust standard deviation from the median absolute deviat
 _BAND_SD = 3.92      # a 95% band is 3.92 standard deviations wide
 
 
+def is_clean_minute(clean_seconds: int | None, min_clean_seconds: int | None) -> bool:
+    """A minute counts if clean_seconds is unknown or at least the minimum. Shared with trend.py."""
+    return clean_seconds is None or clean_seconds >= (min_clean_seconds or 0)
+
+
 class _VitalBaseline:
     def __init__(self, vital: str, pop: VitalRange, mu0: float, cfg: BaselineConfig):
         self.vital, self.pop, self.mu0, self.cfg = vital, pop, mu0, cfg
@@ -97,7 +102,7 @@ class PersonalBaseline:
 
     def update(self, m: MinuteSummary) -> bool:
         """Feed one I6 row; returns True when the ranges changed."""
-        if m.minute_ts is None or (m.clean_seconds is not None and m.clean_seconds < self.min_clean_seconds):
+        if m.minute_ts is None or not is_clean_minute(m.clean_seconds, self.min_clean_seconds):
             return False
         changed = False
         for v in VITALS:

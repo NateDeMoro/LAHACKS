@@ -3,6 +3,7 @@ name = "lahacks"
 version = "0.0.1"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "lightgbm>=4.7.0",
     "openai>=3.35.1",
     "pydantic>=2,<3",
 ]
@@ -13,7 +14,11 @@ dev = [
     "pytest-asyncio>=1.4.0",
 ]
 fixtures = ["pandas"]
-training = ["pandas", "statsmodels"]
+training = [
+    "pandas",
+    "statsmodels",
+    "wfdb>=4.3.1",
+]
 receiver = [
     "bleakheart>=0.2.0",
     "numpy>=2.5.4",

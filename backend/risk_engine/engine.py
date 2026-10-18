@@ -1,19 +1,23 @@
 """Risk engine: NEWS2 every second; population ranges at intake; personal baseline and I9 every minute."""
 import json
 from pathlib import Path
+from datetime import timedelta
 from typing import Callable
 
+from backend.config import CONFIG
 from backend.contracts import (BaselineConfig, ContextAdjustments, LiveNews2, LiveWindow,
                                MinuteSummary, ModelConfig, PatientContext, PatientRanges,
-                               RiskResult, VitalRange)
+                               RiskResult, TrendConfig, VitalLevels, VitalRange, VitalValues)
 from backend.risk_engine import news2, ranges
 from backend.risk_engine.baseline import PersonalBaseline
+from backend.risk_engine.trend import Trend
 
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "models" / "config.json"
 
 _LABEL = {"hr": "heart rate", "resp_rate": "breathing", "spo2": "SpO2", "temp_c": "temperature"}
 _UNIT = {"hr": "/min", "resp_rate": "/min", "spo2": "%", "temp_c": "C"}
 _RANK = {"safe": 0, "warning": 1, "danger": 2}
+NEWS2_MAX_AGE = timedelta(seconds=60)  # a live NEWS2 older than this is not shown beside the minute
 
 
 def default_ranges(patient_id: str | None) -> PatientRanges:
@@ -45,12 +49,20 @@ class RiskEngine:
         self.intake_ranges: dict[str, PatientRanges] = {}  # population I8 at intake; the simulator reads this one
         self.baselines: dict[str, PersonalBaseline] = {}
         self.latest: dict[str, LiveNews2] = {}
+        self.trend = Trend(self.config.trend or TrendConfig(),
+                           (self.config.baseline or BaselineConfig()).min_clean_seconds)
         self.ranges_listener: Callable[[PatientRanges], None] | None = None  # called when a patient's I8 changes
 
     @property
     def ranges(self) -> dict[str, PatientRanges]:
         """Current I8 per patient (population, narrowed once the personal baseline kicks in)."""
         return {pid: b.ranges for pid, b in self.baselines.items()}
+
+    def bed_label(self, patient_id: str) -> str:
+        """Bed name for alert messages: wearable from the stored I4, else the patient_id."""
+        ctx = self.context.get(patient_id)
+        wearable = ctx.wearable_id if ctx else None
+        return CONFIG.beds.labels.get(wearable, patient_id)
 
     def _start(self, patient_id: str, population: PatientRanges, centres: dict[str, float]):
         self.intake_ranges[patient_id] = population
@@ -85,17 +97,22 @@ class RiskEngine:
             self.ranges_listener(base.ranges)
         current = base.ranges
         level, vital, reason = "safe", None, None
+        levels: dict[str, str | None] = {}
         for name in ("hr", "resp_rate", "spo2", "temp_c"):
             v = getattr(m, name)
-            if v is None:
-                continue
-            lv = classify(v, getattr(current, name), name)
-            if _RANK[lv] > _RANK[level]:
-                level, vital = lv, name
-                reason = f"{_LABEL[name]} {v:g}{_UNIT[name]}, {lv}"
+            levels[name] = None if v is None else classify(v, getattr(current, name), name)
+            if levels[name] and _RANK[levels[name]] > _RANK[level]:
+                level, vital = levels[name], name
+                reason = f"{_LABEL[name]} {v:g}{_UNIT[name]}, {level}"
+        tr = self.trend.update(m, levels, level, reason)
         live = self.latest.get(m.patient_id)
+        if live and m.minute_ts and live.ts and m.minute_ts - live.ts > NEWS2_MAX_AGE:
+            live = None
         return RiskResult(
-            patient_id=m.patient_id, ts=m.minute_ts, level=level, vital=vital, reason=reason,
+            patient_id=m.patient_id, ts=m.minute_ts, level=tr.level, vital=vital, reason=tr.reason,
+            vital_levels=VitalLevels(**levels),
+            vital_values=VitalValues(hr=m.hr, resp_rate=m.resp_rate, spo2=m.spo2, temp_c=m.temp_c),
             news2=live.news2 if live else None,
             news2_points=live.news2_points if live else None,
+            trend_prob_fast=tr.prob, trend_tier=tr.tier, trend_reason_fast=tr.trend_reason,
         )

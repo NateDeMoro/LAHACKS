@@ -46,8 +46,15 @@ class LlmConfig:
 
 
 @dataclass(frozen=True)
+class BedConfig:
+    """Bed label per wearable, used in alert messages."""
+    labels: dict[int, str] = field(default_factory=lambda: {1: "Bed 4"})
+
+
+@dataclass(frozen=True)
 class Config:
     receiver: ReceiverConfig = field(default_factory=ReceiverConfig)
+    beds: BedConfig = field(default_factory=BedConfig)
     llm: LlmConfig = field(default_factory=LlmConfig)
 
 

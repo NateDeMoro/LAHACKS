@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import * as api from '../api'
-import { Glyph, SEV, VITALS, fmtClock, go, levelBorder, show, useApp, waitingMin } from '../lib'
-import { alertText, isMinor, rankedAlerts, tileSeverity, useStore } from '../store'
+import { Glyph, SEV, VITALS, fmtClock, go, levelBorder, levelFromPoints, show, useApp, waitingMin } from '../lib'
+import WhyUrgent from '../components/WhyUrgent'
+import { rankedAlerts, tileSeverity, useStore } from '../store'
 import type { I10, I9, IntakeCard, VitalKey } from '../types'
 import VitalChart from '../components/VitalChart'
 import SensorModal from '../components/SensorModal'
 
-const KIND: Record<string, string> = { trend: 'TREND', news2_total: 'NEWS2', vital_danger: 'VITAL IN DANGER', warning_persisted: 'VITAL OUTSIDE USUAL' }
 const POINTS: Record<VitalKey, 'hr' | 'resp_rate' | 'spo2' | 'temp_c'> = { hr: 'hr', resp_rate: 'resp_rate', spo2: 'spo2', temp_c: 'temp_c' }
 const cap = (s?: string | null) => (s ? s[0].toUpperCase() + s.slice(1).replace('_', ' ') : '')
 
@@ -25,9 +25,9 @@ export default function Patient({ id }: { id: string }) {
   useEffect(() => { api.getCard(id).then(setCard).catch(() => setCard(null)) }, [id, modal])
 
   const alerts = rankedAlerts(s, id)
-  const sev = tileSeverity(s, id)
-  const c = SEV[sev]
   const news2 = mode === 'live' ? 0 : i14?.news2 ?? i9?.news2
+  const sev = tileSeverity(s, id, news2)
+  const c = SEV[sev]
   const pts = mode === 'live' ? null : i14?.news2_points ?? i9?.news2_points
   const ctx = card?.context
   const idx = patients.findIndex((x) => x.patient_id === id)
@@ -36,7 +36,6 @@ export default function Patient({ id }: { id: string }) {
     ctx?.height_cm != null || ctx?.weight_kg != null ? `${show(ctx?.height_cm)} cm, ${show(ctx?.weight_kg)} kg` : null,
     ctx?.triage?.level != null ? `triage level ${ctx.triage.level}` : null].filter(Boolean).join(' · ')
 
-  const why = (a: I10) => (a.trigger === 'trend' ? i9?.trend_reason_fast : i9?.reason)
   const danger = (['resp_rate', 'spo2', 'hr', 'temp_c'] as const).map((k) => {
     const r = i8?.[k]; if (!r) return null
     const parts = [r.danger_low != null ? `${r.danger_low} or less` : null, r.danger_high != null ? `${r.danger_high} or more` : null].filter(Boolean)
@@ -52,8 +51,8 @@ export default function Patient({ id }: { id: string }) {
         </button>
         <div className="flex grow basis-0 min-w-0 gap-2 overflow-hidden">
           {patients.map((q, i) => {
-            const qs = tileSeverity(s, q.patient_id), qc = SEV[qs], cur = q.patient_id === id
             const n = mode === 'live' ? 0 : s.i14[q.patient_id]?.news2 ?? s.i9[q.patient_id]?.news2
+            const qs = tileSeverity(s, q.patient_id, n), qc = SEV[qs], cur = q.patient_id === id
             const border = cur ? 'border-2 border-navy' : qs === 'low' ? 'border border-line' : qs === 'amber' ? 'border-2 border-urgent-solid' : 'border-2 border-high'
             return (
               <button key={q.patient_id} onClick={() => go(`/patient/${q.patient_id}`)} className={`basis-42 min-w-42 w-42 h-13 shrink-0 flex items-center justify-between px-3 rounded-[6px] ${qs === 'low' ? 'bg-ground' : qc.card.split(' ')[0]} ${border}`}>
@@ -95,9 +94,9 @@ export default function Patient({ id }: { id: string }) {
               <div className="flex gap-3">
                 {VITALS.map((v) => {
                   const val = i13?.[v.key] ?? i9?.vital_values?.[v.key]
-                  const lv = i9?.vital_levels?.[v.key]
                   const sel = vital === v.key
                   const pt = pts?.[POINTS[v.key]]
+                  const lv = levelFromPoints(pt, i9?.vital_levels?.[v.key])
                   return (
                     <button key={v.key} onClick={() => setVital(v.key)} className={`text-left flex flex-col w-37.5 shrink-0 py-2.5 px-3 rounded-[6px] gap-1 border-l-4 ${levelBorder(lv)} ${sel ? 'bg-fog' : 'bg-ground'}`}>
                       <div className={`font-mono text-[12px] leading-4 tracking-[0.06em] ${sel ? 'font-[600] text-navy' : 'text-muted'}`}>{v.label}</div>
@@ -141,17 +140,7 @@ export default function Patient({ id }: { id: string }) {
         </div>
 
         <div className="flex flex-col w-85 shrink-0 pl-8 gap-6 border-l border-line">
-          <div className="flex flex-col gap-2">
-            <div className="font-mono text-[12px] leading-4 tracking-[0.08em] text-muted">WHY URGENT</div>
-            {alerts.length === 0 && <div className="text-[15px] leading-5.75 text-muted">No open alerts.</div>}
-            {alerts.map((a) => (
-              <div key={a.alert_id} className="flex flex-col gap-1 pb-2">
-                <div className="font-mono text-[11px] leading-3.5 tracking-[0.08em] text-muted">{KIND[a.trigger ?? ''] ?? 'ALERT'}</div>
-                <div className={`text-[15px] leading-5.75 ${isMinor(a) ? 'text-muted' : 'font-[600] text-ink'}`}>{alertText(a)}</div>
-                {why(a) && <div className="text-[14px] leading-5 text-muted">{why(a)}</div>}
-              </div>
-            ))}
-          </div>
+          <WhyUrgent alerts={alerts} />
           <div className="flex flex-col pt-5 gap-2.5 border-t border-line">
             <div className="font-mono text-[12px] leading-4 tracking-[0.08em] text-muted">PATIENT INFORMATION</div>
             {ctx?.chief_complaint && <div className="pl-3 border-l-2 border-navy text-[15px] leading-5.5 text-ink">“{ctx.chief_complaint}”</div>}

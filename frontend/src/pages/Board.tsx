@@ -17,7 +17,7 @@ export default function Board() {
     try { await fn() } catch (e) { setErr(String((e as Error).message ?? e)) }
     try { await refresh() } finally { setBusy(null) }
   }
-  const sevs = patients.map((p) => tileSeverity(s, p.patient_id))
+  const sevs = patients.map((p) => tileSeverity(s, p.patient_id, mode === 'live' ? 0 : s.i14[p.patient_id]?.news2 ?? s.i9[p.patient_id]?.news2))
   const highs = sevs.filter((x) => x === 'high').length, ambers = sevs.filter((x) => x === 'amber').length
   const rows: typeof patients[] = []
   for (let i = 0; i < patients.length; i += 3) rows.push(patients.slice(i, i + 3))
@@ -52,7 +52,7 @@ export default function Board() {
           </div>
           <div className="w-px h-7 shrink-0 bg-line" />
           <div className="flex items-center gap-2"><Glyph sev="high" size={14} /><div className="font-mono text-[20px] leading-6 font-[500] text-high">{highs}</div><div className="text-[14px] leading-5 font-[500] text-ink">high</div></div>
-          <div className="flex items-center gap-2"><Glyph sev="amber" size={14} /><div className="font-mono text-[20px] leading-6 font-[500] text-urgent">{ambers}</div><div className="text-[14px] leading-5 font-[500] text-ink">urgent</div></div>
+          <div className="flex items-center gap-2"><Glyph sev="amber" size={14} /><div className="font-mono text-[20px] leading-6 font-[500] text-urgent">{ambers}</div><div className="text-[14px] leading-5 font-[500] text-ink">medium</div></div>
           <div className="w-px h-7 shrink-0 bg-line" />
           <div className="font-mono text-[16px] leading-5 text-muted" title={mode === 'sim' ? 'simulated time' : 'time'}>{fmtClock(now)}</div>
         </div>

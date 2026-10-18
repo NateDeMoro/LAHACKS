@@ -29,12 +29,13 @@ def minute_script(points: dict[str, list[tuple[float, float]]], seed: int, news2
     return RunScript(tracks=tracks, seed=seed, expect=Expect(news2=news2, alerts=alerts))
 
 
-# Steep-then-hold: change between minutes 12 and 22, hold just short of danger, then drop into danger from 31.
+# Steady drift away from his baseline: breathing and heart rate climb, SpO2 falls, temperature creeps up.
+# Nothing is in danger at minute 30 (heart rate stays at 90 or under, which keeps NEWS2 under 5); danger follows from about 32.
 JOHN_POINTS = {
-    "hr": [(0, 76), (12, 76), (22, 84), (31, 86), (33, 102), (60, 104)],
-    "resp_rate": [(0, 15), (12, 15), (22, 24), (31, 24), (33, 27), (60, 27)],
-    "spo2": [(0, 98), (12, 98), (22, 92), (31, 92), (33, 90), (60, 90)],
-    "temp_c": [(0, 36.7), (31, 36.8), (33, 38.4), (60, 38.6)],
+    "hr": [(0, 78), (32, 90), (45, 102), (60, 112)],
+    "resp_rate": [(0, 17), (33, 24.6), (45, 28), (60, 31)],
+    "spo2": [(0, 97), (35, 91), (45, 88), (60, 85)],
+    "temp_c": [(0, 36.7), (32, 37.4), (36, 38.3), (60, 38.9)],
 }
 JOHN_SCRIPT = minute_script(JOHN_POINTS, 107, [0, 0, 3, 8],
                             "Trend alert by about minute 28, high NEWS2 8 alert by minute 45")

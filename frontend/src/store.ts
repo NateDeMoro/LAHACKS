@@ -46,9 +46,9 @@ export const isMinor = (a: I10) => a.trigger === 'warning_persisted'
 /** Alerts with the ones that matter first, minor ones last. */
 export const rankedAlerts = (s: State, pid: string): I10[] =>
   openAlerts(s, pid).sort((a, b) => (+isMinor(a) - +isMinor(b)) || ((b.severity === 'high' ? 1 : 0) - (a.severity === 'high' ? 1 : 0)))
-/** Tile colour: highest open alert severity, ignoring minor alerts. warning/urgent -> amber, high -> red, none -> green. */
-export function tileSeverity(s: State, pid: string): 'low' | 'amber' | 'high' {
-  let top = 0
+/** Tile colour: the NEWS2 band (0-4 low green, 5-6 medium amber, 7+ high red), raised by any open non-minor alert (warning/urgent -> amber, high -> red). */
+export function tileSeverity(s: State, pid: string, news2?: number | null): 'low' | 'amber' | 'high' {
+  let top = (news2 ?? 0) >= 7 ? 2 : (news2 ?? 0) >= 5 ? 1 : 0
   for (const a of openAlerts(s, pid)) if (!isMinor(a)) top = Math.max(top, rank[a.severity ?? ''] ?? 0)
   return top === 2 ? 'high' : top === 1 ? 'amber' : 'low'
 }

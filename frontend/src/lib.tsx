@@ -34,7 +34,7 @@ export const show = (v: number | null | undefined) => (v == null ? '' : Number.i
 export type Sev = 'low' | 'amber' | 'high'
 export const SEV = {
   low: { word: 'Low', text: 'text-muted', num: 'text-ink', card: 'bg-ground border border-line', box: 'bg-low-tint border border-low' },
-  amber: { word: 'Urgent', text: 'text-urgent', num: 'text-urgent', card: 'bg-urgent-tint border-2 border-urgent-solid', box: 'bg-urgent-tint border border-urgent-solid' },
+  amber: { word: 'Medium', text: 'text-urgent', num: 'text-urgent', card: 'bg-urgent-tint border-2 border-urgent-solid', box: 'bg-urgent-tint border border-urgent-solid' },
   high: { word: 'High', text: 'text-high', num: 'text-high', card: 'bg-high-tint border-2 border-high', box: 'bg-high-tint border border-high' },
 } as const
 
@@ -50,3 +50,7 @@ export function Glyph({ sev, size = 12 }: { sev: Sev; size?: number }) {
 
 export const levelBorder = (l?: string | null) =>
   l === 'danger' ? 'border-l-high' : l === 'warning' ? 'border-l-urgent-solid' : 'border-l-low'
+
+/** Vital tag colour follows its NEWS2 points (0 green, 1-2 amber, 3 red); falls back to the engine's level without points. */
+export const levelFromPoints = (pts?: number | null, fallback?: string | null) =>
+  pts == null ? fallback : pts >= 3 ? 'danger' : pts >= 1 ? 'warning' : 'safe'

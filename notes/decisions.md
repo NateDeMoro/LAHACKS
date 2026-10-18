@@ -457,3 +457,7 @@ Same 52 held-out patients (3,149 monitored hours), a third look at them. False a
 
 ### Live-mode SpO2/temp filler dropped; NEWS2 fixed at 0 in Live
 - **Choice:** Live mode shows heart rate and breathing from the strap, other vitals blank, and NEWS2 as a fixed 0. This is the one place the displayed score is not the engine's, by the user's choice.
+
+### Demo timing: John arrives at Start, skips +30 then +15, trend alert hold 3 minutes
+- **Choice:** John Chamberlain arrives as the board opens (others arrive earlier, staggered, so each has history for their whole wait). His vitals drift steadily from baseline; the +30 skip shows the open trend alert with nothing in danger, the +15 skip shows danger and a high NEWS2 8 alert. `alerts.trend_minutes` in `models/config.json` goes from 5 to 3, as `notes/simulation-layer.md` already advises (persistence near 3 minutes or less).
+- **Why:** the fast model only forecasts danger when a vital is about 1.5 points from its danger edge, and the trend turns off once any vital is in danger. With a 5-minute hold a steady ramp reached danger before the trend alert could open (checked with `scripts/spike_john.py`). Tile colour follows NEWS2 bands (0-4 low, 5-6 medium, 7+ high), raised by any open non-minor alert; "outside usual" alerts never colour a tile.

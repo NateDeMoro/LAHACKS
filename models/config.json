@@ -14,7 +14,7 @@
     "warning_persisted_minutes": 10,
     "vital_danger_minutes": 2,
     "news2_total_minutes": 2,
-    "trend_minutes": 5,
+    "trend_minutes": 3,
     "max_gap_minutes": 10,
     "clear_minutes": 5,
     "ack_cooldown_minutes": 15

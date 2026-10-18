@@ -4,6 +4,8 @@ Oct 17, 2026 · @Peyton
 
 How the demo gets its patients and events. A simulation is one sample patient plus one fixed-length scripted run in which every vital is synthetic. Interface IDs (I1–I15) refer to [component-map.md](component-map.md); the reasons behind each choice are in [decisions.md](decisions.md).
 
+> Waiting-room scenario (sim-ff): six patients, John Chamberlain replacing U2, 60 simulated minutes, minutes 0-20 replayed as a lead-in on start, then `POST /sim/skip` fast-forwards the sim clock. The lead-in replaces the 120-minute pre-roll for the scenario. Live-mode SpO2/temp filler is dropped.
+
 ## Two modes
 
 | Mode | Vitals | Used for |

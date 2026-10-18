@@ -447,3 +447,13 @@ Same 52 held-out patients (3,149 monitored hours), a third look at them. False a
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.
 - NHANES pulse is seated and resting; anxious waiting patients may run above the 90 bpm cap and show warning (check at C2; the fix would be a config offset).
 - eICU is ICU data in 5-minute aggregates, so tuning there checks mechanics, not waiting-room performance.
+
+### Waiting-room scenario: six patients, one clock per patient, skip inside the player
+- **Choice:** Simulation mode is a 60-minute scenario of six named patients (John Chamberlain replaces U2 for the scenario only). A sim clock with an offset over wall time serves scenario patients; everyone else stays on wall time. Fast-forward replays every skipped second through the real ingest, engine and alert logic inside the player task, so scores, alerts and reasons are never faked.
+- **Why:** the story needs a trend alert at +10 min and a NEWS2 alert at +15 min produced by the real engine. John's keyframes are tuned in a spike (`scripts/spike_john.py`); engine outputs and thresholds are not touched.
+
+### Lead-in replaces the pre-roll in the scenario
+- **Choice:** minutes 0-20 are replayed at Start so the board has real history, waiting times and baselines. The invented 120-minute pre-roll is not used for the scenario.
+
+### Live-mode SpO2/temp filler dropped; NEWS2 fixed at 0 in Live
+- **Choice:** Live mode shows heart rate and breathing from the strap, other vitals blank, and NEWS2 as a fixed 0. This is the one place the displayed score is not the engine's, by the user's choice.

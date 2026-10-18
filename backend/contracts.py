@@ -57,6 +57,7 @@ class Triage(Model):
 
 class IntakeRecord(Model):  # I2
     patient_id: str | None = None
+    name: str | None = None  # the person's name, shown on the board
     wearable_id: int | None = None
     arrival_ts: Ts = None
     age: float | None = None

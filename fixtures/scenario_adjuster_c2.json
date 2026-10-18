@@ -1,0 +1,10 @@
+{
+  "model": "step-5-preview b3-0",
+  "items": [
+    {
+      "rule_id": "suspected_infection",
+      "fact": "Current fever and chills",
+      "quote": "Fever, shaking chills"
+    }
+  ]
+}

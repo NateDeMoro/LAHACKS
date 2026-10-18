@@ -33,6 +33,7 @@ class IntakeService:
                  on_submit: Callable[[PatientContext], None] = lambda ctx: None):
         self._engine, self._on_assign, self._adjust, self._on_submit = engine, on_assign, adjust_fn, on_submit
         self._sim_wearables = set(cfg.simulator.scenario_wearable_ids)
+        self._presets: dict[str, Callable[[PatientContext], A.Outcome]] = {}  # scenario patients with a pre-run adjuster result
         self._structured_only: set[str] = set()  # scenario patients: no LLM call, so ranges never move mid-demo
         self._labels = dict(cfg.beds.labels)
         self._valid = set(self._labels) | {cfg.receiver.wearable_id}
@@ -81,15 +82,20 @@ class IntakeService:
         if self._engine.ranges_listener:
             self._engine.ranges_listener(ranges)
 
-    async def submit(self, rec: IntakeRecord, *, structured_only: bool = False) -> WearableAssignment:
+    async def submit(self, rec: IntakeRecord, *, structured_only: bool = False,
+                     preset: Callable[[PatientContext], A.Outcome] | None = None) -> WearableAssignment:
         """Use when POST /intake arrives. Needs the running event loop. Raises UnknownWearable.
-        structured_only skips the LLM step (the scenario); a resubmit keeps that choice and the first arrival time."""
+        structured_only skips the LLM step (the scenario); preset supplies a pre-run adjuster result instead of the structured one;
+        a resubmit keeps both choices and the first arrival time."""
         if rec.wearable_id not in self._valid:
             raise UnknownWearable(rec.wearable_id)
         prior = self._card.get(rec.patient_id) if rec.patient_id else None
         if structured_only:
             self._structured_only.add(rec.patient_id)
         structured_only = structured_only or rec.patient_id in self._structured_only
+        if preset:
+            self._presets[rec.patient_id] = preset
+        preset = self._presets.get(rec.patient_id)
         rec = rec.model_copy(update={"patient_id": rec.patient_id or f"pt-{secrets.token_hex(3)}",
                                      "arrival_ts": rec.arrival_ts or (prior["ctx"].arrival_ts if prior else None) or now_la()})
         ctx = self._build_context(rec)
@@ -97,12 +103,12 @@ class IntakeService:
         seq = self._seq[pid] = self._seq.get(pid, 0) + 1
         assignment = self._assign(pid, rec.wearable_id)
         self._on_assign(assignment)
-        out = A.adjust_structured(ctx)
+        out = preset(ctx) if preset else A.adjust_structured(ctx)
         self._card[pid] = {"ctx": ctx, "i5": out.i5, "i15": out.i15, "state": PENDING}
         self._apply(ctx, out.i5)
         self._on_submit(ctx)
         if structured_only:
-            self._card[pid]["state"] = STRUCTURED_ONLY
+            self._card[pid]["state"] = DONE if preset else STRUCTURED_ONLY
             return assignment
         task = asyncio.create_task(self._finish(ctx, seq))
         self._tasks.add(task)

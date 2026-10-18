@@ -67,6 +67,15 @@ def adjust_structured(ctx: PatientContext, ts: datetime | None = None) -> Outcom
     return _build(ctx, R.structured_facts(ctx), [], STRUCTURED_ONLY, ts)
 
 
+def from_saved(ctx: PatientContext, saved: dict) -> Outcome:
+    """Outcome from a pre-run result ({"model", "items": [{rule_id, fact, quote}]}) plus the structured rules, instant.
+    Use when a demo patient's adjuster call was run ahead of time (scripts/prerun_scenario_adjuster.py)."""
+    out = _build(ctx, R.structured_facts(ctx), [(i["rule_id"], i["fact"], i["quote"]) for i in saved["items"]],
+                 saved["model"], None)
+    out.llm_ok = True
+    return out
+
+
 def norm(s: str) -> str:
     """Lowercase, straighten curly quotes, collapse whitespace: the only leniency in the quote check."""
     return re.sub(r"\s+", " ", s.translate(_QUOTES).lower()).strip()

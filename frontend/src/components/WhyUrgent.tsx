@@ -19,10 +19,9 @@ function parts(a: I10) {
   return { head: cap(t.replace(POINTS, '')), detail: pts ? `${pts[1]} NEWS2 point${pts[1] === '1' ? '' : 's'}` : null }
 }
 
-/** Open alerts, most important first: full cards for real alerts, one quiet list for "outside usual" ones. */
+/** Open alerts, most important first. "Outside usual" alerts are left out: the coloured vital tags already show them. */
 export default function WhyUrgent({ alerts }: { alerts: I10[] }) {
   const main = alerts.filter((a) => !isMinor(a))
-  const minor = [...new Set(alerts.filter(isMinor).map((a) => cap(alertText(a).replace(POINTS, ''))))]
   return (
     <div className="flex flex-col gap-3">
       <div className="font-mono text-[12px] leading-4 tracking-[0.08em] text-muted">WHY URGENT</div>
@@ -41,12 +40,6 @@ export default function WhyUrgent({ alerts }: { alerts: I10[] }) {
           </div>
         )
       })}
-      {minor.length > 0 && (
-        <div className="flex flex-col gap-1 pt-2 border-t border-line">
-          <div className="font-mono text-[11px] leading-3.5 tracking-[0.08em] text-muted">OUTSIDE USUAL RANGE</div>
-          {minor.map((m) => <div key={m} className="text-[14px] leading-5 text-muted">{m}</div>)}
-        </div>
-      )}
     </div>
   )
 }

@@ -81,7 +81,7 @@ Read left to right: everything in one column can be built at the same time. A ch
 | S6 Run buttons | Systems | C3 | The intake form prefills a sample patient and a dashboard button starts its run; scores react and the end shows as a pause |
 | Step A Trend wiring | Stats | T3 | I9 carries per-vital levels and trend fields (null with the stub), I10/I11 contracts and typed alert/trend config exist, `trend.py` and a stub `fast_model.py` are wired into the engine. Done: backend/risk_engine/trend.py, tests/risk_engine/test_trend.py |
 | T6 Fast trend model | Stats | Step A | The 15 min model replaces the stub; tier and reason appear in I9. Done: LightGBM forecast model ships (METHOD "forecast", cutoff 2.0, warning only; Rule 1/2 and logistic stay selectable); training/, backend/risk_engine/fast_features.py, fast_model.py, models/fast_15_forecast*. Retrain pending when the second MIMIC batch finishes downloading |
-| S8 Add-ons | Systems | any time | Tiger Data stores readings (mirror coded, needs a Tiger Cloud service + `TIGER_DATA_URL`), Sentry tracing + logs, hosted on Vultr behind a domain, Fetch.ai agent answers in ASI:One |
+| S8 Add-ons | Systems | any time | Tiger Data stores readings (mirror coded, needs a Tiger Cloud service + `TIGER_DATA_URL`), Sentry tracing + logs, hosted on Vultr behind a domain, Fetch.ai agent answers in ASI:One (Fetch.ai agent code done, needs mailbox + Agentverse steps) |
 | **C4 Full demo** | Both | S6, T6 (S8 if done) | The demo script runs start to finish without touching code |
 
 T5 (the slow sepsis model) was dropped and has no row; the fast model is the only trend model (decisions.md). T4 and T6 are done and feed C3 and C4 as listed.

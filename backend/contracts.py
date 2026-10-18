@@ -27,6 +27,7 @@ Level = Literal["safe", "warning", "danger"]
 Severity = Literal["warning", "urgent", "high"]
 Trigger = Literal["vital_danger", "news2_total", "warning_persisted", "trend"]
 RangeSource = Literal["population", "personal"]
+RunState = Literal["live", "running", "ended"]  # simulator run, carried on I13
 
 
 class Model(BaseModel):
@@ -110,6 +111,7 @@ class LiveWindow(Model):  # I13
     spo2: float | None = None
     temp_c: float | None = None
     clean_seconds: int | None = None
+    run_state: RunState | None = None
 
 
 class VitalRange(Model):

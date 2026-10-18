@@ -85,6 +85,23 @@
       ],
       "default": null,
       "title": "Clean Seconds"
+    },
+    "run_state": {
+      "anyOf": [
+        {
+          "enum": [
+            "live",
+            "running",
+            "ended"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Run State"
     }
   },
   "title": "LiveWindow",

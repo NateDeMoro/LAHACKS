@@ -46,9 +46,17 @@ class LlmConfig:
 
 
 @dataclass(frozen=True)
+class SimulatorConfig:
+    run_length_s: int = 600  # every run script is stored as fractions of this, so changing it rescales all six
+    preroll_minutes: int = 60  # trend-model look-back fed before 0:00; the slow model's 1 h window is full
+    default_wearable_id: int = int(os.environ.get("RECEIVER_WEARABLE_ID", "1"))  # same wearer as the strap
+
+
+@dataclass(frozen=True)
 class Config:
     receiver: ReceiverConfig = field(default_factory=ReceiverConfig)
     llm: LlmConfig = field(default_factory=LlmConfig)
+    simulator: SimulatorConfig = field(default_factory=SimulatorConfig)
 
 
 CONFIG = Config()

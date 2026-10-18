@@ -318,8 +318,29 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - **Model:** logistic regression on 6 inputs (each rule's score per vital), a missing score filled with the training mean (neutral after standardizing, no missing indicators), standardized, L2, patient-weighted, positives up-weighted by the weighted negative/positive ratio. C picked from 0.001-10 by patient-grouped 5-fold CV on the 207 training patients; CV AUPRC was flat (0.0851-0.0852 across C), so C = 0.001 is a near-tie. Cutoff 0.817 matched on out-of-fold training scores to 0.716 alerts/h; warning only.
 - **Held-out:** logistic 0.65 alerts/h, 21.4 min warning [17.3, 25.1], detected 0.61 [0.52, 0.69], AUPRC 0.071 (Rule 1: 26.6 / 0.76; Rule 2: 23.5 / 0.73; LightGBM 19.5 / 0.48). Paired differences (logistic minus rule): vs Rule 1 warning -9.0 to -1.2 min, detected -0.23 to -0.06; vs Rule 2 warning -6.1 to +2.0, detected -0.22 to -0.02. It does not beat either rule, so the rules keep shipping.
 - **Coefficients (standardized):** breathing distance 0.55, SpO2 distance 0.34, HR extrapolation 0.21, SpO2 extrapolation 0.11, breathing extrapolation 0.03, HR distance -0.07. In words: it leans mostly on how close breathing is to its edge, then SpO2 closeness, and it trusts the slope extrapolation only for HR; the slope signal adds little beyond closeness.
-- **Demo fixture** (cutoffs matched as above): Rule 1 and the logistic model never reach their cutoff before SpO2 danger (minute 46); Rule 2 (cutoff 3.26) warns at minute 45, SpO2 92.2, one minute before danger. No trend alert follows in any case (the trend alert needs 5 persisted minutes).
+- **Demo fixture** (cutoffs matched as above): Rule 1 and the logistic model never reach their cutoff before SpO2 danger (minute 46); Rule 2 (cutoff 3.26) warns at minute 45, SpO2 91.6, one minute before danger (minute 46, 91.3). No trend alert follows in any case (the trend alert needs 5 persisted minutes).
 - **Switching:** `fast_model.METHOD` ("distance", "extrapolation", "logreg") plus `trend.fast_warning_cutoff`; committed choice stays Rule 1.
+
+### Exploration: Rule 2 across cutoffs (no ship decision)
+Same 52 held-out patients (3,149 monitored hours), a third look at them. False alert = no event onset (5+ minutes in danger) within the next 20 minutes. Score = points past the edge projected 15 minutes ahead. Rule 1 rows are cutoffs chosen to give about the same alerts/h as Rule 2 at 0, 1.0 and 2.0.
+
+| Method | Cutoff | Alerts/h | False/h | False share | Warning min (95% CI) | Caught (95% CI) |
+| --- | --- | --- | --- | --- | --- | --- |
+| Rule 2 | 0 | 1.47 | 1.27 | 86% | 38.7 [36.2, 40.4] | 0.95 [0.93, 0.97] |
+| Rule 2 | 0.5 | 1.32 | 1.13 | 86% | 35.7 [33.2, 37.8] | 0.92 [0.90, 0.95] |
+| Rule 2 | 1.0 | 1.18 | 1.00 | 85% | 33.7 [31.3, 35.8] | 0.89 [0.86, 0.92] |
+| Rule 2 | 1.5 | 1.05 | 0.89 | 85% | 31.2 [28.5, 33.5] | 0.86 [0.82, 0.90] |
+| Rule 2 | 2.0 | 0.94 | 0.79 | 85% | 28.3 [25.3, 31.1] | 0.81 [0.76, 0.86] |
+| Rule 2 | 2.5 | 0.84 | 0.71 | 84% | 26.1 [23.3, 28.7] | 0.77 [0.71, 0.82] |
+| Rule 2 | 3.258 (ICU-matched) | 0.71 | 0.59 | 84% | 23.5 [20.9, 26.1] | 0.73 [0.67, 0.78] |
+| Rule 1 | -1.38 | 1.47 | 1.21 | 82% | 38.8 [36.0, 41.1] | 0.92 [0.89, 0.95] |
+| Rule 1 | -1.02 | 1.17 | 0.92 | 79% | 35.2 [32.6, 37.5] | 0.90 [0.86, 0.93] |
+| Rule 1 | -0.80 | 0.95 | 0.72 | 76% | 30.9 [28.1, 33.2] | 0.84 [0.79, 0.89] |
+
+- **Read:** about 85% of alerts at every cutoff are not followed by a danger event within 20 minutes; lowering the cutoff buys warning time and catches at the price of proportionally more false alerts. At equal alert budgets Rule 1 has a somewhat lower false share (76-82%) and about the same warning and catch rate, so the rules are close.
+- **Comparison with T4:** the existing alert logic's survivor rate was 2.4 alerts/h (10-minute window, eICU); the false trend alerts here (0.6-1.3/h) are of the same order, but the datasets differ (MIMIC ICU numerics at one-minute resolution vs eICU 5-minute rows) and this counts a different thing, so they cannot be added or compared exactly. In an ICU, many "false" alerts are patients hovering near an edge.
+- **Demo fixture** (`METHOD = "extrapolation"`, one run per cutoff): trend tier first appears at minute 38 (SpO2 93.5) for cutoff 0, 39 (94.2) for 0.5, 40 (93.6) for 1.0 and 1.5, 41 (93.2) for 2.0 and 2.5, 45 (91.6) for 3.258; danger is minute 46. A trend alert (5-minute persistence) fires only for cutoffs 0 to 1.5: at 09:42 (minute 42, SpO2 93.4), 09:43 (92.7), 09:44 (92.2) and 09:44 (92.2). Cutoffs 2.0 and above never fire a trend alert, because danger at minute 46 nulls the trend before the 5 minutes pass. Config and method restored to the committed Rule 1.
+- Reproduce: `uv run python -m training.fast_cutoff_sweep`.
 
 ### Known skews
 - Strap breathing rate is not the impedance RESP in MIMIC; SpO2 is simulated in the demo; the label uses fixed NEWS2 limits while live levels use personal ranges; ICU patients sit near edges so the matched cutoff is tight; the eICU second check from section 4b is dropped (5-minute spacing cannot feed timestamp windows).

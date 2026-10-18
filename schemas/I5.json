@@ -61,6 +61,22 @@
           ],
           "default": null,
           "title": "Value"
+        },
+        "tier": {
+          "anyOf": [
+            {
+              "enum": [
+                "danger",
+                "warning"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tier"
         }
       },
       "title": "Adjustment",

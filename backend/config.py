@@ -57,6 +57,21 @@ class AdjusterConfig:
 
 
 @dataclass(frozen=True)
+class ConditionsConfig:
+    """Custom conditions and drafted rules. logs/ is gitignored: evidence holds condition names."""
+    enabled: bool = True  # kill switch for drafted rules; the lookup and checklist mapping stay on
+    allowed_vitals: tuple[str, ...] = ("hr", "resp_rate", "spo2", "temp_c")  # sbp is a triage reading, never graded
+    min_sources: int = 2  # distinct sources that must support a pick
+    match_threshold: float = 0.85  # fuzzy match score for a typed term against the vocabulary
+    max_abstracts: int = 8
+    nlm_timeout_s: float = 8.0
+    pubmed_timeout_s: float = 10.0
+    menu_path: Path = Path(__file__).resolve().parents[1] / "models" / "limit_menu.json"
+    store_path: Path = Path(__file__).resolve().parents[1] / "logs" / "condition_store.json"  # frozen evidence
+    log_path: Path = Path(__file__).resolve().parents[1] / "logs" / "condition_log.jsonl"
+
+
+@dataclass(frozen=True)
 class BedConfig:
     """Bed label per wearable, used in alert messages."""
     labels: dict[int, str] = field(default_factory=lambda: {1: "Polar H10", 101: "Wearable 1", 102: "Wearable 2",
@@ -93,6 +108,7 @@ class Config:
     beds: BedConfig = field(default_factory=BedConfig)
     llm: LlmConfig = field(default_factory=LlmConfig)
     adjuster: AdjusterConfig = field(default_factory=AdjusterConfig)
+    conditions: ConditionsConfig = field(default_factory=ConditionsConfig)
     simulator: SimulatorConfig = field(default_factory=SimulatorConfig)
     ingest: IngestConfig = field(default_factory=IngestConfig)
 

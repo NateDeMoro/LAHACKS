@@ -1,0 +1,260 @@
+{
+  "$defs": {
+    "DraftPick": {
+      "additionalProperties": false,
+      "description": "What the model may choose. There is no value field: the number comes from the limit menu.",
+      "properties": {
+        "vital": {
+          "anyOf": [
+            {
+              "enum": [
+                "hr",
+                "resp_rate",
+                "spo2",
+                "temp_c",
+                "sbp"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vital"
+        },
+        "bound": {
+          "anyOf": [
+            {
+              "enum": [
+                "low",
+                "high"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bound"
+        },
+        "menu_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Menu Id"
+        }
+      },
+      "title": "DraftPick",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "pmid",
+                "pmc",
+                "doi",
+                "guideline_url"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "year": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Year"
+        },
+        "passage": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Passage"
+        }
+      },
+      "title": "Source",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "vocabulary": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Vocabulary"
+    },
+    "code": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Code"
+    },
+    "canonical": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Canonical"
+    },
+    "picks": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/DraftPick"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Picks"
+    },
+    "sources": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Source"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sources"
+    },
+    "evidence_label": {
+      "anyOf": [
+        {
+          "enum": [
+            "strong",
+            "medium",
+            "weak"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidence Label"
+    },
+    "retrieved_ts": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Retrieved Ts"
+    },
+    "evidence_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidence Hash"
+    },
+    "gates": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Gates"
+    }
+  },
+  "title": "DraftedRule",
+  "type": "object"
+}

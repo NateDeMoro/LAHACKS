@@ -1,0 +1,193 @@
+{
+  "$defs": {
+    "Candidate": {
+      "additionalProperties": false,
+      "properties": {
+        "canonical": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code"
+        }
+      },
+      "title": "Candidate",
+      "type": "object"
+    },
+    "ResolvedCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "typed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typed"
+        },
+        "canonical": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical"
+        },
+        "vocabulary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vocabulary"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Code"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "found",
+                "ambiguous",
+                "not_found",
+                "checklist",
+                "unavailable"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        },
+        "candidates": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Candidate"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidates"
+        },
+        "checklist": {
+          "anyOf": [
+            {
+              "enum": [
+                "hypertension",
+                "asthma",
+                "cancer",
+                "diabetes",
+                "thyroid",
+                "copd",
+                "liver",
+                "heart_disease",
+                "stroke",
+                "heart_failure"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checklist"
+        }
+      },
+      "title": "ResolvedCondition",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "patient_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Patient Id"
+    },
+    "ts": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ts"
+    },
+    "items": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/ResolvedCondition"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Items"
+    }
+  },
+  "title": "ConditionResolution",
+  "type": "object"
+}

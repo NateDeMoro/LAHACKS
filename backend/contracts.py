@@ -1,4 +1,4 @@
-"""Shared models for interfaces I1-I15. Source of truth: notes/component-map.md.
+"""Shared models for interfaces I1-I17. Source of truth: notes/component-map.md.
 
 Every field is nullable with default None, unknown fields are rejected, NaN and
 infinity are rejected, and timestamps must be timezone-aware.
@@ -66,6 +66,7 @@ class IntakeRecord(Model):  # I2
     weight_kg: float | None = None
     pregnant: bool | None = None
     conditions: list[Condition] | None = None
+    custom_conditions: list[str] | None = None  # typed by the nurse beside the checklist
     medications: list[str] | None = None
     chief_complaint: str | None = None
     triage: Triage | None = None
@@ -88,6 +89,7 @@ class Adjustment(Model):
     vital: Vital | None = None
     bound: Bound | None = None
     value: float | None = None
+    tier: Literal["danger", "warning"] | None = None  # null means danger; drafted rules use warning
 
 
 class ContextAdjustments(Model):  # I5
@@ -204,10 +206,24 @@ class LiveNews2(Model):  # I14
     news2_points: News2Points | None = None
 
 
+SourceKind = Literal["pmid", "pmc", "doi", "guideline_url"]
+ConditionStatus = Literal["found", "ambiguous", "not_found", "checklist", "unavailable"]  # unavailable: the vocabulary service failed
+
+
+class Source(Model):
+    kind: SourceKind | None = None
+    id: str | None = None
+    title: str | None = None
+    year: int | None = None
+    passage: str | None = None
+
+
 class EvidenceItem(Model):
     rule_id: str | None = None
     fact: str | None = None
     quote: str | None = None
+    sources: list[Source] | None = None  # drafted items only
+    unreviewed: bool | None = None  # true for drafted items
 
 
 class AdjustmentEvidence(Model):  # I15
@@ -216,6 +232,63 @@ class AdjustmentEvidence(Model):  # I15
     items: list[EvidenceItem] | None = None
     quote_found: bool | None = None
     model: str | None = None
+
+
+class Candidate(Model):
+    canonical: str | None = None
+    code: str | None = None
+
+
+class ResolvedCondition(Model):
+    typed: str | None = None
+    canonical: str | None = None
+    vocabulary: str | None = None
+    code: str | None = None
+    status: ConditionStatus | None = None
+    candidates: list[Candidate] | None = None  # for ambiguous: shown as not applied
+    checklist: Condition | None = None  # for checklist: the flag the typed term maps to
+
+
+class ConditionResolution(Model):  # I16
+    patient_id: str | None = None
+    ts: Ts = None
+    items: list[ResolvedCondition] | None = None
+
+
+class DraftPick(Model):
+    """What the model may choose. There is no value field: the number comes from the limit menu."""
+    vital: Vital | None = None
+    bound: Bound | None = None
+    menu_id: str | None = None
+
+
+class DraftedRule(Model):  # I17
+    vocabulary: str | None = None
+    code: str | None = None
+    canonical: str | None = None
+    picks: list[DraftPick] | None = None
+    sources: list[Source] | None = None
+    evidence_label: Literal["strong", "medium", "weak"] | None = None
+    retrieved_ts: Ts = None
+    evidence_hash: str | None = None
+    gates: dict[str, bool] | None = None
+
+
+class MenuEntry(Model):
+    """One allowed warning step (I7 limit_menu.json). relative: tighten the safe edge by amount;
+    absolute: amount is the new safe edge."""
+    id: str | None = None
+    vital: Vital | None = None
+    bound: Bound | None = None
+    kind: Literal["relative", "absolute"] | None = None
+    amount: float | None = None
+    label: str | None = None
+    source: str | None = None
+
+
+class LimitMenu(Model):  # I7 limit_menu.json
+    version: int | None = None
+    entries: list[MenuEntry] | None = None
 
 
 class BaselineConfig(Model):
@@ -334,5 +407,5 @@ INTERFACES: dict[str, type[Model]] = {
     "I4": PatientContext, "I5": ContextAdjustments, "I6": PeriodSummary,
     "I7": ModelConfig, "I8": PatientRanges, "I9": RiskResult, "I10": Alert,
     "I11": Acknowledgment, "I12": ScenarioTrigger, "I13": LiveWindow,
-    "I14": LiveNews2, "I15": AdjustmentEvidence,
+    "I14": LiveNews2, "I15": AdjustmentEvidence, "I16": ConditionResolution, "I17": DraftedRule,
 }

@@ -229,6 +229,21 @@
       "default": null,
       "title": "Conditions"
     },
+    "custom_conditions": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Custom Conditions"
+    },
     "medications": {
       "anyOf": [
         {

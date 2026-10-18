@@ -214,45 +214,36 @@ Every minute: a probability (0–1) of sepsis within about 6 hours, plus the top
 
 The live stream is collapsed into one-minute medians, then into the same hourly windows the model was trained on, and the model is re-run every minute on the rolling windows. Early in a patient's wait there is little history, so predictions lean on current levels; we show that uncertainty to the nurse rather than hide it.
 
-## 4b. Fast trend model (minutes ahead)
+## 4b. Fast trend model (minutes ahead) — built
 
-The slow model can't catch deterioration that shows up within 15 minutes, and hourly data can't be stretched to do it: interpolating between hourly points draws smooth lines with no information about what happened inside the hour. So the fast model is trained on minute-level data and predicts short-term instability instead of sepsis. It is the only trend model we build.
+The slow model can't catch deterioration that shows up within 15 minutes, and hourly data can't be stretched to do it. So the fast model is trained on minute-level data and forecasts each vital over the next 15 minutes. It is the only trend model we build. Section 4 (slow model) stays future work. Numbers and decisions: decisions.md, "T6 Fast trend model".
 
 ### Data
 
-- **MIMIC-III Waveform Database, matched subset:** open access (ODbL), 22,247 records of periodic vital-sign measurements from 10,282 ICU patients: heart rate, SpO2, systolic, mean and diastolic BP, breathing rate ([dataset page](https://physionet.org/content/mimic3wdb-matched/1.0/)). The page doesn't state the sampling interval; our earlier survey found about one reading per minute, to confirm on download. Not every measurement is present at all times.
-- **Size:** 2.4 TB with waveforms. Download only the vital-sign (numerics) records, for a sample of patients.
-- **No demographics or outcomes** without the credentialed MIMIC-III clinical database, so this model reads vitals only; personalization comes from the bands in sections 1 and 3.
-- **eICU demo** (5-minute vitals, \~2,500 stays) as a second check.
+- **MIMIC-III Waveform Database, matched subset** (open access, ODbL; [dataset page](https://physionet.org/content/mimic3wdb-matched/1.0/)): only the periodic numerics records (HR, SpO2, breathing rate), fetched with `training/fetch_mimic_numerics.py` (seeded random patient sample, up to 2 records each; the server is slow and has no S3 mirror, so retries and `--exclude-dir` for later batches). First sample: 300 patients, 448 records read. Second batch (`mimic3wdb_batch2`, 600 patients, seed 1, excluding the first 300) is downloading and serves as the fresh test, then as extra training data on retrain.
+- **Cleaning** (`training/mimic_numerics.py`): physiologic limits (probe-off zeros become null); a gap of more than 10 minutes splits a segment; segments under 50 minutes dropped; an SpO2 artifact filter (a fall of more than 10 points, lasting 4 minutes or less); one-second records collapse to minute medians. Neonate and mostly-in-danger filter: first-hour median HR above 130 or breathing above 30, or more than 40% of minutes in danger. Kept 515 segments from 259 patients (981,407 minutes).
+- **No demographics or outcomes** (that needs credentialed MIMIC access), so the model reads vitals only; personalization comes from sections 1 and 3. The eICU second check was dropped (5-minute spacing cannot feed timestamp windows).
 
-### Label, derived from the vitals themselves
+### Targets and inputs
 
-At each minute, for a patient not currently in trouble: does a vital enter the NEWS2 danger tier (section 1) and stay there for several minutes, starting within the next 15 minutes? There is no 30-minute model. Minutes during and just after an event are excluded, and windows with too much missing data are skipped.
+- **Targets** (`training/fast_forecast.py`): at each minute where the patient is not in danger, the lowest SpO2, the lowest and highest breathing rate, and the lowest and highest HR over the next 15 minutes (five targets). A row is skipped when the window leaves the segment or fewer than 12 of the 15 minutes are observed.
+- **Inputs** (`backend/risk_engine/fast_features.py`, shared by training and live, so they cannot drift): 60 features per minute from HR, breathing and SpO2 only (BP is not streamed): median, slope, spread, min and max over 5, 15 and 30 minutes, plus the distance of the median to each danger edge; a window under 60% observed is missing.
 
-### Inputs
+### Model and alert rule
 
-Heart rate, breathing rate and SpO2, matching what we stream live (BP is not live, so BP appears only in labels where recorded). For each, over the last 5, 15 and 30 minutes: level, slope, variability, minimum and maximum, change since the patient's first 15 minutes, and how much data is missing.
-
-### Model and splits
-
-LightGBM binary classifier with `scale_pos_weight` for the rare positives, split by patient, tuned with grouped cross-validation, tested once on held-out patients.
+- **Model:** LightGBM regression per target, predicting the change from the current 5-minute median; for each target a median model and a cautious quantile model (10% for lowest, 90% for highest). Split by patient (207 train / 52 held-out, seed 0); patient-weighted; 4-config search by patient-grouped 5-fold CV on pinball loss with early stopping. Median models are for evaluation only; the engine loads the five cautious ones.
+- **Alert rule:** the score is how far the cautious forecast lands past the danger edge (NEWS2 score-3 limit), in points; the maximum over targets. A warning trend tier is raised when the score reaches the cutoff, which was matched on training patients to the alert rate of partial NEWS2 of 5 or more (0.716/h), giving 4.856. Warning only, never lowers a level, only while no vital is in danger and after 15 clean minutes. Reason: "SpO2 may reach 90% within 15 min".
 
 ### Evaluation
 
-Because the label is built from the same vitals the model reads, it must beat two simple baselines before we claim anything:
-
-1. **Distance to threshold:** alert when a vital is within a fixed margin of its danger value.
-2. **Straight-line extrapolation:** alert when the 15-minute slope would cross the danger value within 15 minutes.
-
-Headline metric: minutes of warning before the event at a fixed alert rate, compared with those baselines and with a nurse recheck every 60 minutes. Also report AUPRC.
-
-### Output
-
-One model, 15 minutes ahead. It outputs a probability (0–1) that some vital enters the danger tier, plus the top 3 feature contributions as a reason. It doesn't say which vital; one model per vital would, at the cost of more models. It raises a warning tier only (never urgent), and the dashboard shows the tier, not the percentage. Training with `scale_pos_weight` inflates raw probabilities, so compare them only against the cutoff.
+- **Forecast accuracy** against two baselines, the no-change forecast and the straight 15-minute-slope line, plus calibration (share of outcomes beyond the cautious forecast, nominal 10%).
+- **As an alarm**, against Rule 1 (distance to the edge, in spreads), Rule 2 (slope extrapolation), a logistic regression over the rules, a LightGBM yes/no classifier and a nurse recheck every 60 minutes: alerts per hour, false alerts per hour (no 5-minute danger event within 20 minutes), minutes of warning, share of events caught, with patient-bootstrap confidence intervals.
+- **Results, held-out (52 patients, looked at four times, so optimistic):** forecast error 30-55% below no-change; cautious quantiles 9-11% beyond the line; as an alarm it ties Rule 2 at equal alert rates. **Fresh patients (80 patients, 3,931 h, 393 events, partial batch2):** MAE 0.94 / 1.30 / 1.97 / 1.85 / 3.09 (SpO2 low, breathing low and high, HR low and high) against no-change 1.27 / 2.82 / 3.49 / 3.11 / 4.33; beyond-cautious 9.4-11.2%; at the shipped cutoff 0.574 alerts/h, 77.6% false, 25.8 minutes of warning, 0.68 of events caught.
+- **Known limits:** ICU patients sit near the edges, so alert rates overstate a waiting room; strap breathing rate is not MIMIC's impedance respiration; SpO2 is simulated in the demo; HR events are rare (53 events from 17 patients), so the HR forecasts say little about alarms.
 
 ### Running it live
 
-It runs every minute on the stream's one-minute medians, the same resolution it was trained on, after 15 clean minutes and never while a vital is already in danger. It can raise the level to warning and never lowers it; the tier feeds the alert logic in section 5.
+`backend/risk_engine/fast_model.py` runs every minute on the rolling one-minute history (`trend.py`), after 15 clean minutes and never while a vital is in danger; about 0.2 ms per prediction after a 0.5 s lazy load (LightGBM needs libomp on Mac, libgomp on Linux; without it the fast model is off and the rest runs). The tier feeds the alert logic in section 5. Retrain when the second batch finishes (decisions.md, "T6 ship").
 
 ## 5. Signal quality, breathing rate and alert logic
 
@@ -279,7 +270,7 @@ An alert fires when any of these holds for its persistence window:
 
 1. A vital in the danger tier, or aggregate NEWS2 of 5 or more (the urgent threshold; [NHS Scotland NEWS2 guideline](https://rightdecisions.scot.nhs.uk/media/vhcccgq2/news2-guideline-no-fp.pdf)).
 2. A vital in warning for longer than its window.
-3. Trend-model probability above its threshold for its window.
+3. Trend-model score above its cutoff (warning tier) for its window.
 
 **Why persistence windows:** short delays cut nuisance alarms sharply. A 15-second delay plus a lower SpO2 threshold cut alarms by 70% in post-surgical patients, and a 15-second delay alone cut SpO2 alarms by 67% in preterm infants (both summarized in [this ICU alarm review](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4891882/)).
 

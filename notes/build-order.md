@@ -27,7 +27,7 @@ flowchart LR
     T2["T2 Baseline ranges<br/>NHANES fit → ranges.json, I8"]
     T3["T3 Personal baseline<br/>I6 → narrowed I8"]
     T4["T4 Alert logic<br/>I9 → I10"]
-    T6["T6 Fast trend model<br/>MIMIC-III minutes, 15 min only, if time"]
+    T6["T6 Fast trend model<br/>MIMIC-III minutes, 15 min forecast, warning only"]
   end
 
   subgraph BOTH[Shared lane]
@@ -80,9 +80,11 @@ Read left to right: everything in one column can be built at the same time. A ch
 | **C3 Real risk engine** | Both | S5, T4, B3 | A typed intake changes the wearer's ranges, and live scoring and alerts run on the real engine |
 | S6 Run buttons | Systems | C3 | The intake form prefills a sample patient and a dashboard button starts its run; scores react and the end shows as a pause |
 | Step A Trend wiring | Stats | T3 | I9 carries per-vital levels and trend fields (null with the stub), I10/I11 contracts and typed alert/trend config exist, `trend.py` and a stub `fast_model.py` are wired into the engine. Done: backend/risk_engine/trend.py, tests/risk_engine/test_trend.py |
-| T6 Fast trend model | Stats | Step A | The 15 min model (or the better simple baseline) replaces the stub; beats both baselines or a baseline ships; tier and reason appear in I9. Done: distance baseline ships (LightGBM lost on held-out MIMIC); training/, backend/risk_engine/fast_features.py, fast_model.py |
+| T6 Fast trend model | Stats | Step A | The 15 min model replaces the stub; tier and reason appear in I9. Done: LightGBM forecast model ships (METHOD "forecast", cutoff 4.856, warning only; Rule 1/2 and logistic stay selectable); training/, backend/risk_engine/fast_features.py, fast_model.py, models/fast_15_forecast*. Retrain pending when the second MIMIC batch finishes downloading |
 | S8 Add-ons | Systems | any time | Tiger Data stores readings, Sentry tracing + logs, hosted on Vultr behind a domain, Fetch.ai agent answers in ASI:One |
-| **C4 Full demo** | Both | S6 (T6, S8 if done) | The demo script runs start to finish without touching code |
+| **C4 Full demo** | Both | S6, T6 (S8 if done) | The demo script runs start to finish without touching code |
+
+T5 (the slow sepsis model) was dropped and has no row; the fast model is the only trend model (decisions.md). T4 and T6 are done and feed C3 and C4 as listed.
 
 ## Order of risk
 
@@ -91,4 +93,4 @@ Riskiest first in each lane, because each could force a plan change:
 1. **S1:** the strap's Bluetooth connection and breathing rate from beat intervals.
 2. **B1:** access to step-5-preview and its structured output.
 3. **T2:** whether the NHANES fit gives sensible ranges by profile.
-4. **T6:** the MIMIC-III download size, which is why it's last and optional.
+4. **T6:** the MIMIC-III download size and speed (slow server); done on a sample, retrain pending the second batch.

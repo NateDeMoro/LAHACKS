@@ -22,8 +22,8 @@ def run(rows):
 
 @pytest.fixture
 def model(monkeypatch):
-    """A loaded fast model returning a fixed (probability, reason); calls are recorded."""
-    state = {"out": (0.9, "SpO2 falling"), "calls": 0}
+    """A loaded fast model returning a fixed (score, reason); calls are recorded."""
+    state = {"out": (9.0, "SpO2 falling"), "calls": 0}
 
     def predict(history):
         state["calls"] += 1
@@ -39,7 +39,7 @@ def model(monkeypatch):
 def test_starts_after_15_elapsed_minutes(model):
     res = run([row(i) for i in range(17)])
     assert all(r.trend_prob_fast is None for r in res[:15])
-    assert res[15].trend_prob_fast == 0.9 and res[15].trend_tier == "warning"
+    assert res[15].trend_prob_fast == 9.0 and res[15].trend_tier == "warning"
 
 
 def test_threshold_counts_elapsed_time_not_rows(model):
@@ -71,12 +71,12 @@ def test_raise_only(model):
 
 
 def test_below_cutoff_leaves_level_alone(model):
-    model["out"] = (-9.0, "x")  # the shipped baseline scores closeness; the cutoff is in models/config.json
+    model["out"] = (-9.0, "x")  # far below the shipped cutoff (models/config.json)
     r = run([row(i) for i in range(16)])[-1]
     assert r.level == "safe" and r.trend_prob_fast == -9.0 and r.trend_tier is None
 
 
-def test_shipped_baseline_calm_patient_gets_score_but_no_tier():
+def test_shipped_model_calm_patient_gets_score_but_no_tier():
     res = run([row(i) for i in range(20)])
     assert all(r.trend_prob_fast is None for r in res[:15])
     assert all(r.trend_prob_fast is not None and r.trend_tier is None and r.level == "safe" for r in res[15:])
@@ -96,7 +96,8 @@ def test_throwing_model_is_logged_once(model, caplog):
     assert len([x for x in caplog.records if "fast trend model failed" in x.message]) == 1
 
 
-def test_baseline_needs_no_lightgbm(monkeypatch):
+def test_rule_methods_need_no_lightgbm(monkeypatch):
+    monkeypatch.setattr(fast_model, "METHOD", "distance")
     monkeypatch.setitem(sys.modules, "lightgbm", None)  # makes `import lightgbm` raise ImportError
     assert fast_model.load() is True
     assert run([row(i) for i in range(20)])[-1].trend_prob_fast is not None

@@ -207,7 +207,10 @@ The simulator's 120-minute trend pre-roll uses this format but goes to the engin
 | --- | --- |
 | ranges.json | HR and SBP: intercept + per-feature coefficients at the 2.5 / 50 / 97.5 quantiles, feature clamps, cohort means, fit coverage; reference safe bands for breathing, SpO2, temperature (model `RangesFile`) |
 | rules.json | the allowed adjuster rules: id, adjustments [{vital, bound, value}], trigger source (structured, text, both), fires / does-not-fire text, sources, evidence strength (model `RulesFile`) |
-| fast_15.txt, fast_15_features.json | LightGBM model file and its feature list (15-minute horizon only; absent while the stub or a baseline ships) |
+| fast_15_forecast.json | the shipped fast trend model's bundle: 15-minute horizon, 60 feature names, five targets (spo2_low, rr_low, rr_high, hr_low, hr_high) with their model file names, and the matched cutoff (4.8562; the live cutoff is `trend.fast_warning_cutoff` in config.json) |
+| fast_15_forecast_{spo2_low,rr_low,rr_high,hr_low,hr_high}_cautious.txt | the five LightGBM cautious-quantile models (10% for lowest, 90% for highest); these are the only model files loaded at runtime |
+| fast_15_forecast_*_median.txt | five median models, offline evaluation only (not loaded by the engine) |
+| fast_15_logreg.json | the logistic-regression alternative (`METHOD = "logreg"`), not shipped |
 | config.json | `baseline` (minutes, n₀ bounds, k, spread floors, minimum widths), `alerts` (persistence window per trigger, `max_gap_minutes`, `clear_minutes`, `ack_cooldown_minutes`), `trend` (`fast_min_clean_minutes`, `fast_warning_cutoff`); all typed with defaults |
 
 The engine runs on stub files at first (NEWS2 only), so systems work never waits on training.
@@ -235,9 +238,9 @@ Warning is everything between safe and danger.
 | vital_values | {hr, resp_rate, spo2, temp_c}: the minute's values |
 | news2 | 0–20 total, latest live value (I14); null if that I14 is over 60 s older than the minute |
 | news2_points | {resp_rate, spo2, on_oxygen, sbp, hr, alertness, temp_c}: 0–3 each; null with news2 |
-| trend_prob_fast | 0–1, the 15-minute model; null until 15 clean minutes, while any vital is in danger, or with no model |
+| trend_prob_fast | the 15-minute model's score, not a probability: how many points past the danger edge the cautious forecast lands (positive = past it; the shipped warning cutoff is 4.856); null until 15 clean minutes, while any vital is in danger, or with no model. The field name is kept for compatibility |
 | trend_tier | null \| warning; the trend raises the level to warning at most, never lowers it |
-| trend_reason_fast | one line, e.g. "SpO2 falling" |
+| trend_reason_fast | one line from the forecast, e.g. "SpO2 may reach 90% within 15 min", "breathing may reach 26/min within 15 min", "heart rate may reach 42 bpm within 15 min" |
 
 When the trend raises the level, `reason` is the trend reason and `vital` stays the worst vital.
 

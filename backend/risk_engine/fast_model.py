@@ -2,14 +2,14 @@
 within about 15 minutes.
 
 Four interchangeable scorers share fast_features.py with training; METHOD picks the shipped one:
-  "distance"      Rule 1, closeness of the 5-minute median to a NEWS2 score-3 edge in spreads (shipped).
+  "distance"      Rule 1, closeness of the 5-minute median to a NEWS2 score-3 edge in spreads.
   "extrapolation" Rule 2, how far the 15-minute slope carries a vital past an edge in 15 minutes.
   "logreg"        small logistic regression over the six per-vital rule scores (models/fast_15_logreg.json).
   "forecast"      LightGBM forecasts of each vital's lowest/highest value in the next 15 minutes
                   (models/fast_15_forecast.json + fast_15_forecast_*.txt, loaded lazily); score = how far the
-                  cautious (10%/90%) forecast lands past the danger edge, same units as Rule 2.
+                  cautious (10%/90%) forecast lands past the danger edge, same units as Rule 2 (shipped).
 To switch: change METHOD here and set trend.fast_warning_cutoff in models/config.json to CUTOFFS[METHOD]
-(for "logreg" and "forecast" the cutoff is in their JSON). No model file or LightGBM import is needed for the rules.
+(for "logreg" the cutoff is in its JSON; "forecast" ships at 4.856, rounded from the JSON's 4.8562). No model file or LightGBM import is needed for the rules.
 I9 trend_prob_fast carries the score, not a probability. Held-out MIMIC numbers: notes/decisions.md."""
 import json
 import math
@@ -19,8 +19,8 @@ import numpy as np
 
 from backend.risk_engine import fast_features as ff
 
-METHOD = "distance"
-CUTOFFS = {"distance": -0.47, "extrapolation": 3.26}
+METHOD = "forecast"
+CUTOFFS = {"distance": -0.47, "extrapolation": 3.26, "forecast": 4.856}
 MODELS = Path(__file__).resolve().parents[2] / "models"
 LOGREG_PATH = MODELS / "fast_15_logreg.json"
 FORECAST_PATH = MODELS / "fast_15_forecast.json"

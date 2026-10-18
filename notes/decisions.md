@@ -308,8 +308,8 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 | Extrapolation | 0.71 | 23.5 [20.9, 26.1] | 0.73 [0.67, 0.78] | 0.062 |
 | Hourly nurse recheck | 1.0 | 0 | 0.16 | |
 
-- **Ships: the distance baseline** (better of the two on training patients). LightGBM has the best AUPRC (it ranks all minutes better) but alerts more often on held-out than its OOF-matched cutoff promised and warns less at the same budget; the paired bootstrap says it is worse (warning -11 to -3 min, detected -0.35 to -0.21). Distance vs extrapolation overlap on held-out, so that choice is close.
-- **Cutoff:** distance score -0.47 (about half a spread inside the edge), stored as `trend.fast_warning_cutoff`. I9 `trend_prob_fast` carries the score, not a probability. At stricter budgets (0.25/h and 0.5/h) distance still warns 9.6 and 18.7 min on average.
+- **Superseded by "T6 ship" below (the forecast model ships).** Original call: the distance baseline (better of the two on training patients). LightGBM has the best AUPRC (it ranks all minutes better) but alerts more often on held-out than its OOF-matched cutoff promised and warns less at the same budget; the paired bootstrap says it is worse (warning -11 to -3 min, detected -0.35 to -0.21). Distance vs extrapolation overlap on held-out, so that choice is close.
+- **Cutoff (superseded; now 4.856 for the forecast score):** distance score -0.47 (about half a spread inside the edge), stored as `trend.fast_warning_cutoff`. I9 `trend_prob_fast` carries the score, not a probability. At stricter budgets (0.25/h and 0.5/h) distance still warns 9.6 and 18.7 min on average.
 - **Warning only**, raise-only, reasons from the driving vital and edge ("SpO2 falling" vs "SpO2 near danger").
 
 ### Second look: small learned model on the two rules (logistic regression)
@@ -319,7 +319,7 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - **Held-out:** logistic 0.65 alerts/h, 21.4 min warning [17.3, 25.1], detected 0.61 [0.52, 0.69], AUPRC 0.071 (Rule 1: 26.6 / 0.76; Rule 2: 23.5 / 0.73; LightGBM 19.5 / 0.48). Paired differences (logistic minus rule): vs Rule 1 warning -9.0 to -1.2 min, detected -0.23 to -0.06; vs Rule 2 warning -6.1 to +2.0, detected -0.22 to -0.02. It does not beat either rule, so the rules keep shipping.
 - **Coefficients (standardized):** breathing distance 0.55, SpO2 distance 0.34, HR extrapolation 0.21, SpO2 extrapolation 0.11, breathing extrapolation 0.03, HR distance -0.07. In words: it leans mostly on how close breathing is to its edge, then SpO2 closeness, and it trusts the slope extrapolation only for HR; the slope signal adds little beyond closeness.
 - **Demo fixture** (cutoffs matched as above): Rule 1 and the logistic model never reach their cutoff before SpO2 danger (minute 46); Rule 2 (cutoff 3.26) warns at minute 45, SpO2 91.6, one minute before danger (minute 46, 91.3). No trend alert follows in any case (the trend alert needs 5 persisted minutes).
-- **Switching:** `fast_model.METHOD` ("distance", "extrapolation", "logreg") plus `trend.fast_warning_cutoff`; committed choice stays Rule 1.
+- **Switching:** `fast_model.METHOD` ("distance", "extrapolation", "logreg") plus `trend.fast_warning_cutoff`; the committed choice was Rule 1 at that point (now the forecast, see "T6 ship").
 
 ### Exploration: Rule 2 across cutoffs (no ship decision)
 Same 52 held-out patients (3,149 monitored hours), a third look at them. False alert = no event onset (5+ minutes in danger) within the next 20 minutes. Score = points past the edge projected 15 minutes ahead. Rule 1 rows are cutoffs chosen to give about the same alerts/h as Rule 2 at 0, 1.0 and 2.0.
@@ -339,7 +339,7 @@ Same 52 held-out patients (3,149 monitored hours), a third look at them. False a
 
 - **Read:** about 85% of alerts at every cutoff are not followed by a danger event within 20 minutes; lowering the cutoff buys warning time and catches at the price of proportionally more false alerts. At equal alert budgets Rule 1 has a somewhat lower false share (76-82%) and about the same warning and catch rate, so the rules are close.
 - **Comparison with T4:** the existing alert logic's survivor rate was 2.4 alerts/h (10-minute window, eICU); the false trend alerts here (0.6-1.3/h) are of the same order, but the datasets differ (MIMIC ICU numerics at one-minute resolution vs eICU 5-minute rows) and this counts a different thing, so they cannot be added or compared exactly. In an ICU, many "false" alerts are patients hovering near an edge.
-- **Demo fixture** (`METHOD = "extrapolation"`, one run per cutoff): trend tier first appears at minute 38 (SpO2 93.5) for cutoff 0, 39 (94.2) for 0.5, 40 (93.6) for 1.0 and 1.5, 41 (93.2) for 2.0 and 2.5, 45 (91.6) for 3.258; danger is minute 46. A trend alert (5-minute persistence) fires only for cutoffs 0 to 1.5: at 09:42 (minute 42, SpO2 93.4), 09:43 (92.7), 09:44 (92.2) and 09:44 (92.2). Cutoffs 2.0 and above never fire a trend alert, because danger at minute 46 nulls the trend before the 5 minutes pass. Config and method restored to the committed Rule 1.
+- **Demo fixture** (`METHOD = "extrapolation"`, one run per cutoff): trend tier first appears at minute 38 (SpO2 93.5) for cutoff 0, 39 (94.2) for 0.5, 40 (93.6) for 1.0 and 1.5, 41 (93.2) for 2.0 and 2.5, 45 (91.6) for 3.258; danger is minute 46. A trend alert (5-minute persistence) fires only for cutoffs 0 to 1.5: at 09:42 (minute 42, SpO2 93.4), 09:43 (92.7), 09:44 (92.2) and 09:44 (92.2). Cutoffs 2.0 and above never fire a trend alert, because danger at minute 46 nulls the trend before the 5 minutes pass. Config and method were restored to the then-committed Rule 1.
 - Reproduce: `uv run python -m training.fast_cutoff_sweep`.
 
 ### Option 1: forecast each vital, alert when the cautious forecast crosses the line (no ship decision)
@@ -374,13 +374,39 @@ Same 52 held-out patients (3,149 monitored hours), a third look at them. False a
 | Rule 2 | 3.18 | 0.72 | 0.60 | 83.7% | 23.9 [21.3, 26.4] | 0.732 [0.67, 0.79] |
 
 - **Read:** the forecasts are clearly better forecasts (MAE 30-55% below no-change and the straight line, quantiles well calibrated: 9-11% beyond the 10% line), but as an alarm they tie Rule 2 at equal alert rates: tiny warning-time gain at high rates, fewer false alerts at the matched rate (75% vs 84% of alerts) but fewer events caught (0.63 vs 0.73). Same-cutoff comparisons are not like for like because the forecast score is more cautious: cutoffs 0 to 2 give 2.6 to 1.7 alerts/h, versus 1.5 to 0.9 for Rule 2.
-- **Demo slide** (`fast_spo2_drop_i6`, danger at minute 46; shipped config left on Rule 1): trend tier first warning at minute 39 (SpO2 94.2) for cutoff 0, 41 (93.2) for 0.5, 45 (91.6) for 1.0; never for 1.5, 2.0 or 4.86. A trend alert fires only at cutoff 0 (09:43, "SpO2 may reach 90% within 15 min"). The cautious SpO2 forecast reads 91 to 90 from minute 38 to 45 while SpO2 is 93.5 to 91.6.
+- **Demo slide** (`fast_spo2_drop_i6`, danger at minute 46; shipped config was still Rule 1 at that point): trend tier first warning at minute 39 (SpO2 94.2) for cutoff 0, 41 (93.2) for 0.5, 45 (91.6) for 1.0; never for 1.5, 2.0 or 4.86. A trend alert fires only at cutoff 0 (09:43, "SpO2 may reach 90% within 15 min"). The cautious SpO2 forecast reads 91 to 90 from minute 38 to 45 while SpO2 is 93.5 to 91.6.
 - **Speed:** `predict()` (features + the 5 cautious models, one patient, 15,797 minutes) median 0.20 ms, p99 0.24 ms; all 10 models 0.28 / 0.33 ms. Lazy load 0.5 s (mostly LightGBM import). Model files 3.9 MB for all ten (cautious ones 1.1 MB; serving loads only those).
-- **Wiring:** `fast_model.METHOD = "forecast"` loads `models/fast_15_forecast.json` + `fast_15_forecast_*_cautious.txt`; the cutoff is in the JSON (4.86). METHOD and config are still Rule 1. `training/mimic_numerics.load_segments` no longer writes its cache when given a different root.
+- **Wiring:** `fast_model.METHOD = "forecast"` loads `models/fast_15_forecast.json` + `fast_15_forecast_*_cautious.txt`; the cutoff is in the JSON (4.86). METHOD and config were still Rule 1 when this was written (shipped later, see "T6 ship"). `training/mimic_numerics.load_segments` no longer writes its cache when given a different root.
+
+### T6 ship: the LightGBM forecast model at cutoff 4.856
+- **Path:** (1) LightGBM yes/no classifier on 60 features lost to the two rules on held-out; (2) rules shipped (Rule 1, distance); (3) a logistic regression over the six rule scores did not beat either rule; (4) a Rule 2 cutoff sweep showed the trade is warning time and catches against false alerts, with no free win; (5) the forecast model: predict each vital's lowest/highest value over the next 15 minutes and alert when the cautious forecast crosses the danger edge. This supersedes the earlier "Rule 1 / distance baseline ships" lines above.
+- **Why the forecast:** it is real ML with a clear win as a predictor (forecast error 30-55% below no-change and the straight line, quantiles calibrated near the nominal 10%); it gives a readable reason ("SpO2 may reach 90% within 15 min"); as an alarm it ties Rule 2 at equal alert rates (no worse); and it costs about 0.2 ms per prediction. The rules would have shipped on alarm quality alone, so this is a judgment call on explainability and the ML story, not a measured alarm win.
+- **User decision:** ship at cutoff 4.856 (4.856187722033582 in `models/fast_15_forecast.json`, matched on training patients to the partial-NEWS2 >= 5 alert rate), `fast_model.METHOD = "forecast"`, `trend.fast_warning_cutoff` 4.856 in `models/config.json`. Warning only, raise-only. The other methods stay selectable (`METHOD`, `CUTOFFS`). I9 `trend_prob_fast` carries the score (points past the danger edge), not a probability.
+- **Fresh-batch result** (`mimic3wdb_batch2`, never used to train or tune, saved models unchanged, ~109 patients downloaded so far: 80 patients after filters, 171 segments, 3,931 monitored hours, 393 events; run with `uv run python -m training.fast_forecast eval --records-dir /Users/natedemoro/LAHACKS/data/raw/mimic3wdb_batch2`):
+
+| Target | Forecast MAE | No-change MAE | Beyond cautious (nominal 10%) |
+| --- | --- | --- | --- |
+| SpO2 lowest | 0.939 | 1.270 | 9.8% |
+| Breathing lowest | 1.301 | 2.816 | 9.4% |
+| Breathing highest | 1.973 | 3.491 | 9.7% |
+| HR lowest | 1.851 | 3.112 | 11.2% |
+| HR highest | 3.086 | 4.333 | 10.2% |
+
+| Cutoff | Alerts/h | False/h | False share | Warning min (95% CI) | Caught (95% CI) |
+| --- | --- | --- | --- | --- | --- |
+| 4.856 (shipped) | 0.574 | 0.445 | 77.6% | 25.8 [21.4, 29.3] | 0.677 [0.59, 0.75] |
+| 0 | 2.50 | | 91% | 47.5 | 0.985 |
+| 1.0 | 2.01 | | 89% | 45.2 | 0.982 |
+| 2.0 | 1.57 | | 87% | 41.6 | 0.947 |
+
+- **Read:** forecast accuracy and calibration hold on new patients. The shipped cutoff warns about 26 minutes ahead and catches about two thirds of events, with about three in four alerts not followed by a danger event within 20 minutes. Looser cutoffs buy warning and catches at the price of 2.5 to 4 times the alerts.
+- **Demo consequence (accepted):** `fast_spo2_drop_i6` replay at 4.856 shows no trend warning before danger. The forecast score peaks at 1.01 at minute 45 (SpO2 91.6); the alerts are the warning-persisted alert at 09:44 (10-minute window on the SpO2 warning level) and the vital-danger alert at 09:47. A looser cutoff (0 to 1.0) would show the trend tier at minutes 39 to 45 if the demo needs it.
+- **Caveats:** the original 52 held-out patients were looked at four times (LightGBM yes/no, logistic, Rule 2 sweep, forecast), so their numbers are optimistic; the fresh batch is the honest test but is partial (about 109 of 600 patients downloaded when measured) and its false-alert share is still high. Labels are ICU patients near the edges, so absolute alert rates overstate a waiting room.
+- **Retrain plan:** the batch2 download (600 patients, 910 records, seed 1, excluding the original 300) is still running. When it finishes, retrain the forecast on original + batch2 (`training.fast_forecast`), re-match the cutoff on training patients, re-run the fresh-patient check on whatever is held out, then update `models/` and the cutoff in `config.json` and the JSON together.
 
 ### Known skews
 - Strap breathing rate is not the impedance RESP in MIMIC; SpO2 is simulated in the demo; the label uses fixed NEWS2 limits while live levels use personal ranges; ICU patients sit near edges so the matched cutoff is tight; the eICU second check from section 4b is dropped (5-minute spacing cannot feed timestamp windows).
-- **Demo consequence:** the distance baseline ignores slope, so on the gradual demo slide (`fixtures/fast_spo2_drop_i6.jsonl`, 97 to 90 over 20 minutes) the score reaches the cutoff only about at SpO2 91, and the trend tier never appears before the danger level. Extrapolation (cutoff 3.26) would warn near SpO2 94. Left as shipped per the rule; revisit at C3.
+- **Demo consequence (Rule 1, superseded by "T6 ship"):** the distance baseline ignores slope, so on the gradual demo slide (`fixtures/fast_spo2_drop_i6.jsonl`, 97 to 90 over 20 minutes) the score reaches the cutoff only about at SpO2 91, and the trend tier never appears before the danger level. Extrapolation (cutoff 3.26) would warn near SpO2 94. Left as shipped per the rule; revisit at C3.
 
 ## Stated limits
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.

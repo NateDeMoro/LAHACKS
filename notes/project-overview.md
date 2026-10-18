@@ -66,8 +66,8 @@ Plain-English version; methods and data are in the training plan.
 2. **Context adjuster (at intake).** step-5-preview reads the full profile and chief complaint and proposes tightened danger thresholds from an allowed rule list (seven rules in `models/rules.json`). A high edge can only move down and a low edge only up, so danger is reached sooner, never later. A code validator approves each change. The fact and exact quote behind each change go to an evaluation log, not to the risk engine. No red flags: triage acuity stays with the nurse's ESI level.
 3. **Personal baseline (every minute).** It learns the wearer's own normal from their first stretch of clean readings and narrows the safe band toward it. A drift that stays inside the population range still shows up. It never widens a band, never moves danger, and learns nothing if the patient arrives already abnormal.
 4. **NEWS2 (every second).** Scored on the median of the last 60 seconds of each vital. Each part gets 0–3 points and the total runs 0–20. A total of 5 or more is urgent and 7 or more is high. NEWS2 alone treats everyone the same and looks only at now; steps 1–3 personalize it, and step 5 looks ahead. It was validated mainly on admitted patients, which is an assumption we state.
-5. **Fast trend model (every minute).** After 15 clean minutes, and only while no vital is in danger: will a vital enter the danger range within 15 minutes? Trained on MIMIC-III minute data. It raises a warning only, never lowers a level, and gives a one-line reason. There is no slow sepsis model (dropped, see decisions.md); sepsis is one cause of deterioration that NEWS2, personal ranges and this model catch.
-6. **Alert logic (every minute).** Persistence windows, one alert per problem, worsening supersedes the old alert, alerts stay on the dashboard until a nurse acknowledges them.
+5. **15-minute forecast (every minute).** After 15 clean minutes, and only while no vital is in danger, a LightGBM model forecasts each vital's lowest (or highest) value over the next 15 minutes, using the last 30 minutes of HR, breathing and SpO2. It uses a cautious forecast (the 10% worst case) and compares it with the danger limit; if that lands far enough past the limit it raises a warning with a one-line reason such as "SpO2 may reach 90% within 15 min". It never lowers a level and never raises more than a warning. Trained on MIMIC-III minute data. There is no slow sepsis model (dropped, see decisions.md); sepsis is one cause of deterioration that NEWS2, personal ranges and this model catch.
+6. **Alert logic (every minute).** An alert fires only after its condition holds for a persistence window: 2 minutes for a vital in danger and for NEWS2 of 5 or more, 10 minutes for a vital in warning, 5 minutes for the trend warning. One alert per problem; worsening supersedes the old alert. When NEWS2 fires it folds the single-vital alerts into one. A problem that clears (5 minutes) is marked resolved but stays on the dashboard until a nurse acknowledges it; after an acknowledgement, the same problem waits 15 minutes before it can alert again.
 
 ## Company challenges
 
@@ -92,4 +92,8 @@ Not targeted:
 - Intuit, Visa, Workday, QNX, Solana, Snowflake: no fit.
 
 ## Open decisions
+
+- **Retrain the fast model** on the original sample plus the second MIMIC batch (600 patients, still downloading), then re-match the cutoff and re-test on fresh patients. Shipped cutoff is 4.856; a looser cutoff (0 to 1) warns earlier and catches more but alerts 3 to 4 times as often, and is what the demo slide needs to show a trend warning before danger.
+- **Windows under 5 minutes** (urgent alerts) are set on the real strap at C2; the 10-minute warning window came from eICU.
+- **Waiting-room fit:** the models were tuned on ICU data, which overstates alert rates; recheck at C2 and C3.
 

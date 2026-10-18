@@ -14,7 +14,7 @@ These are just leans. Updates can be made as needed, but this doc should be upda
 | Backend | FastAPI + uvicorn | pydantic models for the reading and risk result; WebSocket push to the dashboard |
 | Storage | SQLite (default) | Tiger Data (TimescaleDB) as an add-on for the challenge, written alongside the main store |
 | Risk engine: rules | Plain Python | NEWS2, persistence windows, guideline adjustments, personal baseline |
-| Risk engine: ML | LightGBM | Saved as LightGBM model files plus JSON (ranges, rules, config), per I7; models may use vitals the strap can't measure |
+| Risk engine: ML | LightGBM (15-minute forecasting of each vital's lowest/highest value) | Five cautious quantile models plus a JSON bundle in `models/` (I7), imported lazily at runtime; libomp required on Mac, libgomp on Linux; about 0.5 s to load, about 0.2 ms per prediction. Trained offline on MIMIC-III numerics (`training/`, `wfdb` in the training group). MIMIC download: the PhysioNet server is slow (about 100-250 KB/s, many timeouts) and there is no S3 mirror, so `fetch_mimic_numerics.py` uses parallel workers with retries and is rerun to fill gaps; later batches use `--exclude-dir` to avoid earlier patients |
 | LLM layer | OpenAI Python SDK | `backend/llm.py` holds the JSON-completion helper; model, base URL and key from `.env`; StepFun through its OpenAI-compatible endpoint (`https://api.stepfun.ai/v1`) |
 | Agent layer | Plain Python pipeline, wrapped as a Fetch.ai uAgent | Details below |
 | Dashboard | React + Vite + Tailwind, native WebSocket | Auto-reconnect; Vite proxy to the backend in dev |

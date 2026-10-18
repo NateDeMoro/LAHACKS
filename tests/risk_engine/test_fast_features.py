@@ -55,11 +55,12 @@ def test_baseline_scores_rank_closer_higher():
     assert ff.distance_score({}) == -1e9
 
 
-def test_live_model_matches_training_features():
+def test_live_model_matches_training_features(monkeypatch):
     """fast_model.predict (live TrendHistory) gives the same score as the training path on the same minutes."""
     from datetime import datetime, timedelta, timezone
 
     from backend.risk_engine import fast_model
+    monkeypatch.setattr(fast_model, "METHOD", "distance")  # the rule scorer is the one comparable with ff.distance_score
     from backend.risk_engine.trend import Row, TrendHistory
     t0 = datetime(2026, 10, 18, tzinfo=timezone.utc)
     sp = [97 - 0.3 * i for i in range(40)]

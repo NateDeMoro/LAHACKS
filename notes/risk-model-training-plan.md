@@ -91,14 +91,14 @@ The LLM is not trained on outcomes; it is prompted to extract facts into a fixed
 ### What it is allowed to output
 
 - **Inputs:** the full patient context (I4), including the chief complaint.
-- **Adjustments (I5, to the risk engine):** a list of {rule, vital, low or high bound, new danger threshold}. Tighten only: a high bound can only move down, a low bound only up. A code validator checks every proposal against the allowed rules, vitals and per-vital caps, and clamps or drops anything else.
+- **Adjustments (I5, to the risk engine):** a list of {rule, vital, low or high bound, new danger threshold}. Tighten only: a high bound can only move down, a low bound only up. A code validator checks every proposal against the allowed rules, vitals and edges, and values come from rules.json (the model never picks a number); anything that does not tighten is dropped.
 - **Evidence (I15, to the evaluation log only):** the fact and the exact quote behind each adjustment. Code checks that the quote appears word-for-word in the chief complaint; an adjustment without a matching quote is dropped. The risk engine never reads the evidence.
 - **No red flags.** Triage acuity is the nurse's ESI level; the adjuster only changes thresholds.
-- **Pipeline:** a fixed chain of LLM steps with code between them (fact extractor, history reader, threshold proposer, reviewer), then the code validator ([stack-reference.md](stack-reference.md)).
+- **Pipeline:** structured rules fire in code (age, drug classes, pregnant flag); one LLM call reads the chief complaint for facts and quotes; a code validator and a rules.json merge produce I5 and I15 ([stack-reference.md](stack-reference.md), decisions.md B3). This replaced the four-step LLM chain.
 
 ### Medication lookup
 
-The LLM extracts drug names; mapping a name to a drug class is deterministic, using NHANES RXQ\_DRUG, which lists 1,551 drugs with Multum therapeutic classes ([RXQ\_DRUG doc](https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/1988/DataFiles/RXQ_DRUG.htm)). The LLM's job is the part a lookup can't do: slang, brand names, misspellings and phrases like "something for my nerves."
+Mapping a drug name to a drug class is deterministic (the S5 intake lookup does it; the adjuster only reads `drug_classes`), and the LLM covers unmatched medications named in the complaint, using NHANES RXQ\_DRUG, which lists 1,551 drugs with Multum therapeutic classes ([RXQ\_DRUG doc](https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/1988/DataFiles/RXQ_DRUG.htm)). The LLM's job is the part a lookup can't do: slang, brand names, misspellings and phrases like "something for my nerves."
 
 ### Test set
 

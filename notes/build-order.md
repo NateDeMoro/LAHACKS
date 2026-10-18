@@ -76,7 +76,7 @@ Read left to right: everything in one column can be built at the same time. A ch
 | T4 Alert logic | Stats | Step A | Recorded I9 rows produce I10 alerts with persistence windows and one alert per problem. Done: backend/risk_engine/alerts.py, tests/risk_engine/test_alerts.py, training/tune_alerts.py, replay_fixture --alerts |
 | B1 step-5-preview call | Both | P0 | A test call returns valid JSON matching the I5/I15 schema. Done: backend/llm.py, backend/adjuster/proposal.py, scripts/stepfun_smoke.py |
 | B2 Test set | Both | B1 | About 100 labeled chief complaints, including negations. Done: fixtures/adjuster (30 dev, 70 test), models/rules.json, notes/adjuster-labeling-guide.md |
-| B3 Context adjuster | Both | B2 | I4 in, I5 to the engine, I15 to the evaluation log; quote check enforced; scored on the test set |
+| B3 Context adjuster | Both | B2 | I4 in, I5 to the engine, I15 to the evaluation log; quote check enforced; scored on the test set. Done: backend/adjuster/ (rules.py, prompt.py, adjuster.py), ranges.apply_i5 wired into on_intake, scripts/score_adjuster.py (selftest, offline, live); test split precision 1.000, recall 0.982 (decisions.md B3) |
 | **C3 Real risk engine** | Both | S5, T4, B3 | A typed intake changes the wearer's ranges, and live scoring and alerts run on the real engine |
 | S6 Run buttons | Systems | C3 | The intake form prefills a sample patient and a dashboard button starts its run; scores react and the end shows as a pause |
 | Step A Trend wiring | Stats | T3 | I9 carries per-vital levels and trend fields (null with the stub), I10/I11 contracts and typed alert/trend config exist, `trend.py` and a stub `fast_model.py` are wired into the engine. Done: backend/risk_engine/trend.py, tests/risk_engine/test_trend.py |

@@ -43,7 +43,7 @@ Inside the risk engine, baseline ranges pass I8 to the personal baseline, scorer
 | Intake form | Systems | Nurse enters profile, conditions, meds, triage set, chief complaint; auto patient ID; assigns wearable; can prefill from a sample patient | Nurse input, sample I2 records | I2 | Nothing |
 | Ingest service | Systems | FastAPI + WebSocket; one entry function takes the source (strap or simulator); live mode merges strap and simulator per vital, run mode drops strap readings; wearable → patient; signal quality; rolling 60 s and one-minute medians; freezes when a run ends; storage (Tiger Data) | I1, I3 | I6, I13 | Simulator |
 | Intake service | Systems | Validates and stores the record; medication name → drug class (RXQ_DRUG); builds patient context | I2 | I3, I4 | Hand-written intake records |
-| Context adjuster | Both | step-5-preview reads the full profile + chief complaint; tightens danger limits per vital, allowed rules only; evidence logged separately | I4 | I5, I15 | The ~100 self-written test texts |
+| Context adjuster | Both | Code rules (age, drug classes, pregnant flag) plus one step-5-preview call that reads the chief complaint for facts and quotes; values come from rules.json; evidence logged separately | I4 | I5, I15 | The ~100 self-written test texts |
 | Evaluation log | Both | Facts + exact quotes per adjustment; scored against the test set | I15 | — | — |
 | Offline training | Stats | NHANES quantile fit; MIMIC-III minutes (fast trend, 15 min; the PhysioNet 2019 slow model, T5, is dropped); eICU replay to tune baseline settings (k, floors), windows, cutoffs | Public datasets | I7 | Nothing |
 | Risk engine | Stats | Python module, entry points at intake, every second (NEWS2), every minute (baseline, fast trend), and a history seed for the trend model | I4, I5, I6, I7, I13, trend history | I8, I9, I14 | I6/I13 rows from eICU and recorded strap data |
@@ -114,6 +114,9 @@ Affects S2, S4, S5, T1, B1. Models live in `backend/contracts.py`; JSON Schema i
   - Minutes (I6) start at the patient's stream start (assignment, or the start or reset of a run), so a 10-minute run gives 10 whole rows. The simulator's pre-roll rounds to clock minutes, so its last row can sit up to a minute before the first live row; check this when the engine gets `seed_trend_history` (T6). When a run ends, the open minute is closed at once.
   - S2 owns `backend/app.py` and `WS /ws/dashboard`: a new client first gets the latest I8, I9, I13, I14 per patient and the open I10 alerts. Minute close runs `on_second`, `on_minute`, then `AlertLogic.on_risk`; I11 goes to `on_ack`, I12 to the simulator controller.
   - `RunSink` gains `assign(wearable_id, patient_id)`, called before the pre-roll.
+- Adjuster call order (affects S5): intake calls `adjust_structured(ctx)` (instant, no LLM) and `on_intake(ctx, i5)`, then `adjust(ctx)` (one LLM call, 4-40 s) and a second `on_intake(ctx, i5)` with the full I5. The second call is safe because `rebase` keeps what the baseline learned. S5 chooses whether to wait for the full result or apply in two steps.
+  - Pregnant flag (affects S5 and S3): the intake form sends null for `pregnant` unless the question was actually answered. A false from an unticked box blocks the text pregnancy rule. Sample records currently set `pregnant=False` (profiles.py), which has the same effect.
+  - `RiskEngine.on_intake` applies I5 through `ranges.apply_i5`: moves only the danger edge, only inward, pulls the safe band inside it, adds a reason line.
 - Open items: none for I5; the rule list is in `models/rules.json` (B2).
 
 ### I1 Vitals reading
@@ -298,8 +301,10 @@ Alerts still go through alert logic and its persistence windows.
 | --- | --- |
 | patient_id, ts | string, timestamp |
 | items | [{rule_id, fact, quote}] |
-| quote_found | bool, word-for-word match in the chief complaint |
-| model | model and prompt version |
+| quote_found | bool, word-for-word match in the chief complaint (after lowercasing, straight quotes, collapsed whitespace). True when every logged text quote matched, which the validator guarantees; null when there are no text items |
+| model | model and prompt version, or "structured only" when the LLM call failed |
+
+One item per fired rule, in rules.json order. Structured items name the field in `fact` and have a null `quote`; text items carry the model's fact and quote. Proposals the validator dropped are not logged here; the score script counts them.
 
 Never read by the risk engine. Used to score the adjuster against the labeled test set.
 

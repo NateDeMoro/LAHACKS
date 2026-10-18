@@ -252,6 +252,29 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 ### Storage: SQLite behind a queue
 - One `events` table (kind, patient, time, source, JSON) written off the tick; a failed write is logged and never stops the loop. Tiger Data can be a second writer later.
 
+## B3 Context adjuster
+
+### One LLM call; code decides everything else
+- **Options:** the four-step LLM chain (fact extractor, history reader, threshold proposer, reviewer); one call that proposes numbers; one call that reports facts only.
+- **Chosen:** structured rules (age 65+, drug classes, pregnant flag) fire in code; one step-5-preview call reads the chief complaint for the six text-capable rules and returns rule id, short fact and quote, never a vital, bound or number. Values come from `models/rules.json`, merged in code (stricter wins on a shared edge, tighten-only against `ranges.DANGER`), output ordered by rules.json position.
+- **Why:** B1 found temperature 0 still gave HR limits of 100, 110 and 130 for one intake, and calls take 6-45 s each, so four calls is too slow. Facts-only output cannot loosen a limit and leaves the model one small job.
+- **Prompt:** built from each rule's `fires_when` and `does_not_fire` plus the guide's general rules; no case examples (B2 warning). Version `b3-0`, the first draft; it needed no tuning on dev.
+
+### Quote check and validator
+- Quotes are matched after lowercasing, straightening curly quotes and collapsing whitespace; otherwise word for word, and any matching span counts (B2). A proposal is dropped if its rule is off the text list, the quote is missing, the same rule already fired from structured fields, or it is a text pregnancy proposal while the pregnant flag is not null. Drops are counted by the score script, not stored in I15, so `quote_found` is true when text items exist and null otherwise.
+
+### Cache and fallback
+- Only validated text proposals are cached (`logs/`, gitignored), keyed on a hash of the rendered messages and model; structured rules are recomputed on every call. A failed call returns structured rules only, marked "structured only" in I15 `model`, and is never cached. The score script runs with cache and log off.
+
+### Scores (prompt b3-0, step-5-preview, cache off)
+- **Structured only, dev:** precision 1.000, recall 0.562, exact 18/30 (the rest needs the text call).
+- **Dev, live:** precision 1.000, recall 1.000, exact 30/30, in every one of the repeated runs. Stability over 3 runs: 22/30 cases byte-identical in facts and quotes (the model picks different quote spans), 30/30 identical in fired rules and I5, which is what the engine sees.
+- **Test, live, scored once:** precision 1.000, recall 0.982, exact 69/70, 55 true positives, 0 false positives, 1 miss, 1 proposal dropped (its quote was not in the complaint, so the validator removed it), 0 loosening violations, latency median 4.2 s, slowest 77.6 s (one slow call; the others were under 30 s on dev).
+- **Reading the score:** the labels are weak evidence (Claude-drafted, 20-case human sample) and the labeling guide's wording is close to the prompt's, so the near-perfect score is likely optimistic. **Revisit if:** the 15-20 fully human-written cases from B2 "Revisit if" score noticeably lower.
+
+### Known gaps
+- Sample patients carry no `drug_classes` until the S5 lookup exists, and the guide never fires from the medication list alone, so U1 and C1 lose beta_blocker for now. chemo_fever is missed for C2 (capecitabine, no mention of chemo in the complaint); that matches the guide.
+
 ## Stated limits
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.
 - NHANES pulse is seated and resting; anxious waiting patients may run above the 90 bpm cap and show warning (check at C2; the fix would be a config offset).

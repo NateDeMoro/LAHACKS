@@ -73,7 +73,9 @@ If code already exists, skim the layout and fit the plan to it; no deep groundin
 | scripts/hardware/ | Six guided strap checks (scan, connect, rhythm, contact, paced breathing, dropout) | Testing the strap, Bluetooth or breathing on real hardware |
 | tests/ | pytest suites, one folder per component (tests/receiver, tests/risk_engine, tests/simulator) | Running or adding tests |
 | training/ | Offline fits run with uv: fit_ranges.py (NHANES quantile fit to models/ranges.json), tune_baseline.py (eICU sweep of k and floors), tune_alerts.py (eICU sweep of alert windows) | Refitting the population bands or retuning baseline and alert settings |
-| backend/llm.py, backend/adjuster/ | StepFun JSON-completion helper; adjuster output model, I5/I15 converters, test-set loader (testset.py) | Calling an LLM or building the context adjuster (B1-B3) |
+| backend/llm.py, backend/adjuster/ | StepFun JSON-completion helper; adjuster: rules.py (structured firing, I5 merge), prompt.py, adjuster.py (LLM reply, validator, cache, log), proposal.py (B1 smoke), testset.py | Calling an LLM or building the context adjuster (B1-B3) |
+| scripts/score_adjuster.py | Scores the adjuster on dev/test; --selftest (offline stub), --offline, --repeat | Changing the adjuster or its prompt |
+| logs/ (gitignored) | I15 evaluation log and adjuster cache; holds patient complaint quotes | Checking what the adjuster logged or clearing its cache |
 | notes/adjuster-labeling-guide.md | When each adjuster rule fires and doesn't; quote and source rules | Labeling or scoring adjuster cases, changing a rule |
 | backend/app.py, backend/ingest/ | FastAPI app (`/ws/ingest`, `/ws/dashboard`, `/sim`); ingest service, per-patient streams (I13, I6), dashboard hub, SQLite store, wire parser | Building or changing S2, or running the backend (`uvicorn backend.app:create_app --factory`) |
 | notes/decisions.md | Log of every modelling choice, options, evidence | Making or defending a modelling choice |

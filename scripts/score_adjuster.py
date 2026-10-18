@@ -209,7 +209,10 @@ def main():
     if a.repeat > 1:
         keys = [[json.dumps([o.i5.model_dump(), [i.model_dump() for i in o.i15.items]]) for o in outs] for outs, _ in results]
         same = sum(len({k[i] for k in keys}) == 1 for i in range(len(cases)))
-        print(f"stability: {same}/{len(cases)} cases identical across {a.repeat} runs ({same / len(cases):.0%})")
+        print(f"stability: {same}/{len(cases)} cases byte-identical (I5 and I15 facts and quotes) across {a.repeat} runs ({same / len(cases):.0%})")
+        rk = [[json.dumps([o.i5.model_dump(), sorted(pairs_of(o.i15))]) for o in outs] for outs, _ in results]
+        same_i5 = sum(len({k[i] for k in rk}) == 1 for i in range(len(cases)))
+        print(f"stability of what reaches the engine: {same_i5}/{len(cases)} cases with identical I5 and fired rules ({same_i5 / len(cases):.0%})")
     out = Path(a.out or DEFAULT_OUT / f"score_{a.split}_{P.PROMPT_VERSION}.json")
     out.write_text(json.dumps([r["rows"] for _, r in results], indent=1))
     print(f"per-case results: {out}")

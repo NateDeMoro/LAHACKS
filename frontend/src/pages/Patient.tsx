@@ -158,6 +158,7 @@ export default function Patient({ id }: { id: string }) {
             <div className="flex flex-col gap-1.5">
               <Info k="Age, sex" v={[ctx?.age, ctx?.sex].filter((x) => x != null).join(', ')} />
               <Info k="Height, weight" v={ctx?.height_cm != null ? `${ctx.height_cm} cm, ${ctx.weight_kg ?? ''} kg` : ''} />
+              <Info k="BMI" v={ctx?.bmi != null ? String(ctx.bmi) : ''} />
               <Info k="History" v={(ctx?.conditions ?? []).map((x) => cap(x)).join(', ')} />
               <Info k="Medications" v={(ctx?.medications ?? []).join(', ')} />
               <Info k="Triage" v={t ? [t.level != null ? `Level ${t.level}` : null, t.pain != null ? `pain ${t.pain} of 10` : null].filter(Boolean).join(', ') : ''} />

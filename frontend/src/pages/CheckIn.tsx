@@ -36,7 +36,14 @@ export default function CheckIn() {
   const [strap, setStrap] = useState<number | null>(null)
   const [busy, setBusy] = useState(false); const [err, setErr] = useState<string | null>(null)
 
-  const bmi = num(h) && num(w) ? (num(w)! / (num(h)! / 100) ** 2).toFixed(1) : ''
+  // Demo shortcut: the presenter's own intake (6 ft = 183 cm, 170 lb = 77.1 kg), on the live strap.
+  const autofill = () => {
+    setName('Nate DeMoro'); setAge('21'); setSex('male'); setH('183'); setW('77.1'); setPreg(null)
+    setConds(['thyroid', 'stroke', 'heart_failure']); setMeds(['Methimazole 5 mg']); setMedIn('')
+    setCc('Overly tired for the last week or two, achy, and my throat has been a bit sore.')
+    setSbp('120'); setDbp('67'); setEsi(5); setO2(false); setAlertness('alert'); setPain(3); setStrap(1)
+  }
+
   const addMed = () => { const m = medIn.trim(); if (m && !meds.includes(m)) setMeds([...meds, m]); setMedIn('') }
   const ready = strap != null && !!name.trim()
 
@@ -58,9 +65,12 @@ export default function CheckIn() {
         </button>
         <div className="font-mono text-[14px] leading-5 text-muted">{fmtClock(now)}</div>
       </div>
-      <div className="flex flex-col gap-1.5 pt-7 pb-5 px-10">
-        <div className="text-[36px] leading-10 tracking-[-0.015em] font-[600] text-ink">Check in a patient</div>
-        <div className="text-[15px] leading-5.5 text-muted">Arrival {patients.length + 1} · {fmtClock(now)} · patient ID assigned when you check in</div>
+      <div className="flex items-end justify-between pt-7 pb-5 px-10">
+        <div className="flex flex-col gap-1.5">
+          <div className="text-[36px] leading-10 tracking-[-0.015em] font-[600] text-ink">Check in a patient</div>
+          <div className="text-[15px] leading-5.5 text-muted">Arrival {patients.length + 1} · {fmtClock(now)} · patient ID assigned when you check in</div>
+        </div>
+        <button onClick={autofill} className="h-9 px-4 rounded-[6px] border border-edge bg-ground text-[14px] leading-5 font-[500] text-ink">Autofill my details</button>
       </div>
       <div className="flex pb-6 gap-10 px-10">
         <div className="flex flex-col grow basis-0 min-w-0 gap-7">
@@ -74,9 +84,7 @@ export default function CheckIn() {
             <div className="flex gap-4">
               <F t="Height (cm)"><input className={`${input} font-mono`} inputMode="decimal" value={h} onChange={(e) => setH(e.target.value)} /></F>
               <F t="Weight (kg)"><input className={`${input} font-mono`} inputMode="decimal" value={w} onChange={(e) => setW(e.target.value)} /></F>
-              <F t="Pregnant">{sex === 'female' ? <Seg opts={[['no', 'No'], ['yes', 'Yes']] as const} value={preg == null ? null : preg ? 'yes' : 'no'} onChange={(v) => setPreg(v === 'yes')} /> : <div className={`${input} bg-fog border-0 text-[14px] text-muted`}>Not applicable</div>}</F>
-              <F t="BMI"><div className={`${input} bg-fog border-0 font-mono text-muted`}>{bmi}</div></F>
-            </div>
+              <F t="Pregnant">{sex === 'female' ? <Seg opts={[['no', 'No'], ['yes', 'Yes']] as const} value={preg == null ? null : preg ? 'yes' : 'no'} onChange={(v) => setPreg(v === 'yes')} /> : <div className={`${input} bg-fog border-0 text-[14px] text-muted`}>Not applicable</div>}</F>            </div>
           </div>
           <div className="flex flex-col pt-6 gap-3.5 border-t border-line">
             <H t="HEALTH HISTORY" />

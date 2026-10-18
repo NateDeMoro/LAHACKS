@@ -89,7 +89,7 @@ Three of the seven current rules (chemo_fever, opioid, beta_blocker) cite only g
 | `backend/conditions/` | Normalizer, vocabulary lookup, rule matcher, evidence agent, gates, evidence store |
 | `backend/risk_engine/ranges.py` | A warning-tier path beside `apply_i5` (narrows the safe edge, leaves danger alone) |
 | `models/limit_menu.json` | The limit menu (an I7 file): per vital and bound, a few warning values with an id, a label and a source each |
-| `backend/config.py` | A conditions section: kill switch, per-vital window, per-patient cap, match threshold |
+| `backend/config.py` | A conditions section: kill switch, per-patient cap, match threshold |
 | `fixtures/conditions/` | Test sets and the rule-match labels |
 | `scripts/score_conditions.py` | Scores each layer, same shape as `score_adjuster.py` |
 

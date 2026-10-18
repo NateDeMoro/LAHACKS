@@ -104,6 +104,13 @@ class PeriodSummary(Model):  # I6
     clean_seconds: int | None = None
 
 
+class VitalValues(Model):
+    hr: float | None = None
+    resp_rate: float | None = None
+    spo2: float | None = None
+    temp_c: float | None = None
+
+
 class LiveWindow(Model):  # I13
     patient_id: str | None = None
     window_end_ts: Ts = None
@@ -112,6 +119,7 @@ class LiveWindow(Model):  # I13
     spo2: float | None = None
     temp_c: float | None = None
     clean_seconds: int | None = None
+    latest: VitalValues | None = None  # newest clean second, for the dashboard's live numbers
     run_state: RunState | None = None
 
 
@@ -148,13 +156,6 @@ class VitalLevels(Model):
     resp_rate: Level | None = None
     spo2: Level | None = None
     temp_c: Level | None = None
-
-
-class VitalValues(Model):
-    hr: float | None = None
-    resp_rate: float | None = None
-    spo2: float | None = None
-    temp_c: float | None = None
 
 
 class RiskResult(Model):  # I9

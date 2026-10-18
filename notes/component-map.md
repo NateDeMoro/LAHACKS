@@ -200,7 +200,7 @@ Tighten only: a high bound can only move down and a low bound only up. The engin
 | patient_id | string |
 | period_ts | start of the period |
 | hr, resp_rate, spo2, temp_c | medians of clean readings, null if none |
-| clean_seconds | 0–60, tentative |
+| clean_seconds | 0–30 for a live 30 s period, tentative |
 
 Same format as the eICU replay and recorded strap files, so the risk engine can be built without the backend.
 
@@ -286,12 +286,13 @@ Each run is a fixed-length script (10 minutes) for all four vitals; the strap is
 | Field | Type / values |
 | --- | --- |
 | patient_id | string |
-| window_end_ts | end of the 60 s window (now) |
-| hr, resp_rate, spo2, temp_c | medians of clean readings in the last 60 s, null if none |
-| clean_seconds | 0–60, tentative |
+| window_end_ts | end of the 30 s window (now) |
+| hr, resp_rate, spo2, temp_c | medians of clean readings in the last 30 s, null if none. NEWS2 (I14) is scored from these. |
+| clean_seconds | 0–30, tentative |
+| latest | `{hr, resp_rate, spo2, temp_c}` of the newest second, for the dashboard's live numbers. Null when that second has no contact or no hr. Same `window_end_ts` as the medians and I14. |
 | run_state | live \| running \| ended, set from the simulator's run; null if unset |
 
-Same format as I6, as a rolling window sent every second. The dashboard shows these as the live vitals. While the run state is ended the window is frozen at its last values.
+Same medians as I6, as a rolling window sent every second. The dashboard shows `latest` as the live vitals and the medians behind the NEWS2 badge. While the run state is ended the window is frozen at its last values.
 
 ### I14 Live NEWS2
 

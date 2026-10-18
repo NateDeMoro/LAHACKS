@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from statistics import median
 
 from backend.config import CONFIG, IngestConfig
-from backend.contracts import LiveWindow, PeriodSummary, RunState, VitalsReading
+from backend.contracts import LiveWindow, PeriodSummary, RunState, VitalsReading, VitalValues
 from backend.simulator.models import Source
 
 VITALS = ("hr", "resp_rate", "spo2", "temp_c")
@@ -104,8 +104,10 @@ class PatientStream:
         while self._window and self._window[0].ts <= cutoff:
             self._window.popleft()
         med, seconds = self._medians(self._window, self._cfg.min_samples)
+        newest = self._window[-1] if self._window else None
+        latest = VitalValues(**newest.values) if newest and newest.clean else None
         return LiveWindow(patient_id=self.patient_id, window_end_ts=now, clean_seconds=seconds,
-                          run_state=self.run_state, **med)
+                          latest=latest, run_state=self.run_state, **med)
 
     def _close_period(self, now: datetime) -> PeriodSummary | None:
         length = timedelta(seconds=self._cfg.window_s)

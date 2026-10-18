@@ -154,6 +154,36 @@ def test_breathing_rate_is_off_for_strap_and_simulator():
     assert periods and periods[0].hr == 90 and periods[0].resp_rate is None
 
 
+def test_latest_is_the_newest_second_while_the_window_holds_the_median():
+    st = PatientStream("p1", at(0))
+    run_live(st, 10, lambda: strap(hr=60))
+    st.on_reading(at(11), strap(hr=100), "strap")
+    t = st.tick(at(11))
+    assert t.live.hr == 60 and t.live.latest.hr == 100
+    assert t.live.latest.resp_rate is None
+
+
+def test_latest_is_null_when_the_newest_second_is_not_clean():
+    st = PatientStream("p1", at(0))
+    assert st.tick(at(1)).live.latest is None  # nothing received yet
+    run_live(st, 6, start=2)
+    t = run_live(st, 1, lambda: strap(hr=None, rr=None, contact=False), start=8)[0]
+    assert t.live.latest is None and t.live.hr == 70  # the median still stands
+
+
+def test_an_ended_run_keeps_its_last_latest_and_can_end_before_any_tick():
+    st = PatientStream("p1", at(0))
+    st.set_run_state(at(0), "running")
+    for s in range(1, 8):
+        st.on_reading(at(s), sim(hr=90, spo2=97), "simulator")
+        st.tick(at(s))
+    st.set_run_state(at(8), "ended")
+    assert st.tick(at(9)).live.latest.hr == 90
+    fresh = PatientStream("p2", at(0))
+    fresh.set_run_state(at(1), "ended")  # no tick yet: the window is empty
+    assert fresh.tick(at(2)).live.latest is None
+
+
 def test_implausible_values_are_dropped():
     st = PatientStream("p1", at(0))
     ticks = run_live(st, 6, lambda: strap(hr=300))

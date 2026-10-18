@@ -15,7 +15,7 @@ These are just leans. Updates can be made as needed, but this doc should be upda
 | Storage | SQLite (default) | Tiger Data (TimescaleDB) as an add-on for the challenge, written alongside the main store |
 | Risk engine: rules | Plain Python | NEWS2, persistence windows, guideline adjustments, personal baseline |
 | Risk engine: ML | LightGBM | Saved as LightGBM model files plus JSON (ranges, rules, config), per I7; models may use vitals the strap can't measure |
-| LLM layer | LiteLLM | One `llm.py` with a JSON-completion helper; model, base URL and key from `.env`; StepFun through its OpenAI-compatible endpoint |
+| LLM layer | OpenAI Python SDK | `backend/llm.py` holds the JSON-completion helper; model, base URL and key from `.env`; StepFun through its OpenAI-compatible endpoint (`https://api.stepfun.ai/v1`) |
 | Agent layer | Plain Python pipeline, wrapped as a Fetch.ai uAgent | Details below |
 | Dashboard | React + Vite + Tailwind, native WebSocket | Auto-reconnect; Vite proxy to the backend in dev |
 | Intake form | Route inside the React app | Posts to the backend |
@@ -32,7 +32,7 @@ These are just leans. Updates can be made as needed, but this doc should be upda
 
 ## LLM and agent layer
 
-- LiteLLM is used as long as it stays easy. If StepFun's JSON mode misbehaves, only `llm.py` changes (fallback: the OpenAI client with a `base_url`). Always validate output with pydantic and retry once on a bad parse.
+- The OpenAI SDK pointed at StepFun's `base_url` replaces LiteLLM (one endpoint, exact control of `response_format` and `reasoning_effort`; the optional veri.studio comparison only swaps `base_url` and model). Only `backend/llm.py` knows the provider. Always validate output with pydantic and retry once on a bad parse. Run with `uv run --env-file .env ...` so the key loads.
 - The agent is a fixed pipeline of LLM steps with code between them: fact extractor, history reader, threshold proposer, reviewer, then a code validator. Each step returns a pydantic object. The Fetch.ai uAgent calls the whole pipeline as one function.
 - The agent only proposes tightening changes to the NEWS2 danger thresholds, each with a number, a reason and a quote. Only the code validator can approve a change: allowlisted rules, vitals and edges, per-vital caps, no change without a quote found word-for-word in the chief complaint, and a high edge can only move down and a low edge only up. Approved changes go to the risk engine (I5); reasons and quotes go only to the evaluation log (I15).
 - Move to LangGraph only if a real loop or branch is needed.

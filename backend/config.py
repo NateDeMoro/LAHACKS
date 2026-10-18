@@ -34,8 +34,21 @@ class ReceiverConfig:
 
 
 @dataclass(frozen=True)
+class LlmConfig:
+    """StepFun through its OpenAI-compatible endpoint. Key, URL and model come from .env."""
+    api_key: str = os.environ.get("STEPFUN_API_KEY", "")
+    base_url: str = os.environ.get("STEPFUN_BASE_URL", "https://api.stepfun.ai/v1")
+    model: str = os.environ.get("STEPFUN_MODEL", "step-5-preview")
+    timeout_s: float = 120.0  # a call takes 25-45 s even at low reasoning effort
+    max_tokens: int = 8000  # reasoning tokens count too (about 3-4.5k per call); a cut-off reply is a failure
+    temperature: float = 0.0
+    reasoning_effort: str = "low"
+
+
+@dataclass(frozen=True)
 class Config:
     receiver: ReceiverConfig = field(default_factory=ReceiverConfig)
+    llm: LlmConfig = field(default_factory=LlmConfig)
 
 
 CONFIG = Config()

@@ -66,11 +66,12 @@ If code already exists, skim the layout and fit the plan to it; no deep groundin
 | fixtures/ | Hand-written I1/I2/I4, eICU I6 rows, stays, recorded I9 | Testing against stand-ins |
 | schemas/ | JSON Schema per interface (generated) | B1 output schema or TypeScript type generation |
 | models/ | I7 files: config.json (baseline settings), ranges.json (fitted bands) | Changing baseline settings, windows, cutoffs |
-| scripts/ | export_schemas, build_eicu_fixtures, build_wearer_fixture, replay_fixture | Regenerating schemas or fixtures, replaying a stay |
+| scripts/ | export_schemas, build_eicu_fixtures, build_wearer_fixture, replay_fixture, stepfun_smoke (live StepFun check) | Regenerating schemas or fixtures, replaying a stay |
 | pyproject.toml, .env.example | uv project (Python 3.12), env key names | Setting up the environment |
 | backend/config.py | Central config, one section per component (receiver, breathing) | Changing a setting, threshold or timeout |
 | receiver/ | Strap receiver: breathing, frames, strap link, sender, main | Building or changing S1 |
 | scripts/hardware/ | Six guided strap checks (scan, connect, rhythm, contact, paced breathing, dropout) | Testing the strap, Bluetooth or breathing on real hardware |
 | tests/ | pytest suites, one folder per component (tests/receiver, tests/risk_engine) | Running or adding tests |
 | training/ | Offline fits run with uv: fit_ranges.py (NHANES quantile fit to models/ranges.json), tune_baseline.py (eICU sweep of k and floors) | Refitting the population bands |
+| backend/llm.py, backend/adjuster/ | StepFun JSON-completion helper; adjuster output model and I5/I15 converters | Calling an LLM or building the context adjuster (B1-B3) |
 | notes/decisions.md | Log of every modelling choice, options, evidence | Making or defending a modelling choice |

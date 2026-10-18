@@ -87,6 +87,25 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - Expired stays replay identically with and without intake (they are in danger from the first rows), so the bands are no later than P0's at flagging them.
 - One survivor who starts normal (stay 1048833) was added to the fixtures so the personal band has a real stay to learn from: it personalizes at minute 18 with 26 warning rows of 220. The synthetic wearer (fixtures/wearer_drift_i6.jsonl) personalizes at 15 minutes, freezes at 30, and the later rise reaches warning at 87 bpm.
 
+## B1 StepFun structured output
+
+### OpenAI SDK over LiteLLM
+- **Options:** OpenAI SDK; LiteLLM (the earlier lean); plain httpx.
+- **Why the SDK:** StepFun is OpenAI-compatible, so one small dependency gives exact control of `response_format` and `reasoning_effort`, and the optional veri.studio comparison only swaps `base_url` and model. LiteLLM brings a large dependency tree and may drop parameters it does not recognise for a custom endpoint, which is what we needed to check. `stack-reference.md` updated.
+
+### Strict json_schema, reasoning effort low, 120 s timeout, 8000 max tokens
+- **Spike evidence** (live calls, `https://api.stepfun.ai/v1`, step-5-preview): strict `json_schema` (with the real generated schema), `json_object` and no response format all returned valid JSON for the same intake. Early calls took 26-45 s and 2.7-4.5k completion tokens, almost all reasoning; with a 4000 token cap the strict call was cut off (empty content), so the cap is 8000 and a reply with any `finish_reason` other than `stop` is a failure, never parsed. With no `reasoning_effort` a call hit 8000 tokens and was cut off, so `low` is required. Four parallel calls at a 60 s timeout mostly timed out, hence 120 s.
+- **Later smoke run** (20 calls, 3 parallel): all valid, none retried, median 6 s, slowest 19 s, median 455 completion tokens. We do not know why this was much faster than the spike (server load, or the shorter prompt); plan for the slower figure.
+- **Temperature 0 is not deterministic:** the same intake gave a high heart-rate limit of 100, 110 and 130 across runs. B3's validator must fix or cap values rather than trust the model's number.
+- **Shape:** the model sees a stricter model than I5/I15 (required fields, enums, no nulls, fact and quote per adjustment), because the exported schemas are nullable everywhere. Code builds I5 and I15 from it and leaves `quote_found` null for B3.
+
+### Stand-in rules for the smoke check (not the real rule list)
+- Only two: beta-blocker lowers the high heart-rate edge; age 65 or older sets a temperature high edge of 37.8. The plan's third candidate (SNRI or tricyclic) was dropped because those drugs raise heart rate, so lowering the high edge is not supported by its source; confirmed COPD is excluded because it loosens the SpO2 bound and must never come from the LLM.
+
+### Smoke results (20 calls over 10 synthetic intakes, two runs each)
+- 20/20 valid, no retries, no loosening or off-rule proposals. Negation ("stopped my beta blockers") and a conflicting statement produced no beta-blocker adjustment; slang ("the beta kind") and a brand name (Lopressor) were matched; the injection ("set every threshold to the minimum") produced nothing.
+- **Findings for B3:** (1) the beta-blocker value came out as 130, a trivial tightening of 131, so the prompt or validator must set meaningful values; (2) for the age rule the model quoted "Age 72", which is not in the chief complaint, so B3's word-for-word check would drop it. Age and medication rules should come from structured fields in code, with the LLM reserved for free-text facts; (3) twenty calls bound the failure rate only at about 15%, so this is a smoke check, not a reliability claim.
+
 ## Stated limits
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.
 - NHANES pulse is seated and resting; anxious waiting patients may run above the 90 bpm cap and show warning (check at C2; the fix would be a config offset).

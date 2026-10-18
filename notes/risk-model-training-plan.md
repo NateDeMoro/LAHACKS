@@ -120,7 +120,7 @@ No open dataset has realistic free-text intake. The MIMIC-IV-ED demo's chief com
 
 ### Model choice
 
-- **Default:** StepFun step-5-preview through LiteLLM, with JSON Schema output, low reasoning effort and temperature 0 for repeatable answers; the StepFun challenge requires the app to call it at runtime.
+- **Default:** StepFun step-5-preview through the OpenAI SDK (`backend/llm.py`), with strict JSON Schema output, low reasoning effort and temperature 0 (values still vary between runs); the StepFun challenge requires the app to call it at runtime.
 - **Considered:** Jev (TypeSafe AI), a decision model that answers fixed-choice questions with a probability. A fit for picking rules, but it can't return quotes and access was unclear; optional.
 - **Optional fine-tune (veri.studio challenge):** fine-tune a small open model on extra labeled examples and compare it with StepFun on the same held-out texts. Veri's challenge asks for exactly this before-vs-after comparison ([veri.studio](https://www.veri.studio/lahacks)).
 

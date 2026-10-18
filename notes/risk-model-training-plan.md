@@ -74,7 +74,7 @@ NHANES has no SpO2, breathing-rate or body-temperature measurements in any 1999â
 
 ### Guideline adjustments (candidate rules)
 
-Candidates for the context adjuster's rule list (section 2) and for structured-field rules applied by code. The final list is decided later.
+Candidates considered for the context adjuster's rule list (section 2). The final seven rules, with sources, are in `models/rules.json` (B2; reasons in [decisions.md](decisions.md)).
 
 | Factor | Adjustment | Source |
 | --- | --- | --- |
@@ -106,7 +106,7 @@ No open dataset has realistic free-text intake. The MIMIC-IV-ED demo's chief com
 
 1. About 100 short intake texts, covering every allowed rule at least five times.
 2. Hard cases on purpose: negation ("I stopped my beta blockers last month"), slang ("weed"), brand names, two conflicting facts, nothing relevant at all.
-3. Each text labeled with the expected output by one teammate and checked by the other; disagreements resolved before testing.
+3. Each text labeled with the expected output by one teammate and checked by the other; disagreements resolved before testing. _As built (B2): Claude drafted and labeled 100 cases (30 dev, 70 test) and a 20-case human blind sample checked them; see [decisions.md](decisions.md) and [adjuster-labeling-guide.md](adjuster-labeling-guide.md)._
 4. Use the MIMIC chief-complaint codes only as seeds for realistic complaint topics.
 
 ### Metrics
@@ -294,7 +294,7 @@ The biggest limit is setting: every training dataset is survey or ICU data, and 
 - **Population shift.** NHANES is healthy people at rest; PhysioNet 2019 and eICU are ICU patients. Waiting-room patients sit in between.
 - **Coverage of vitals.** Only heart rate and BP have feature-conditioned population data; SpO2, breathing rate and temperature rely on single published studies and NEWS2.
 - **SpO2, temperature and triage BP are simulated** in the demo: in live mode SpO2 and temperature are filled in, in a run every vital follows a script, and the six sample patients carry their own triage BP, until real sensors are added.
-- **Trend history in demo runs is scripted.** Each run starts the trend models with 120 minutes of starting-value rows (what the sepsis slow model needs), so their first two hours of look-back are invented; the slow model's 3 and 6 hour windows are still only partly filled.
+- **Trend history in demo runs is scripted.** Each run starts the trend models with 120 minutes of starting-value rows (chosen for the sepsis slow model, which is now dropped; the fast model's longest window is 30 minutes), so their first two hours of look-back are invented; the slow model's 3 and 6 hour windows are still only partly filled.
 - **Blood pressure is a single triage reading,** so a BP drop during the wait goes unseen.
 - **NEWS2 in a waiting room.** It was validated mainly on admitted patients.
 - **Small subgroups.** Some drug classes will have too few NHANES users to estimate their own shift; those fall back to guideline rules.

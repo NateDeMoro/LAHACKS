@@ -40,7 +40,7 @@ flowchart LR
   G1{{"C1 Thin slice<br/>simulator → ingest → stub → dashboard"}}
   G2{{"C2 Real strap live<br/>real HR + breathing beside simulated vitals"}}
   G3{{"C3 Real risk engine<br/>intake → ranges → scores → alerts"}}
-  G4{{"C4 Full demo<br/>events, fast trend, add-ons"}}
+  G4{{"C4 Full demo<br/>runs, fast trend, add-ons"}}
 
   P0 --> S1 & S2 & T1 & B1
   S2 --> S3 --> S4
@@ -63,7 +63,7 @@ Read left to right: everything in one column can be built at the same time. A ch
 | Step | Owner | Needs | Done when |
 | --- | --- | --- | --- |
 | P0 Contracts and stubs | Both | — | Shared models for I1–I15 exist; a stub risk engine returns plain NEWS2 as I9/I14; eICU fixture rows load as I6/I13 |
-| S1 Strap receiver | Systems | P0 | bleakheart prints HR and beat intervals; receiver sends I1 with breathing rate; reconnects on drop |
+| S1 Strap receiver | Systems | P0 | bleakheart prints HR and beat intervals; receiver sends I1 with breathing rate; reconnects on drop. Done: receiver/, scripts/hardware/ |
 | S2 Ingest service | Systems | P0 | Accepts I1 over WebSocket, merges sources per vital, emits I13 each second and I6 each minute; run mode drops strap readings and freezes when a run ends (component-map, Simulator runs) |
 | S3 Simulator | Systems | P0 (S2 to plug in) | Six sample patients play fixed-length runs through the `RunSink` interface, with run state and a 120-minute trend pre-roll. Done: backend/simulator/, scripts/simulate_run.py. Still to build: the live-mode filler of SpO2 and temperature for C2, and ingest's side of the sink (S2). Integration testing is blocked on S2, T4, S5 and S6 (checks listed in simulation-layer.md) |
 | S4 Dashboard | Systems | S3 | Shows live vitals and NEWS2 updating every second from the stub |
@@ -74,7 +74,7 @@ Read left to right: everything in one column can be built at the same time. A ch
 | T2 Baseline ranges | Stats | T1 | NHANES quantile fit written to ranges.json; engine builds I8 from I4. Done: training/fit_ranges.py, backend/risk_engine/ranges.py |
 | T3 Personal baseline | Stats | T2 | I6 rows narrow the safe band; danger limits move only via I5. Done: backend/risk_engine/baseline.py (hr and breathing) |
 | T4 Alert logic | Stats | Step A | Recorded I9 rows produce I10 alerts with persistence windows and one alert per problem. Done: backend/risk_engine/alerts.py, tests/risk_engine/test_alerts.py, training/tune_alerts.py, replay_fixture --alerts |
-| B1 step-5-preview call | Both | P0 | A test call returns valid JSON matching the I5/I15 schema |
+| B1 step-5-preview call | Both | P0 | A test call returns valid JSON matching the I5/I15 schema. Done: backend/llm.py, backend/adjuster/proposal.py, scripts/stepfun_smoke.py |
 | B2 Test set | Both | B1 | About 100 labeled chief complaints, including negations. Done: fixtures/adjuster (30 dev, 70 test), models/rules.json, notes/adjuster-labeling-guide.md |
 | B3 Context adjuster | Both | B2 | I4 in, I5 to the engine, I15 to the evaluation log; quote check enforced; scored on the test set |
 | **C3 Real risk engine** | Both | S5, T4, B3 | A typed intake changes the wearer's ranges, and live scoring and alerts run on the real engine |

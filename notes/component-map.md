@@ -101,7 +101,7 @@ Affects S2, S4, S5, T1, B1. Models live in `backend/contracts.py`; JSON Schema i
   - I7 config gains flat typed `alerts` and `trend` blocks with defaults in `contracts.py`; the `persistence_windows` and `probability_cutoffs` dicts are gone.
   - Bed labels live in `backend/config.py` (wearable 1 is "Bed 4"); the lookup reads the wearable from the engine's stored I4 and falls back to patient_id.
   - `RiskEngine.on_minute` calls `trend.py` once; with the stub fast model every trend field stays null and I9 is otherwise unchanged.
-- **Simulator runs (affect S2, S4, S5, S6, T5, T6):**
+- **Simulator runs (affect S2, S4, S5, S6, T6):**
   - Ingest has one entry function taking an I1 reading and a `source` (strap or simulator) beside it; the WebSocket handler and the in-process simulator both call it. `source` is not part of I1, so the stream stays untagged. In run mode ingest drops strap readings; in live mode the per-vital merge applies.
   - I13 gains `run_state` (live, running, ended). While ended, ingest keeps sending the frozen window and sends no new I6 rows.
   - The risk engine gains `seed_trend_history(patient_id, rows)`, taking I6-shaped rows for the trend models only. The personal baseline, alert logic and storage never see them. I6 itself is unchanged.

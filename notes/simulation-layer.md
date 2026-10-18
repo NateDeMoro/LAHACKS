@@ -57,7 +57,7 @@ The fast trend model reads 5, 15 and 30 minute windows and the slow model 1, 3 a
 
 - **Contents:** the run's 0:00 values with the same wobble. Starting values, not "calm" ones, because at-risk and critical patients arrive already off normal.
 - **Entry point:** a separate risk-engine call, `seed_trend_history(patient_id, rows)`, read by the trend models only. The personal baseline never sees these rows, so its "abnormal on arrival, learn nothing" rule still works. Alert logic, storage and the dashboard never see them either.
-- **Why 120:** the sepsis slow model needs 120 minutes of history. It also fills the fast model's windows.
+- **Why 120:** the sepsis slow model needs 120 minutes of history. It also fills the fast model's windows. _Note: T5 (the slow model) has since been dropped (decisions.md, Step A), so the fast model's 30-minute windows are the only consumer; 120 can likely come down. Not changed yet._
 - **Limit:** the slow model's 1-hour window is full, but its 3 and 6 hour windows are only two thirds and one third full. The length is `SimulatorConfig.preroll_minutes`.
 - **Pitch wording:** in a run, the trend models' first two hours of history are scripted, not recorded.
 

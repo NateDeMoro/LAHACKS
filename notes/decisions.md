@@ -282,6 +282,7 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - **Small hardcoded table** (`backend/intake/lookup.py`) instead of the NHANES RXQ_DRUG list: six classes, plus a known-but-no-class list so everyday medications stay out of `unmatched_medications`. Option rejected: loading RXQ_DRUG, which has far more names than the demo needs.
 - **No fuzzy matching:** "metaprolol", "oxycotin" and "predisone" stay unmatched. Deterministic, and it matches the B2 labels, where they are the cases the adjuster reads from the complaint.
 - **Route words** (inhaler, nasal, spray, cream, ointment, eye, drops) drop the corticosteroid and beta_blocker classes but the name still counts as matched, following the labeling guide.
+- **Name cleanup:** after dose removal, tokens with digits or a leading `/` and dose-form, route-of-administration and schedule words (tablet, po, iv, prn, q6h...) are dropped, so "prednisone 10 mg PO daily" matches `prednisone`; matching stays exact on the cleaned name.
 - **Stale-result guard:** each intake gets a sequence number per patient; a background adjuster result is applied only if it is still the latest, so a quick resubmit with an edited complaint is not overwritten by the slower first call.
 - **Check:** `scripts/check_lookup.py` (all 100 B2 cases, samples, wearer fixture) and `scripts/intake_app.py --selftest`.
 

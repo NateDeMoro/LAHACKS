@@ -2,7 +2,7 @@
 Use when turning typed medication names into drug_classes and unmatched_medications at intake.
 
 Only the six I4 classes come out. No fuzzy matching: a misspelling stays unmatched, so the adjuster
-reads it from the complaint. Route words (inhaler, cream, eye drops...) drop the steroid and
+reads it from the complaint. Dose, schedule and dose-form words are dropped before matching. Route words (inhaler, cream, eye drops...) drop the steroid and
 beta-blocker classes, per notes/adjuster-labeling-guide.md, but the name still counts as matched."""
 import re
 
@@ -35,7 +35,9 @@ _KNOWN = {name.replace("-", " ") for name in _NO_CLASS.split()}
 _ROUTE = {"inhaler", "inhaled", "nasal", "spray", "cream", "ointment", "eye", "drops"}
 _DOSE = re.compile(r"\d+(\.\d+)?\s*(mg|mcg|g|ml)\b")
 _NOISE = {"daily", "twice", "once", "bid", "tid", "qid", "qd", "prn", "nightly", "weekly", "day", "per",
-          "every", "times", "xl", "er", "sr", "xr", "dosepak", "dose", "pak", "pack"}
+          "every", "times", "xl", "er", "sr", "xr", "dosepak", "dose", "pak", "pack",
+          "tablet", "tablets", "tab", "tabs", "capsule", "capsules", "cap", "caps", "po", "iv", "im", "sc",
+          "sq", "unit", "units", "days", "as", "needed", "a", "at", "bedtime", "hr", "x"}
 
 
 def classify(medications: list[str]) -> tuple[list[str], list[str]]:
@@ -45,7 +47,8 @@ def classify(medications: list[str]) -> tuple[list[str], list[str]]:
         text = _DOSE.sub(" ", raw.lower())
         words = re.sub(r"[^a-z0-9/ ]", " ", text).split()
         route = any(w in _ROUTE for w in words)
-        name = " ".join(w for w in words if w not in _ROUTE and w not in _NOISE)
+        name = " ".join(w for w in words if w not in _ROUTE and w not in _NOISE
+                        and not w.startswith("/") and not any(ch.isdigit() for ch in w))
         cls = _TABLE.get(name)
         if cls or name in _KNOWN:
             if cls and not (route and cls in ("corticosteroid", "beta_blocker")):

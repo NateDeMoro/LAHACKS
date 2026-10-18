@@ -38,6 +38,21 @@ for med in ("Flovent inhaler", "hydrocortisone cream", "timolol eye drops", "alb
     if classify([med]) != ([], []):
         fail(f"route exclusion: {med} -> {classify([med])}")
 
+bare = {"prednisone 5mg tablet": "prednisone", "methylprednisolone 4 mg tabs": "methylprednisolone",
+        "prednisone 10 mg PO daily": "prednisone", "morphine IV": "morphine", "Percocet 5/325": "percocet",
+        "fentanyl 25 mcg/hr patch": "fentanyl", "tramadol 50 mg q6h": "tramadol",
+        "prednisone 40 mg x5 days": "prednisone", "oxycodone as needed": "oxycodone",
+        "sertraline 50 mg once a day": "sertraline", "metoprolol 25 mg tablet": "metoprolol"}
+for med, base in bare.items():
+    if classify([med]) != classify([base]) or classify([med])[1] or not classify([med])[0]:
+        fail(f"extra words: {med} -> {classify([med])}, bare {base} -> {classify([base])}")
+for med in ("insulin glargine 20 units", "aspirin 81"):
+    if classify([med]) != ([], []):
+        fail(f"known no-class: {med} -> {classify([med])}")
+for med in ("metaprolol 25 mg tablet", "oxycotin", "predisone 5 mg"):
+    if classify([med])[1] != [med]:
+        fail(f"misspelling matched: {med} -> {classify([med])}")
+
 expect = {"u1": ["beta_blocker"], "c1": ["beta_blocker"], "c2": []}
 for pid, p in PROFILES.items():
     got, unmatched = classify(p.record.medications or [])

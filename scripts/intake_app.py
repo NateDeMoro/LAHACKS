@@ -113,7 +113,21 @@ def selftest():
         gen = c.post("/intake", json={"wearable_id": 1, "age": 40}).json()["patient_id"]
         assert gen.startswith("pt-")
         wait_done(c, gen)
-    print("selftest passed: I3 out, structured limits at once, full I5 after background, stale result dropped, bed move frees old, 422/404")
+        # on_intake raising in the background apply is logged and the card reports structured only
+        real, calls = engine.on_intake, []
+
+        def flaky(ctx, i5):
+            calls.append(1)
+            if len(calls) > 1:
+                raise RuntimeError("boom")
+            return real(ctx, i5)
+
+        engine.on_intake = flaky
+        bad = c.post("/intake", json={"wearable_id": 1, "age": 50}).json()["patient_id"]
+        card = wait_done(c, bad)
+        engine.on_intake = real
+        assert card["adjuster"] == "structured only" and len(calls) == 2, card["adjuster"]
+    print("selftest passed: I3 out, structured limits at once, full I5 after background, stale result dropped, background apply error caught, bed move frees old, 422/404")
 
 
 def main():

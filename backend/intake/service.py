@@ -110,5 +110,9 @@ class IntakeService:
         if out is None:
             self._card[pid]["state"] = STRUCTURED_ONLY
             return
-        self._card[pid].update(i5=out.i5, i15=out.i15, state=DONE if out.llm_ok else STRUCTURED_ONLY)
-        self._apply(ctx, out.i5)
+        try:
+            self._apply(ctx, out.i5)
+            self._card[pid].update(i5=out.i5, i15=out.i15, state=DONE if out.llm_ok else STRUCTURED_ONLY)
+        except Exception:
+            log.exception("background apply failed for %s", pid)
+            self._card[pid]["state"] = STRUCTURED_ONLY

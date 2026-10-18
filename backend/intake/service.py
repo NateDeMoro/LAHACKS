@@ -203,10 +203,13 @@ class IntakeService:
         pid = ctx.patient_id
         try:
             # Its own transaction inside the intake request's trace: the request has returned by now.
-            txn = sentry_sdk.continue_trace(trace, op="intake.adjust", name="intake adjust")
-            with sentry_sdk.start_transaction(txn) as span:
-                out: A.Outcome = await asyncio.to_thread(self._adjust, ctx)
-                self._describe(span, ctx, out)
+            # A task copies the request's context but shares its Sentry scope; isolating it keeps this
+            # transaction from replacing the request's current span.
+            with sentry_sdk.isolation_scope():
+                txn = sentry_sdk.continue_trace(trace, op="intake.adjust", name="intake adjust")
+                with sentry_sdk.start_transaction(txn) as span:
+                    out: A.Outcome = await asyncio.to_thread(self._adjust, ctx)
+                    self._describe(span, ctx, out)
         except Exception:  # the adjuster falls back on LLM failure itself; anything else keeps the structured result
             log.exception("adjuster failed for %s", pid)
             out = None

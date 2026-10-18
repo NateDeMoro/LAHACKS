@@ -59,3 +59,10 @@ def test_a_period_close_is_its_own_transaction_with_the_engine_span(sentry):
     seconds(svc, clock, 31, hr=70, resp_rate=15)
     period = sentry.transactions("engine period")
     assert period and any(s["op"] == "engine.period" for s in period[0]["spans"])
+
+
+def test_a_skip_replay_does_not_flood_sentry(sentry):
+    svc, clock, out = make()
+    svc.replaying = True
+    seconds(svc, clock, 31, hr=70, resp_rate=15)
+    assert not sentry.transactions("ingest tick") and not sentry.transactions("engine period")

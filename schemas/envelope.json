@@ -35,6 +35,30 @@
       ],
       "default": null,
       "title": "Data"
+    },
+    "sentry_trace": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sentry Trace"
+    },
+    "baggage": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Baggage"
     }
   },
   "title": "WsMessage",

@@ -35,3 +35,29 @@ def test_a_senders_sampling_decision_wins():
     sample = _sampler(ObservabilityConfig(dsn="x", reading_trace_rate=0.1))
     assert sample({"transaction_context": {"op": "ingest.reading"}, "parent_sampled": True}) == 1.0
     assert sample({"transaction_context": {"op": "ingest.reading"}, "parent_sampled": False}) == 0.0
+
+
+def test_a_message_sent_outside_any_transaction_carries_no_trace(sentry):
+    # The no-strap heartbeat is sent this way; sharing one trace id for the whole process would pile them into one trace.
+    assert trace_fields() == {}
+
+
+def test_error_messages_do_not_carry_what_the_user_typed(sentry):
+    from backend.contracts import IntakeRecord
+    secret = "PRIVATE-" + "COMPLAINT-TEXT"  # built here so the test's own source line does not contain it
+    try:
+        IntakeRecord(age=secret)
+    except Exception:
+        sentry_sdk.capture_exception()
+    assert secret not in sentry.text()
+    assert "ValidationError" in sentry.text()  # the type is still there to debug with
+
+
+def test_automatic_collection_is_off_beyond_the_ai_fields(sentry):
+    dc = sentry_sdk.get_client().options["data_collection"]
+    assert dc["cookies"]["mode"] == "off" and dc["url_query_params"]["mode"] == "off"
+    assert dc["database_query_data"] is False and dc["queues"] is False and dc["user_info"] is False
+
+
+def test_a_dsn_in_the_environment_does_not_reach_the_tests():
+    assert init_sentry("test") is False  # the autouse fixture in tests/conftest.py blanks the DSN

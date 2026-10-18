@@ -1,6 +1,7 @@
 """Ingest service (S2): routes readings to per-patient streams, and on every tick runs the pipeline
 I13 -> engine (I14), and at each period close I6 -> engine (I9) -> alert logic (I10)."""
 import asyncio
+import contextlib
 import logging
 from datetime import datetime
 from typing import Callable
@@ -95,9 +96,13 @@ class IngestService:
     def on_ack(self, ack: Acknowledgment) -> bool:
         return self._alerts.on_ack(ack)
 
+    def _txn(self, op: str, name: str):
+        """A Sentry transaction, except during a skip replay, which runs thousands of ticks in one burst."""
+        return contextlib.nullcontext() if self.replaying else sentry_sdk.start_transaction(op=op, name=name)
+
     def tick(self, only: list[str] | None = None, *, skip_sim: bool = False) -> None:
         """One second for every stream, or just the patients in `only`. skip_sim leaves the scenario patients out."""
-        with sentry_sdk.start_transaction(op="ingest.tick", name="ingest tick"):
+        with self._txn("ingest.tick", "ingest tick"):
             for stream in list(self._streams.values()):
                 pid = stream.patient_id
                 if (only is not None and pid not in only) or (skip_sim and pid in self._clocks):
@@ -122,7 +127,7 @@ class IngestService:
                 self._close_period(tick.period)
 
     def _close_period(self, period) -> None:
-        with sentry_sdk.start_transaction(op="engine.period", name="engine period"):  # kept in full and profiled
+        with self._txn("engine.period", "engine period"):  # kept in full and profiled
             self._store.write("I6", period, period.patient_id)
             with sentry_sdk.start_span(op="engine.period", name="baseline and trend"):
                 risk = self.engine.on_period(period)

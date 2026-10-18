@@ -3,8 +3,8 @@ import * as Sentry from '@sentry/react'
 import './index.css'
 import App from './App'
 
-// No DSN keeps Sentry off. Text is readable in replays because the board shows synthetic patients only;
-// inputs stay masked since the intake form is where typed conditions go.
+// No DSN keeps Sentry off. Replays mask all text and inputs: the patient page shows the chief complaint
+// and typed conditions. For a recorded demo with synthetic patients only, set maskAllText to false.
 const dsn = import.meta.env.VITE_SENTRY_DSN
 if (dsn) {
   Sentry.init({
@@ -12,7 +12,7 @@ if (dsn) {
     environment: import.meta.env.MODE,
     integrations: [
       Sentry.browserTracingIntegration(),
-      Sentry.replayIntegration({ maskAllText: false, maskAllInputs: true, blockAllMedia: true }),
+      Sentry.replayIntegration({ maskAllText: true, maskAllInputs: true, blockAllMedia: true }),
     ],
     tracesSampleRate: 1.0,
     replaysSessionSampleRate: 1.0,

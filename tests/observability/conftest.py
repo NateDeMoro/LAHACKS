@@ -54,3 +54,4 @@ def sentry():
     sentry_sdk.get_client().close()
     for scope in (sentry_sdk.get_global_scope(), sentry_sdk.get_isolation_scope(), sentry_sdk.get_current_scope()):
         scope.set_client(NonRecordingClient())  # back to Sentry off for the next test
+        scope.clear()  # drops the service tag too

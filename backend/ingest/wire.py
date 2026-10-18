@@ -17,7 +17,7 @@ def _finite(s: str) -> float | None:
 
 
 def trace_headers(text: str) -> dict[str, str]:
-    """Sentry headers a sender put in the envelope. Looks for the key first so most messages skip a second parse."""
+    """Sentry headers a sender put in the envelope. A sender without Sentry sends no key, so those messages skip a second parse."""
     if '"sentry_trace"' not in text:
         return {}
     try:

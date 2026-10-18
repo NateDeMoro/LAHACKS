@@ -70,3 +70,17 @@ def test_no_complaint_means_no_fallback_log(sentry):
     svc = service(lambda ctx: outcome(ctx, False, 0.0))
     asyncio.run(submit_and_settle(svc, record("")))
     assert not [l for l in sentry.logs() if "fell back" in l["body"]]
+
+
+def test_the_background_task_leaves_the_request_trace_alone(sentry):
+    import time
+    svc = service(lambda ctx: (time.sleep(0.2), outcome(ctx, True, 1.0))[1])
+
+    async def go():
+        with sentry_sdk.start_transaction(op="http.server", name="POST /intake") as request:
+            await svc.submit(record(COMPLAINT))
+            await asyncio.sleep(0.05)  # the adjuster task is now running in its own transaction
+            assert sentry_sdk.get_current_span() is request
+        await asyncio.gather(*svc._tasks)
+
+    asyncio.run(go())

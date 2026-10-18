@@ -28,6 +28,17 @@ def _drop_access_log(log_item: dict, _hint: dict) -> dict | None:
     return None if log_item.get("attributes", {}).get("logger.name") == "uvicorn.access" else log_item
 
 
+TEXT_ERRORS = {"ValidationError", "JSONDecodeError", "UnicodeDecodeError"}  # their messages quote the input
+
+
+def _withhold_error_text(event: dict, _hint: dict) -> dict:
+    """A pydantic error message repeats the value that failed, which can be a complaint or a typed condition."""
+    for exc in event.get("exception", {}).get("values", []):
+        if exc.get("type") in TEXT_ERRORS:
+            exc["value"] = f"{exc['type']} (message withheld)"
+    return event
+
+
 def init_sentry(service: str, cfg: ObservabilityConfig | None = None, *, transport=None) -> bool:
     """transport is for tests, which read back what would have been sent."""
     cfg = cfg or CONFIG.observability
@@ -37,10 +48,13 @@ def init_sentry(service: str, cfg: ObservabilityConfig | None = None, *, transpo
     sentry_sdk.init(
         dsn=cfg.dsn, environment=cfg.environment, traces_sampler=_sampler(cfg), transport=transport,
         profile_session_sample_rate=cfg.profile_rate, profile_lifecycle="trace",
-        enable_logs=True, before_send_log=_drop_access_log,
+        enable_logs=True, before_send_log=_drop_access_log, before_send=_withhold_error_text,
         # Complaint text reaches prompts, replies and local variables, so none of them leave the process.
+        # A data_collection dict replaces the SDK's default scrubbing, so everything else is switched off here too.
         data_collection={"user_info": False, "http_bodies": [], "stack_frame_variables": False,
-                         "gen_ai": {"inputs": False, "outputs": False}},
+                         "gen_ai": {"inputs": False, "outputs": False}, "cookies": {"mode": "off"},
+                         "url_query_params": {"mode": "off"}, "http_headers": {"request": {"mode": "off"}},
+                         "database_query_data": False, "queues": False},
         integrations=[OpenAIIntegration(include_prompts=False)],
     )
     sentry_sdk.set_tag("service", service)
@@ -48,7 +62,8 @@ def init_sentry(service: str, cfg: ObservabilityConfig | None = None, *, transpo
 
 
 def trace_fields() -> dict[str, str]:
-    """Trace headers for an outgoing WsMessage; empty when Sentry is off."""
-    if not sentry_sdk.is_initialized():
+    """Trace headers for an outgoing WsMessage; empty when Sentry is off or no transaction is open (the scope's
+    own trace id lasts the whole process, so every such message would land in one trace)."""
+    if not sentry_sdk.is_initialized() or sentry_sdk.get_current_span() is None:
         return {}
     return {"sentry_trace": sentry_sdk.get_traceparent(), "baggage": sentry_sdk.get_baggage()}

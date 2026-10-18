@@ -1,4 +1,4 @@
-"""Backend app: ingest socket, dashboard socket, simulator routes, and the loops that run them.
+"""Backend app: ingest socket, dashboard socket, simulator and intake routes, and the loops that run them.
 Run: uv run --env-file .env uvicorn backend.app:create_app --factory"""
 import asyncio
 import contextlib
@@ -13,6 +13,8 @@ from backend.ingest.hub import DashboardHub
 from backend.ingest.service import IngestService
 from backend.ingest.store import Store
 from backend.ingest.wire import BadMessage, parse_envelope
+from backend.intake.routes import build_router as build_intake_router
+from backend.intake.service import IntakeService
 from backend.risk_engine.alerts import AlertLogic
 from backend.risk_engine.engine import RiskEngine
 from backend.simulator.controller import RunInProgress, SimController, UnknownProfile
@@ -29,6 +31,7 @@ def create_app(engine: RiskEngine | None = None, store_path: str | Path | None =
     service = IngestService(engine, alerts, lambda t, m: hub_ref[0].publish(t, m), store,
                             on_drop=lambda pid: hub_ref[0].forget(pid))
     controller = SimController(service)
+    intake = IntakeService(engine, lambda a: service.assign(a.wearable_id, a.patient_id))
 
     def start_run(trigger: ScenarioTrigger) -> None:
         try:
@@ -52,6 +55,7 @@ def create_app(engine: RiskEngine | None = None, store_path: str | Path | None =
 
     app = FastAPI(lifespan=lifespan)
     app.include_router(build_router(controller))
+    app.include_router(build_intake_router(intake))
 
     @app.websocket("/ws/ingest")
     async def ws_ingest(ws: WebSocket):

@@ -35,7 +35,7 @@ class PatientStream:
     def _start(self, now: datetime) -> None:
         """Clears everything; minutes count from here, so a run gives whole minutes."""
         self._period_start = now
-        self._window: deque[_Sample] = deque(maxlen=int(self._cfg.window_s))  # ticks can jitter; I13 allows 60 at most
+        self._window: deque[_Sample] = deque(maxlen=int(self._cfg.window_s))  # ticks can jitter; never hold more seconds than the window
         self._period: list[_Sample] = []
         self._strap: tuple[datetime, VitalsReading] | None = None
         self._sim: dict[str, tuple[datetime, float]] = {}

@@ -42,6 +42,17 @@ def test_starts_after_15_elapsed_minutes(model):
     assert res[15].trend_prob_fast == 9.0 and res[15].trend_tier == "warning"
 
 
+def test_half_minute_rows_reach_the_model_as_one_minute_rows(monkeypatch):
+    seen = []
+    monkeypatch.setattr(fast_model, "load", lambda: True)
+    monkeypatch.setattr(fast_model, "predict", lambda history: seen.append(list(history.rows)))
+    run([row(i, step=0.5, hr=70 + 4 * (i % 2)) for i in range(35)])  # 30 s rows: 17 whole minutes and a half
+    rows = seen[-1]  # the last minute holds only its first 30 s row
+    assert len(rows) == 18
+    assert [r.ts for r in rows] == [T0 + timedelta(minutes=k) for k in range(18)]
+    assert [r.hr for r in rows[:-1]] == [72] * 17 and rows[-1].hr == 70
+
+
 def test_threshold_counts_elapsed_time_not_rows(model):
     res = run([row(i, step=5) for i in range(5)])  # eICU spacing: minute 0, 5, 10, 15, 20
     assert [r.trend_tier for r in res] == [None, None, None, "warning", "warning"]

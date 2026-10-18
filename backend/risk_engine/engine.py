@@ -17,7 +17,7 @@ CONFIG_PATH = Path(__file__).resolve().parents[2] / "models" / "config.json"
 _LABEL = {"hr": "heart rate", "resp_rate": "breathing", "spo2": "SpO2", "temp_c": "temperature"}
 _UNIT = {"hr": "/min", "resp_rate": "/min", "spo2": "%", "temp_c": "C"}
 _RANK = {"safe": 0, "warning": 1, "danger": 2}
-NEWS2_MAX_AGE = timedelta(seconds=60)  # a live NEWS2 older than this is not shown beside the minute
+NEWS2_MAX_AGE = timedelta(seconds=60)  # a live NEWS2 older than this is not shown beside the period
 
 
 def default_ranges(patient_id: str | None) -> PatientRanges:

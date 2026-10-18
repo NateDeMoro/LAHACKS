@@ -68,7 +68,7 @@ class _VitalBaseline:
         tau = (pop.safe_high - pop.safe_low) / _BAND_SD  # how much people differ from each other
         n0 = min(max(sigma ** 2 / tau ** 2, cfg.n0_min), cfg.n0_max)
         gaps = sorted(b[0] - a[0] for a, b in zip(self.samples, self.samples[1:]))
-        n = len(values) * max(1.0, median(gaps))  # minutes of data, so 5-minute rows count 5 each
+        n = len(values) * median(gaps)  # minutes of data: 5-minute rows count 5 each, 30 s rows 0.5
         centre = (n0 * self.mu0 + n * med) / (n0 + n)
         half = cfg.k * sigma * (1 + 1 / (n0 + n)) ** 0.5
         low, high = min(centre - half, med), max(centre + half, med)

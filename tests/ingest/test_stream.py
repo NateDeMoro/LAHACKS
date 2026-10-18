@@ -39,14 +39,14 @@ def test_window_median_waits_for_min_samples():
     assert ticks[5].live.clean_seconds == 6
 
 
-def test_window_keeps_only_the_last_60_seconds():
+def test_window_keeps_only_the_last_30_seconds():
     st = PatientStream("p1", at(0))
-    for s in range(1, 31):
+    for s in range(1, 16):
         st.on_reading(at(s), strap(hr=100), "strap")
         st.tick(at(s))
-    ticks = run_live(st, 70, lambda: strap(hr=60), start=31)
+    ticks = run_live(st, 40, lambda: strap(hr=60), start=16)
     assert ticks[-1].live.hr == 60
-    assert ticks[-1].live.clean_seconds == 60
+    assert ticks[-1].live.clean_seconds == 30
 
 
 def test_no_contact_seconds_are_not_clean_and_drain_the_window():
@@ -55,7 +55,7 @@ def test_no_contact_seconds_are_not_clean_and_drain_the_window():
     ticks = run_live(st, 3, lambda: strap(hr=None, rr=None, contact=False), start=11)
     assert ticks[-1].live.clean_seconds == 10  # the three no-contact seconds do not count
     assert ticks[-1].live.hr == 70
-    # With the strap gone entirely, readings go stale and the window empties after 60 s.
+    # With the strap gone entirely, readings go stale and the window empties after 30 s.
     last = None
     for s in range(14, 80):
         last = st.tick(at(s))
@@ -128,15 +128,15 @@ def test_reset_to_live_clears_the_window():
 
 def test_periods_start_at_the_stream_start():
     st = PatientStream("p1", at(100))
-    ticks = run_live(st, 125, start=101)
+    ticks = run_live(st, 65, start=101)
     periods = [t.period for t in ticks if t.period]
-    assert [m.period_ts for m in periods] == [at(100), at(160)]
-    assert periods[0].hr == 70 and periods[0].clean_seconds == 59  # first tick lands 1 s after the start
+    assert [m.period_ts for m in periods] == [at(100), at(130)]
+    assert periods[0].hr == 70 and periods[0].clean_seconds == 29  # first tick lands 1 s after the start
 
 
 def test_period_with_no_clean_data_still_reports_zero_seconds():
     st = PatientStream("p1", at(0))
-    periods = [t.period for t in (st.tick(at(s)) for s in range(1, 62)) if t.period]
+    periods = [t.period for t in (st.tick(at(s)) for s in range(1, 32)) if t.period]
     assert len(periods) == 1 and periods[0].hr is None and periods[0].clean_seconds == 0
 
 

@@ -165,7 +165,7 @@ class RiskResult(Model):  # I9
     reason: str | None = None
     vital_levels: VitalLevels | None = None
     vital_values: VitalValues | None = None
-    news2: int | None = None  # null when the latest I14 is over 60 s older than the minute
+    news2: int | None = None  # null when the latest I14 is over 60 s older than the period
     news2_points: News2Points | None = None
     trend_prob_fast: float | None = None
     trend_tier: TrendTier | None = None
@@ -223,7 +223,7 @@ class BaselineConfig(Model):
     min_minutes: float = 10
     arrival_check_minutes: float = 3
     learn_minutes: float = 30
-    min_clean_seconds: int = 40
+    min_clean_seconds: int = 20
     n0_min: float = 0.5
     n0_max: float = 5
     k: float = 2.5

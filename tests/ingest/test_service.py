@@ -99,9 +99,9 @@ def test_last_period_of_a_run_is_closed_when_the_run_ends():
         clock.now += timedelta(seconds=1)
         svc.ingest(reading(hr=90, resp_rate=18, spo2=97, temp_c=37.0), "simulator")
         svc.tick()
-    assert len(out.of("I9")) == 1
+    assert len(out.of("I9")) == 3  # periods close at 30, 60 and 90 s
     svc.set_run_state("p1", "ended")
-    assert len(out.of("I9")) == 2 and [k for k, _, _ in out.stored].count("I6") == 2
+    assert len(out.of("I9")) == 4 and [k for k, _, _ in out.stored].count("I6") == 4
 
 
 def test_strap_readings_dropped_in_run_mode_are_not_stored():

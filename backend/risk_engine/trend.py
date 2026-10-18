@@ -25,8 +25,18 @@ class Row:
     spo2: float | None
 
 
+def _mean(a: float | None, b: float | None) -> float | None:
+    return b if a is None else a if b is None else (a + b) / 2
+
+
+def _merge(first: Row, second: Row) -> Row:
+    """Same clock minute: keep the first timestamp, average the vitals."""
+    return Row(first.ts, _mean(first.hr, second.hr), _mean(first.resp_rate, second.resp_rate),
+               _mean(first.spo2, second.spo2))
+
+
 class TrendHistory:
-    """Last 60 minutes of clean minute values for one patient."""
+    """Last 60 minutes of clean one-minute values for one patient."""
 
     def __init__(self):
         self.rows: deque[Row] = deque()
@@ -35,7 +45,10 @@ class TrendHistory:
     def add(self, m: PeriodSummary):
         if self.first_clean is None:
             self.first_clean = m.period_ts
-        self.rows.append(Row(m.period_ts, m.hr, m.resp_rate, m.spo2))
+        row = Row(m.period_ts, m.hr, m.resp_rate, m.spo2)
+        if self.rows and self.rows[-1].ts.replace(second=0, microsecond=0) == m.period_ts.replace(second=0, microsecond=0):
+            row = _merge(self.rows.pop(), row)  # the model was trained on one-minute rows; 30 s periods are paired up
+        self.rows.append(row)
         while self.rows[0].ts < m.period_ts - HISTORY:
             self.rows.popleft()
 

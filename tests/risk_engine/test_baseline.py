@@ -37,6 +37,21 @@ def test_steady_patient_gets_a_narrower_band_containing_their_level(cfg, pop):
     assert any("narrowed to your readings" in r for r in hr.reasons)
 
 
+def test_half_minute_rows_count_half_a_minute_each(cfg, pop):
+    one, half = make(cfg, pop), make(cfg, pop)
+    feed(one, [85] * 20)
+    feed(half, [85] * 40, step=0.5)  # the same 20 minutes of data, in 30 s rows
+    assert (half.ranges.hr.safe_low, half.ranges.hr.safe_high) == (one.ranges.hr.safe_low, one.ranges.hr.safe_high)
+
+
+def test_a_30_second_period_needs_20_clean_seconds(cfg, pop):
+    for clean, source in ((20, "personal"), (19, "population")):
+        b = make(cfg, pop)
+        for i, hr in enumerate(steady(85, 40)):
+            b.update(period(i * 0.5, hr=hr, clean=clean))
+        assert b.ranges.hr.source == source
+
+
 def test_band_never_wider_than_or_outside_population(cfg, pop):
     for level in (55, 70, 88):
         b = make(cfg, pop)

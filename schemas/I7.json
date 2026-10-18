@@ -63,7 +63,7 @@
           "type": "number"
         },
         "min_clean_seconds": {
-          "default": 40,
+          "default": 20,
           "title": "Min Clean Seconds",
           "type": "integer"
         },

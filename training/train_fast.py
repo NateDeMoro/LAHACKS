@@ -299,6 +299,15 @@ def train_and_eval(segments, df, events, meta, ns):
         sc[tr_mask.to_numpy()] = oof[tr_mask.to_numpy()]            # training rows: out-of-fold scores
         scores["lightgbm"] = sc
 
+    from training import fast_logreg
+    Xr = fast_logreg.design(df)
+    lr_folds = group_folds(train_p, np.random.default_rng(SEED + 7))
+    scores["logreg"], lr_info, lr_final = fast_logreg.fit_scores(df, Xr, tr_mask, valid, lr_folds, weights_for,
+                                                                 average_precision)
+    print("logistic CV AUPRC by C:", {k: round(v, 4) for k, v in lr_info["cv_auprc_by_C"].items()}, "-> C", lr_info["best_C"])
+    print("logistic coefficients (standardized):", {k: round(v, 3) for k, v in lr_info["coef_standardized"].items()},
+          "intercept", round(lr_info["intercept"], 3))
+
     ev_all = {}
     for name, s in scores.items():
         c = match_cutoff(df, s, target, events, meta, segments, train_p, hours(train_p))
@@ -313,23 +322,29 @@ def train_and_eval(segments, df, events, meta, ns):
     base = {k: results[k] for k in ("distance", "extrapolation")}
     better = max(base, key=lambda k: (results[k]["train"]["warn"], results[k]["train"]["detected"]))
     ship = better
-    if "lightgbm" in results:
-        L, B = results["lightgbm"], results[better]
-        wins = all(L["test"][m] > B["test"][m] and L["ci"][m][0] > B["ci"][m][1] for m in ("warn", "detected"))
-        ship = "lightgbm" if wins else better
-        # paired bootstrap of the difference, informational only
-        rng2, diffs = np.random.default_rng(SEED + 1), {"warn": [], "detected": []}
-        for _ in range(N_BOOT):
-            samp = rng2.choice(np.array(test_p), len(test_p))
-            a, b = summarize(ev_all["lightgbm"], samp), summarize(ev_all[better], samp)
-            for m in diffs:
-                diffs[m].append(a[m] - b[m])
-        results["paired_diff_ci"] = {m: (float(np.percentile(v, 2.5)), float(np.percentile(v, 97.5)))
-                                     for m, v in diffs.items()}
+    results["paired_diff_ci"] = {}
+    rng2 = np.random.default_rng(SEED + 1)
+    samps = [rng2.choice(np.array(test_p), len(test_p)) for _ in range(N_BOOT)]
+    for learned in [k for k in ("lightgbm", "logreg") if k in results]:
+        L = results[learned]
+        for comp in ("distance", "extrapolation"):
+            B = results[comp]
+            diffs = {"warn": [], "detected": []}
+            for samp in samps:
+                a, b = summarize(ev_all[learned], samp), summarize(ev_all[comp], samp)
+                for m in diffs:
+                    diffs[m].append(a[m] - b[m])
+            results["paired_diff_ci"][f"{learned}-{comp}"] = {m: (float(np.percentile(v, 2.5)), float(np.percentile(v, 97.5)))
+                                                           for m, v in diffs.items()}
+            results[f"{learned}_beats_{comp}"] = all(
+                L["test"][m] > B["test"][m] and L["ci"][m][0] > B["ci"][m][1] for m in ("warn", "detected"))
+    winners = [k for k in ("lightgbm", "logreg") if k in results and results[f"{k}_beats_{better}"]]
+    if winners:
+        ship = max(winners, key=lambda k: results[k]["test"]["warn"])
     print("\n== held-out results (cutoffs matched to partial-NEWS2>=5 rate on training patients) ==")
     hdr = f"{'method':14s} {'cutoff':>9s} {'rate/h':>8s} {'warn min':>9s} {'warn 95% CI':>16s} {'detected':>9s} {'det 95% CI':>14s} {'AUPRC':>7s}"
     print(hdr)
-    for name in ("lightgbm", "distance", "extrapolation"):
+    for name in ("lightgbm", "logreg", "distance", "extrapolation"):
         if name not in results:
             continue
         r = results[name]
@@ -339,8 +354,10 @@ def train_and_eval(segments, df, events, meta, ns):
     t = results[better]["test"]
     print(f"{'hourly recheck':14s} {'-':>9s} {1.0:8.3f} {0.0:9.2f} {'':16s} {t['hourly_detected']:9.3f}   (1 check/h, random phase; detection only after onset)")
     print(f"held-out events {t['events']}, held-out NEWS2>=5 rate {budget['test']:.3f}/h; better baseline on training = {better}")
-    if "paired_diff_ci" in results:
-        print("paired bootstrap (lightgbm - better baseline), informational:", results["paired_diff_ci"])
+    print("paired bootstrap differences (learned - rule), 95% CI:")
+    for k, v in results["paired_diff_ci"].items():
+        print(f"  {k}: warn [{v['warn'][0]:.1f}, {v['warn'][1]:.1f}] min, detected [{v['detected'][0]:.3f}, {v['detected'][1]:.3f}]")
+    print({k: v for k, v in results.items() if k.endswith(("_beats_distance", "_beats_extrapolation"))})
     print("\n== informational: same methods at stricter alert budgets (not used for the ship rule) ==")
     extra = {}
     for tr in (0.25, 0.5):
@@ -352,9 +369,15 @@ def train_and_eval(segments, df, events, meta, ns):
     results["extra_budgets"] = extra
     print(f"SHIPS: {ship}")
     out = dict(ship=ship, better_baseline=better, target_rate_per_hour=target, budget=budget, results=results,
-               best_iter=best_iter, n_train_patients=len(train_p), n_test_patients=len(test_p))
+               best_iter=best_iter, logreg=lr_info, n_train_patients=len(train_p), n_test_patients=len(test_p))
     PROC.mkdir(parents=True, exist_ok=True)
     (PROC / "fast_results.json").write_text(json.dumps(out, indent=2, default=float))
+    if True:  # always write the experiment artifact so fast_model.METHOD can be switched to "logreg"
+        MODELS.mkdir(exist_ok=True)
+        (MODELS / "fast_15_logreg.json").write_text(json.dumps(dict(
+            inputs=fast_logreg.INPUTS, fill=lr_info["fill"], mean=lr_info["mean"], scale=lr_info["scale"],
+            coef_standardized=list(lr_info["coef_standardized"].values()), intercept=lr_info["intercept"],
+            cutoff=results["logreg"]["cutoff"]), indent=2) + "\n")
     if ship == "lightgbm":
         MODELS.mkdir(exist_ok=True)
         final.save_model(str(MODELS / "fast_15.txt"))

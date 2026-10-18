@@ -19,6 +19,7 @@ dev = [
 fixtures = ["pandas"]
 training = [
     "pandas",
+    "scikit-learn>=1.9.1",
     "statsmodels",
     "wfdb>=4.3.1",
 ]

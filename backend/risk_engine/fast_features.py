@@ -103,3 +103,24 @@ def extrapolation_score(f: dict, horizon: float = 15.0) -> float:
         if math.isfinite(d):
             best = max(best, -(d - slope * horizon))
     return best if math.isfinite(best) else -1e9
+
+
+def vital_rule_scores(f: dict) -> list[float]:
+    """The two rules per vital, for the learned model: [distance hr, rr, spo2, extrapolation hr, rr, spo2].
+    Use when building the logistic model's inputs; NaN where the vital has no filled window.
+    The max of the first three equals distance_score; the max of the last three equals extrapolation_score."""
+    dist, ext = [], []
+    for v in VITALS:
+        spread = f.get(f"{v}_15_spread", math.nan)
+        scale = max(SPREAD_FLOOR[v], spread) if math.isfinite(spread) else SPREAD_FLOOR[v]
+        slope = f.get(f"{v}_15_slope", math.nan)
+        d_best, e_best = -math.inf, -math.inf
+        for suffix in ("dlow", "dhigh"):
+            d = f.get(f"{v}_5_{suffix}", math.nan)
+            if math.isfinite(d):
+                d_best = max(d_best, -d / scale)
+                if math.isfinite(slope):
+                    e_best = max(e_best, -(d + slope * 15.0) if suffix == "dlow" else -(d - slope * 15.0))
+        dist.append(d_best if math.isfinite(d_best) else math.nan)
+        ext.append(e_best if math.isfinite(e_best) else math.nan)
+    return dist + ext

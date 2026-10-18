@@ -211,6 +211,20 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 ### Checks done
 - The NEWS2 total at 0, 30, 60 and 100% of each run, computed with the real scorer from the script values plus the patient's triage points, matches the target in the script (`tests/simulator/test_profiles.py`).
 
+## B2 Allowed rules and adjuster test set
+
+### Seven rules (models/rules.json)
+- chemo_fever (temp high 38.3; IDSA febrile neutropenia, strong), suspected_infection (RR high 22; Sepsis-3 qSOFA, strong), opioid (RR low 10; ASA definition, medium), steroid_immunosuppressed (temp high 38.0; steroid fever blunting, medium), age65 (temp high 37.8; IDSA older adults, figure unconfirmed), beta_blocker (HR high 110; no numeric source), pregnancy (SBP high 160, HR high 120; MEOWS, weak). Sources are secondary summaries, not guideline texts; values are "proposed" and labels do not depend on them.
+- **Rejected:** confirmed COPD (loosens SpO2), AF rate targets (no AF intake field), anticholinergics and diabetic neuropathy (no source), any SBP-only rule (SBP is one triage reading, never classified live). SNRI/tricyclic dropped: those drugs raise heart rate, so lowering the high edge is not supported.
+- **age65 fires on age alone.** It was named age65_fever; renamed so the name matches the behaviour: every patient 65+ gets a 37.8 C temperature danger edge, which NEWS2 does not have. It is separate from the T2 temperature band, which only shifts the safe edge by about 0.02 C per decade.
+- **Conflicts:** when two rules move the same edge, the stricter value wins.
+- **Split by source:** structured rules (age, drug class, pregnant flag) are for code with fixed values; the LLM handles free-text facts (B1 finding).
+
+### Test set: Claude-drafted, human sample check
+- 100 synthetic cases (30 dev, 70 test; test never used in prompts), drafted and labeled by Claude (Sonnet) from a coverage grid: every rule fires in 5+ test and 2+ dev cases, near-misses per rule, and the training plan's hard cases (negation, past use, slang, brand names, misspellings, conflicts, nothing relevant, multi-rule, injection, missed lookups).
+- **Deviation from the training plan** (one teammate labels, the other checks): Claude labeled. Checks: (1) a blind second Claude pass agreed 100/100 on rule and source, which we treat as weak evidence because the guide's examples mirror the cases and both passes were the same model family; quote spans differed in 27 of 45 text labels, so B3 should accept any quote in the complaint that covers the fact. (2) Nate labeled a random 20-case test sample blind: 15/18 answered agreed on rules (14/18 with source); every difference was reconciled in favour of the Claude label (a measured fever counts as suspected infection; age65 fires on age alone; the pregnant flag wins over text for source). On that basis the remaining 80 cases were accepted without individual checks.
+- **Revisit if:** B3 scores look too good: add 15-20 fully human-written cases and report their score separately, and strip case-specific examples from the guide.
+
 ## Stated limits
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.
 - NHANES pulse is seated and resting; anxious waiting patients may run above the 90 bpm cap and show warning (check at C2; the fix would be a config offset).

@@ -63,7 +63,7 @@ Age, sex (male or female; NHANES records only these), height and weight (metric)
 Plain-English version; methods and data are in the training plan.
 
 1. **Baseline ranges (at intake).** Each vital gets three bands. Safe comes from an NHANES quantile fit on the patient's profile, i.e. where 95% of similar people sit. Danger starts at the NEWS2 score-3 values. Warning is everything in between.
-2. **Context adjuster (at intake).** step-5-preview reads the full profile and chief complaint and proposes tightened danger thresholds from an allowed rule list (rules decided later). A high edge can only move down and a low edge only up, so danger is reached sooner, never later. A code validator approves each change. The fact and exact quote behind each change go to an evaluation log, not to the risk engine. No red flags: triage acuity stays with the nurse's ESI level.
+2. **Context adjuster (at intake).** step-5-preview reads the full profile and chief complaint and proposes tightened danger thresholds from an allowed rule list (seven rules in `models/rules.json`). A high edge can only move down and a low edge only up, so danger is reached sooner, never later. A code validator approves each change. The fact and exact quote behind each change go to an evaluation log, not to the risk engine. No red flags: triage acuity stays with the nurse's ESI level.
 3. **Personal baseline (every minute).** It learns the wearer's own normal from their first stretch of clean readings and narrows the safe band toward it. A drift that stays inside the population range still shows up. It never widens a band, never moves danger, and learns nothing if the patient arrives already abnormal.
 4. **NEWS2 (every second).** Scored on the median of the last 60 seconds of each vital. Each part gets 0–3 points and the total runs 0–20. A total of 5 or more is urgent and 7 or more is high. NEWS2 alone treats everyone the same and looks only at now; steps 1–3 personalize it, and step 5 looks ahead. It was validated mainly on admitted patients, which is an assumption we state.
 5. **Fast trend model (every minute).** After 15 clean minutes, and only while no vital is in danger: will a vital enter the danger range within 15 minutes? Trained on MIMIC-III minute data. It raises a warning only, never lowers a level, and gives a one-line reason. There is no slow sepsis model (dropped, see decisions.md); sepsis is one cause of deterioration that NEWS2, personal ranges and this model catch.
@@ -93,4 +93,3 @@ Not targeted:
 
 ## Open decisions
 
-- Context adjuster rule list (I5).

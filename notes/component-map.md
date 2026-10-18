@@ -108,7 +108,7 @@ Affects S2, S4, S5, T1, B1. Models live in `backend/contracts.py`; JSON Schema i
   - The simulator sends `contact` true with its readings.
   - `scenario_id` in I12 is a run id, one per sample patient.
   - The simulator is unit-tested only. Integration against ingest, `seed_trend_history`, alert logic and the dashboard waits on those steps (checks in [simulation-layer.md](simulation-layer.md), "Blocked").
-- Open items: I5 rule list.
+- Open items: none for I5; the rule list is in `models/rules.json` (B2).
 
 ### I1 Vitals reading
 
@@ -163,7 +163,7 @@ One active patient per wearable; readings from an unassigned wearable are droppe
 | --- | --- |
 | all I2 fields | including chief_complaint |
 | bmi | computed from height and weight |
-| drug_classes | [Multum classes. The fit uses beta_blocker, ssri, snri; others are ignored] |
+| drug_classes | [Multum classes: beta_blocker, ssri, snri, opioid, corticosteroid, immunosuppressant. The NHANES fit uses beta_blocker, ssri, snri; the adjuster rules use beta_blocker, opioid, corticosteroid, immunosuppressant] |
 | unmatched_medications | [names the lookup missed] |
 
 ### I5 Context adjustments
@@ -172,7 +172,7 @@ One active patient per wearable; readings from an unassigned wearable are droppe
 | --- | --- |
 | patient_id | string |
 | adjustments | [{rule_id, vital, bound, value}] |
-| rule_id | from the allowed rule list (rules decided later) |
+| rule_id | from `models/rules.json`: chemo_fever, suspected_infection, opioid, steroid_immunosuppressed, age65, beta_blocker, pregnancy |
 | vital | hr \| resp_rate \| spo2 \| temp_c \| sbp |
 | bound | low \| high |
 | value | new danger threshold, in the vital's units |
@@ -197,7 +197,7 @@ The simulator's 120-minute trend pre-roll uses this format but goes to the engin
 | File | Contents |
 | --- | --- |
 | ranges.json | HR and SBP: intercept + per-feature coefficients at the 2.5 / 50 / 97.5 quantiles, feature clamps, cohort means, fit coverage; reference safe bands for breathing, SpO2, temperature (model `RangesFile`) |
-| rules.json | context adjustment rules and allowed IDs |
+| rules.json | the allowed adjuster rules: id, adjustments [{vital, bound, value}], trigger source (structured, text, both), fires / does-not-fire text, sources, evidence strength (model `RulesFile`) |
 | fast_15.txt, fast_15_features.json | LightGBM model file and its feature list (15-minute horizon only; absent while the stub or a baseline ships) |
 | config.json | `baseline` (minutes, n₀ bounds, k, spread floors, minimum widths), `alerts` (persistence window per trigger, `max_gap_minutes`, `clear_minutes`, `ack_cooldown_minutes`), `trend` (`fast_min_clean_minutes`, `fast_warning_cutoff`); all typed with defaults |
 
@@ -304,5 +304,5 @@ Never read by the risk engine. Used to score the adjuster against the labeled te
 - Alert logic owner: either works; listed as stats.
 - Context adjuster model: step-5-preview (required for the StepFun challenge); Jev optional.
 - The simulator is run-based (six sample patients, a fixed-length run each) rather than event buttons; see [simulation-layer.md](simulation-layer.md).
-- Open: the context adjustment rule list (I5).
+- The context adjustment rule list is decided (B2, `models/rules.json`).
 - T5 (slow sepsis model) is dropped; there are no Photon or ElevenLabs channels, alerts are dashboard only.

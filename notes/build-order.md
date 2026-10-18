@@ -75,7 +75,7 @@ Read left to right: everything in one column can be built at the same time. A ch
 | T3 Personal baseline | Stats | T2 | I6 rows narrow the safe band; danger limits move only via I5. Done: backend/risk_engine/baseline.py (hr and breathing) |
 | T4 Alert logic | Stats | Step A | Recorded I9 rows produce I10 alerts with persistence windows and one alert per problem. Done: backend/risk_engine/alerts.py, tests/risk_engine/test_alerts.py, training/tune_alerts.py, replay_fixture --alerts |
 | B1 step-5-preview call | Both | P0 | A test call returns valid JSON matching the I5/I15 schema |
-| B2 Test set | Both | B1 | About 100 labeled chief complaints, including negations |
+| B2 Test set | Both | B1 | About 100 labeled chief complaints, including negations. Done: fixtures/adjuster (30 dev, 70 test), models/rules.json, notes/adjuster-labeling-guide.md |
 | B3 Context adjuster | Both | B2 | I4 in, I5 to the engine, I15 to the evaluation log; quote check enforced; scored on the test set |
 | **C3 Real risk engine** | Both | S5, T4, B3 | A typed intake changes the wearer's ranges, and live scoring and alerts run on the real engine |
 | S6 Run buttons | Systems | C3 | The intake form prefills a sample patient and a dashboard button starts its run; scores react and the end shows as a pause |

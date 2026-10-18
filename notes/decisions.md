@@ -439,6 +439,19 @@ Same 52 held-out patients (3,149 monitored hours), a third look at them. False a
 - Strap breathing rate is not the impedance RESP in MIMIC; SpO2 is simulated in the demo; the label uses fixed NEWS2 limits while live levels use personal ranges; ICU patients sit near edges so the matched cutoff is tight; the eICU second check from section 4b is dropped (5-minute spacing cannot feed timestamp windows).
 - **Demo consequence (Rule 1, superseded by "T6 ship"):** the distance baseline ignores slope, so on the gradual demo slide (`fixtures/fast_spo2_drop_i6.jsonl`, 97 to 90 over 20 minutes) the score reaches the cutoff only about at SpO2 91, and the trend tier never appears before the danger level. Extrapolation (cutoff 3.26) would warn near SpO2 94. Left as shipped per the rule; revisit at C3.
 
+### 30 s periods, one window for NEWS2 and the engine
+- **Options:** keep 60 s; NEWS2 on 30 s but the engine on 60 s (split the setting); both on 30 s.
+- **Why both on 30 s:** one setting (`IngestConfig.window_s`), and the NEWS2 copied into each I9 covers the same 30 s as that period's vitals. The dashboard no longer waits on the window for live numbers, because I13 carries `latest`. Alert persistence is timestamp based, so its windows stay in minutes. Alerts can fire up to about 30 s sooner.
+- **Costs:** 30 s medians are noisier (baseline spread, level flips; persistence damps both), and the baseline's arrival check sees about 7 noisy rows instead of 4, so a few more patients near an edge may get "abnormal on arrival". Baseline `min_clean_seconds` goes 40 to 20.
+- **Baseline weight:** `n` is the time between rows, without the old one-minute floor, so 30 s rows count half a minute. 5-minute rows are unchanged.
+- **Trend model:** trained on 1-minute rows, whose min, max and spread differ from twice as many 30 s points, so `TrendHistory` merges rows in the same clock minute (mean). A half-filled last minute is scored every other period.
+
+### Name: period
+- "Minute" no longer fits, and "interval" clashes with `rr_intervals_ms`. `MinuteSummary`, `minute_ts`, `on_minute` and `is_clean_minute` became `PeriodSummary`, `period_ts`, `on_period` and `is_clean_period`. Real durations keep "minutes" (`*_minutes` settings, `elapsed_minutes`). Older entries in this file keep the old words.
+
+### Breathing rate off
+- The strap cannot measure it. Ingest drops it for both sources (`IngestConfig.disabled_vitals`) rather than the receiver or simulator, so one config line brings it back. Sample runs keep their breathing tracks; their NEWS2 targets are scored without it, and U1, U2 and C1 had other vitals retuned or their targets lowered (U2 now peaks at 6, so it reaches urgent but not high).
+
 ## Stated limits
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.
 - NHANES pulse is seated and resting; anxious waiting patients may run above the 90 bpm cap and show warning (check at C2; the fix would be a config offset).

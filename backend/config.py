@@ -9,7 +9,7 @@ from pathlib import Path
 @dataclass(frozen=True)
 class BreathingConfig:
     """Breathing rate from beat intervals. Values tuned on synthetic data; recheck on the strap."""
-    window_s: float = 60.0
+    window_s: float = 30.0  # was 60; a bit more coverage on the first strap recording, tentative
     resample_hz: float = 4.0
     nfft: int = 4096
     bandpass_hz: tuple[float, float] = (0.05, 0.7)  # wider than the search band so its edges aren't dulled

@@ -86,6 +86,8 @@ SCENARIO_PATIENTS = [
 
 CALLED_IN_KEY, CALLED_IN_MINUTE = "h1", 25
 LEAD_IN_MINUTES = 20
+# Minutes each patient had been waiting when monitoring began; display only (the baseline counts from first data).
+ARRIVED_BEFORE = {"h1": 52, "h2": 41, "u1": 33, "john": 26, "c1": 17, "c2": 9}
 
 
 class ScenarioRunner:
@@ -123,7 +125,7 @@ class ScenarioRunner:
             self._samples[p.key] = generate(p.script, self.total_s)
             self._svc.set_clock(pid, self.clock)
             rec = p.record.model_copy(update={"patient_id": pid, "name": p.name, "wearable_id": p.wearable_id,
-                                              "arrival_ts": self._start_ts})
+                                              "arrival_ts": self._start_ts - timedelta(minutes=ARRIVED_BEFORE[p.key])})
             await self._intake.submit(rec, structured_only=True)
             self._svc.set_run_state(pid, "running")
             self._active.add(p.key)

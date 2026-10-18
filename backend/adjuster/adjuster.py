@@ -97,30 +97,44 @@ _LOCK = threading.Lock()
 
 def _cache_get(path, key) -> list[TextProposal] | None:
     try:
-        raw = json.loads(path.read_text())[key]
-    except (OSError, ValueError, KeyError):
+        return [TextProposal(**p) for p in json.loads(path.read_text())[key]]
+    except Exception:  # missing, corrupted or schema-stale entry: a miss, never an error
         return None
-    return [TextProposal(**p) for p in raw]
+
+
+def _cache_key(msgs, cfg: LlmConfig) -> str:
+    """Hash of everything that changes the reply: messages, prompt version, model settings, reply schema."""
+    parts = [msgs, P.PROMPT_VERSION, cfg.model, cfg.temperature, cfg.max_tokens, cfg.reasoning_effort,
+             TextReply.model_json_schema()]
+    return hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()
 
 
 def _cache_put(path, key, kept: list[TextProposal]):
     with _LOCK:
         try:
             data = json.loads(path.read_text())
+            if not isinstance(data, dict):
+                data = {}
         except (OSError, ValueError):
             data = {}
         data[key] = [p.model_dump() for p in kept]
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data))
-        os.replace(tmp, path)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(data))
+            os.replace(tmp, path)
+        except OSError:  # a failed cache write must not stop intake
+            pass
 
 
 def _log(path, i15: AdjustmentEvidence):
     with _LOCK:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "a") as f:
-            f.write(i15.model_dump_json() + "\n")
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, "a") as f:
+                f.write(i15.model_dump_json() + "\n")
+        except OSError:  # a failed log append must not stop intake
+            pass
 
 
 def adjust(ctx: PatientContext, *, client=None, cfg: LlmConfig | None = None, llm: bool = True,
@@ -128,7 +142,9 @@ def adjust(ctx: PatientContext, *, client=None, cfg: LlmConfig | None = None, ll
            use_cache: bool | None = None, write_log: bool | None = None) -> Outcome:
     """Full result: structured rules plus one LLM call for facts only the complaint holds. If the call fails,
     the structured result is returned (intake never blocks on the LLM) and nothing is cached. Only validated
-    text proposals are cached, keyed on the exact messages and model; structured rules are always recomputed.
+    text proposals are cached, keyed on the exact messages, prompt version, model settings and reply schema; structured rules are always recomputed.
+    A bad cache entry counts as a miss and cache or log write failures are ignored. The "structured only" model
+    marker is used when the LLM call failed or was skipped (empty chief complaint).
     Appends I15 to the evaluation log unless write_log is off (scoring turns both off)."""
     cfg, adj = cfg or CONFIG.llm, adj or CONFIG.adjuster
     use_cache = adj.use_cache if use_cache is None else use_cache
@@ -137,7 +153,7 @@ def adjust(ctx: PatientContext, *, client=None, cfg: LlmConfig | None = None, ll
     out = None
     if llm and (ctx.chief_complaint or "").strip():
         msgs = P.messages(ctx)
-        key = hashlib.sha256(json.dumps([msgs, cfg.model]).encode()).hexdigest()
+        key = _cache_key(msgs, cfg)
         kept = _cache_get(adj.cache_path, key) if use_cache else None
         dropped, latency = [], 0.0
         if kept is None:

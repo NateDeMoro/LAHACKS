@@ -302,7 +302,7 @@ Alerts still go through alert logic and its persistence windows.
 | patient_id, ts | string, timestamp |
 | items | [{rule_id, fact, quote}] |
 | quote_found | bool, word-for-word match in the chief complaint (after lowercasing, straight quotes, collapsed whitespace). True when every logged text quote matched, which the validator guarantees; null when there are no text items |
-| model | model and prompt version, or "structured only" when the LLM call failed |
+| model | model and prompt version, or "structured only" when the LLM call failed or was skipped (empty chief complaint) |
 
 One item per fired rule, in rules.json order. Structured items name the field in `fact` and have a null `quote`; text items carry the model's fact and quote. Proposals the validator dropped are not logged here; the score script counts them.
 

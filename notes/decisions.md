@@ -264,7 +264,7 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - Quotes are matched after lowercasing, straightening curly quotes and collapsing whitespace; otherwise word for word, and any matching span counts (B2). A proposal is dropped if its rule is off the text list, the quote is missing, the same rule already fired from structured fields, or it is a text pregnancy proposal while the pregnant flag is not null. Drops are counted by the score script, not stored in I15, so `quote_found` is true when text items exist and null otherwise.
 
 ### Cache and fallback
-- Only validated text proposals are cached (`logs/`, gitignored), keyed on a hash of the rendered messages and model; structured rules are recomputed on every call. A failed call returns structured rules only, marked "structured only" in I15 `model`, and is never cached. The score script runs with cache and log off.
+- Only validated text proposals are cached (`logs/`, gitignored), keyed on a hash of the rendered messages, prompt version, model settings (model, temperature, max_tokens, reasoning_effort) and reply schema; structured rules are recomputed on every call. A failed or skipped call (empty chief complaint) returns structured rules only, marked "structured only" in I15 `model`, and is never cached. A bad cache entry counts as a miss; cache and log write failures are ignored. The score script runs with cache and log off.
 
 ### Scores (prompt b3-0, step-5-preview, cache off)
 - **Structured only, dev:** precision 1.000, recall 0.562, exact 18/30 (the rest needs the text call).

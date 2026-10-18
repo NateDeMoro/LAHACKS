@@ -6,10 +6,10 @@ Usage:
   uv run --env-file .env python -m scripts.score_adjuster --split dev [--repeat 3]   # live, cache off
 Test split: score it once, after tuning on dev. Never writes the evaluation log; per-case results go to --out."""
 import argparse
+import dataclasses
 import json
 import statistics
 import tempfile
-import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,11 +19,11 @@ from backend.adjuster import prompt as P
 from backend.adjuster import rules as R
 from backend.config import CONFIG, AdjusterConfig, LlmConfig
 from backend.adjuster.testset import TestCase, load_cases
-from backend.contracts import ContextAdjustments, PatientContext, PatientRanges
+from backend.contracts import ContextAdjustments, PatientContext
 from backend.risk_engine import ranges
 from backend.risk_engine.ranges import DANGER
 
-DEFAULT_OUT = Path("/private/tmp/claude-501/-Users-natedemoro-LAHACKS/4f249dbb-676b-4217-9cff-ed50221fe8f4/scratchpad")
+DEFAULT_OUT = Path(tempfile.gettempdir()) / "lahacks_score_adjuster"
 
 
 def to_ctx(c: TestCase) -> PatientContext:
@@ -177,7 +177,34 @@ def selftest():
         assert len(adj.log_path.read_text().splitlines()) == 6
         A.adjust(ctx, client=stub(reply()), cfg=cfg, adj=adj, use_cache=False, write_log=False)
         assert len(adj.log_path.read_text().splitlines()) == 6
-    print("selftest passed: structured firing, merge, order, tighten-only I5 on I8, quote check, drops, stub LLM, fallback, cache, log")
+    # a corrupted or schema-stale cache is a miss and a failing log path never raises
+    with tempfile.TemporaryDirectory() as d:
+        blocker = Path(d) / "blocker"
+        blocker.write_text("x")  # a file where a directory is needed: mkdir and open fail with OSError
+        adj = AdjusterConfig(log_path=blocker / "log.jsonl", cache_path=Path(d) / "cache.json")
+        adj.cache_path.write_text("{not json")
+        assert A._cache_get(adj.cache_path, "k") is None
+        o = A.adjust(ctx, client=stub(reply(*props)), cfg=cfg, adj=adj)
+        assert o.llm_ok and len(o.i15.items) == 2
+        key = A._cache_key(P.messages(ctx), cfg)
+        adj.cache_path.write_text(json.dumps({key: [{"rule_id": "gone_rule", "fact": "f", "quote": "q"}]}))
+        c4 = stub(reply(*props))
+        o = A.adjust(ctx, client=c4, cfg=cfg, adj=adj)
+        assert o.llm_ok and len(c4.calls) == 1  # stale entry was a miss
+        adj2 = AdjusterConfig(log_path=blocker / "log.jsonl", cache_path=blocker / "sub" / "cache.json")
+        assert A.adjust(ctx, client=stub(reply(*props)), cfg=cfg, adj=adj2).llm_ok  # cache write and log both fail
+    # cache key moves with prompt version and reply-shaping settings
+    msgs, base = P.messages(ctx), A._cache_key(P.messages(ctx), cfg)
+    assert base == A._cache_key(msgs, cfg)
+    old = P.PROMPT_VERSION
+    try:
+        P.PROMPT_VERSION = old + "-x"
+        assert A._cache_key(msgs, cfg) != base
+    finally:
+        P.PROMPT_VERSION = old
+    for field, val in [("model", "other"), ("temperature", 0.5), ("max_tokens", 100), ("reasoning_effort", "high")]:
+        assert A._cache_key(msgs, dataclasses.replace(cfg, **{field: val})) != base, field
+    print("selftest passed: structured firing, merge, order, tighten-only I5 on I8, quote check, drops, stub LLM, fallback, cache, log, bad cache and log, cache key")
 
 
 def main():
@@ -214,6 +241,7 @@ def main():
         same_i5 = sum(len({k[i] for k in rk}) == 1 for i in range(len(cases)))
         print(f"stability of what reaches the engine: {same_i5}/{len(cases)} cases with identical I5 and fired rules ({same_i5 / len(cases):.0%})")
     out = Path(a.out or DEFAULT_OUT / f"score_{a.split}_{P.PROMPT_VERSION}.json")
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps([r["rows"] for _, r in results], indent=1))
     print(f"per-case results: {out}")
 

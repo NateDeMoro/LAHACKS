@@ -68,8 +68,8 @@ def segment_rows(args):
     return sid, recs, lab.events, lab.first_row, partial_news2(seg)
 
 
-def build(segments):
-    cache = PROC / "fast_rows.pkl"
+def build(segments, cache_name="fast_rows.pkl"):
+    cache = PROC / cache_name
     if cache.exists():
         return pickle.loads(cache.read_bytes())
     PROC.mkdir(parents=True, exist_ok=True)

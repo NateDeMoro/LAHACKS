@@ -194,7 +194,7 @@ class IntakeService:
         """Span data and a log line for one adjuster run. Ids and counts only, never complaint text."""
         span.set_data("adjuster.llm_ok", out.llm_ok)
         span.set_data("adjuster.cache_hit", out.llm_ok and out.latency_s == 0)
-        span.set_data("adjuster.dropped", len(out.dropped))
+        span.set_data("adjuster.dropped", len(getattr(out, "dropped", None) or []))  # agent replies (AdjustReply) carry no dropped list
         if (ctx.chief_complaint or "").strip() and not out.llm_ok:
             log.warning("adjuster fell back to rules only", extra={"patient_id": ctx.patient_id})
 

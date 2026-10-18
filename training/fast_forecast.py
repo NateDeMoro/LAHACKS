@@ -3,6 +3,7 @@ cautious forecast lands past the danger edge. Use when reproducing the forecast 
 models/fast_15_forecast*, or re-running the evaluation on a different directory of records.
 
   python -m training.fast_forecast train                      # CV search, fit, held-out evaluation, writes models/
+  python -m training.fast_forecast train --records-dir A B    # same, pooling several records dirs (own caches)
   python -m training.fast_forecast eval --records-dir DIR     # saved models on every patient found under DIR
   python -m training.fast_forecast bench                      # per-minute inference time, model sizes, load time
   python -m training.fast_forecast demo                       # SpO2 drop fixture at several cutoffs
@@ -287,9 +288,15 @@ def rows_for(segments):
 
 
 # ---------- stages ----------
-def stage_train():
-    segments, _ = load_segments()
-    df, events, meta, ns = tf.build(segments)
+def stage_train(records_dirs=None):
+    if records_dirs:   # pooled dirs get their own caches so batch-1-only pickles are never reused
+        segments, counts = load_segments([Path(d) for d in records_dirs], cache=tf.PROC / "mimic_segments_pooled.pkl")
+        print(f"pooled {len(records_dirs)} dirs: {counts['patients_seen']} patients with records, "
+              f"{counts['patients_kept']} after filters, {len(segments)} segments")
+        df, events, meta, ns = tf.build(segments, "fast_rows_pooled.pkl")
+    else:
+        segments, _ = load_segments()
+        df, events, meta, ns = tf.build(segments)
     df = add_targets(df, segments)
     rng = np.random.default_rng(tf.SEED)
     train_p, test_p = tf.patient_split(sorted(df.patient.unique()), rng)   # identical split to earlier rounds
@@ -437,13 +444,14 @@ def stage_demo(path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("stage", choices=["train", "eval", "bench", "demo"])
-    ap.add_argument("--records-dir", help="eval: directory of MIMIC-III wdb records (p*/p*/*.hea) to evaluate on")
+    ap.add_argument("--records-dir", nargs="+", help="eval: directory of MIMIC-III wdb records (p*/p*/*.hea) to "
+                    "evaluate on; train: one or more dirs to pool (default is the batch-1 cache)")
     ap.add_argument("--fixture", default="fixtures/fast_spo2_drop_i6.jsonl")
     a = ap.parse_args()
     if a.stage == "train":
-        stage_train()
+        stage_train(a.records_dir)
     elif a.stage == "eval":
-        stage_eval(a.records_dir or RAW)
+        stage_eval(a.records_dir[0] if a.records_dir else RAW)
     elif a.stage == "bench":
         stage_bench()
     else:

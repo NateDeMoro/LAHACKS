@@ -172,15 +172,19 @@ def read_record(hea: Path, counts: Counter) -> list[Segment]:
     return split_segments(mins, patient, hea.stem, rate, counts)
 
 
-def load_segments(root: Path = RAW, use_cache: bool = True):
-    """Return (kept segments, counts) for every complete record under root. Cached because 1 Hz files are slow.
-    Use when starting training or the label check."""
+def load_segments(root: Path | list[Path] = RAW, use_cache: bool = True, cache: Path | None = None):
+    """Return (kept segments, counts) for every complete record under root (one dir or a list, pooled). Cached because
+    1 Hz files are slow. Use when starting training or the label check. Only the default root writes the default
+    cache; a pooled or other root caches only when given an explicit `cache` path."""
     import pickle
-    if use_cache and CACHE.exists():
-        return pickle.loads(CACHE.read_bytes())
+    if cache is None and root == RAW:
+        cache = CACHE
+    if use_cache and cache is not None and cache.exists():
+        return pickle.loads(cache.read_bytes())
     counts: Counter = Counter()
     kept: list[Segment] = []
-    for hea in sorted(root.glob("p*/p*/*.hea")):
+    roots = root if isinstance(root, list) else [root]
+    for hea in sorted(h for r in roots for h in r.glob("p*/p*/*.hea")):
         dats = set(re.findall(r"^(\S+\.dat)\s", hea.read_text(), flags=re.M))
         if not all((hea.parent / d).exists() for d in dats):
             counts["records_incomplete_download"] += 1
@@ -203,7 +207,8 @@ def load_segments(root: Path = RAW, use_cache: bool = True):
             counts["minutes_kept"] += len(s)
             kept.append(s)
     counts["patients_kept"] = len({s.patient for s in kept})
-    if root == RAW:  # a different records dir must never overwrite the main cache
-        CACHE.parent.mkdir(parents=True, exist_ok=True)
-        CACHE.write_bytes(pickle.dumps((kept, counts)))
+    counts["patients_seen"] = len({h.parent.name for r in roots for h in r.glob("p*/p*/*.hea")})
+    if cache is not None:  # a different records dir must never overwrite the main cache
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_bytes(pickle.dumps((kept, counts)))
     return kept, counts

@@ -17,7 +17,7 @@ import pickle
 from datetime import timedelta
 from statistics import median
 
-from backend.contracts import (Acknowledgment, AlertConfig, LiveWindow, MinuteSummary, PatientContext,
+from backend.contracts import (Acknowledgment, AlertConfig, LiveWindow, PeriodSummary, PatientContext,
                                RiskResult)
 from backend.risk_engine.alerts import AlertLogic
 from backend.risk_engine.engine import RiskEngine, load_config
@@ -56,7 +56,7 @@ def build_i9():
             if all(v is None for v in vals.values()):
                 continue
             eng.on_second(LiveWindow(patient_id=pid, window_end_ts=ts, **vals))
-            out.append(eng.on_minute(MinuteSummary(patient_id=pid, minute_ts=ts, **vals)))
+            out.append(eng.on_period(PeriodSummary(patient_id=pid, period_ts=ts, **vals)))
         stays.append((outcome, out))
     return stays
 

@@ -6,7 +6,7 @@ from typing import Literal, Protocol
 
 from pydantic import model_validator
 
-from backend.contracts import IntakeRecord, MinuteSummary, Model, RunState, VitalsReading
+from backend.contracts import IntakeRecord, PeriodSummary, Model, RunState, VitalsReading
 
 SimVital = Literal["hr", "resp_rate", "spo2", "temp_c"]
 SIM_VITALS: tuple[SimVital, ...] = ("hr", "resp_rate", "spo2", "temp_c")
@@ -94,4 +94,4 @@ class RunSink(Protocol):
 
     def set_run_state(self, patient_id: str, state: RunState) -> None: ...
 
-    def seed_trend_history(self, patient_id: str, rows: list[MinuteSummary]) -> None: ...
+    def seed_trend_history(self, patient_id: str, rows: list[PeriodSummary]) -> None: ...

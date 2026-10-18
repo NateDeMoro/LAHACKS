@@ -3,7 +3,7 @@ import asyncio
 import time
 from datetime import datetime, timedelta
 
-from backend.contracts import MinuteSummary, VitalsReading
+from backend.contracts import PeriodSummary, VitalsReading
 from backend.simulator.models import RunSink, Sample
 
 
@@ -20,7 +20,7 @@ class RunPlayer:
         wearable_id: int,
         start_ts: datetime,
         samples: list[Sample],
-        preroll: list[MinuteSummary],
+        preroll: list[PeriodSummary],
     ) -> None:
         self._sink.assign(wearable_id, patient_id)  # I3: ingest drops readings from a wearable it does not know
         if preroll:

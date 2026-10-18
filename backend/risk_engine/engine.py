@@ -1,4 +1,4 @@
-"""Risk engine: NEWS2 every second; population ranges at intake; personal baseline and I9 every minute."""
+"""Risk engine: NEWS2 every second; population ranges at intake; personal baseline and I9 every period (30 s live)."""
 import json
 from pathlib import Path
 from datetime import timedelta
@@ -6,7 +6,7 @@ from typing import Callable
 
 from backend.config import CONFIG
 from backend.contracts import (BaselineConfig, ContextAdjustments, LiveNews2, LiveWindow,
-                               MinuteSummary, ModelConfig, PatientContext, PatientRanges,
+                               PeriodSummary, ModelConfig, PatientContext, PatientRanges,
                                RiskResult, TrendConfig, VitalLevels, VitalRange, VitalValues)
 from backend.risk_engine import news2, ranges
 from backend.risk_engine.baseline import PersonalBaseline
@@ -17,7 +17,7 @@ CONFIG_PATH = Path(__file__).resolve().parents[2] / "models" / "config.json"
 _LABEL = {"hr": "heart rate", "resp_rate": "breathing", "spo2": "SpO2", "temp_c": "temperature"}
 _UNIT = {"hr": "/min", "resp_rate": "/min", "spo2": "%", "temp_c": "C"}
 _RANK = {"safe": 0, "warning": 1, "danger": 2}
-NEWS2_MAX_AGE = timedelta(seconds=60)  # a live NEWS2 older than this is not shown beside the minute
+NEWS2_MAX_AGE = timedelta(seconds=60)  # a live NEWS2 older than this is not shown beside the period
 
 
 def default_ranges(patient_id: str | None) -> PatientRanges:
@@ -72,7 +72,7 @@ class RiskEngine:
             self.baselines[patient_id] = PersonalBaseline(
                 self.config.baseline or BaselineConfig(), population, centres)
 
-    def seed_trend_history(self, patient_id: str, rows: list[MinuteSummary]):
+    def seed_trend_history(self, patient_id: str, rows: list[PeriodSummary]):
         """Pre-roll for simulated runs: feeds the trend layer only, never the baseline, alerts or store."""
         self.trend.seed(patient_id, rows)
 
@@ -93,7 +93,7 @@ class RiskEngine:
         self.latest[w.patient_id] = out
         return out
 
-    def on_minute(self, m: MinuteSummary) -> RiskResult:
+    def on_period(self, m: PeriodSummary) -> RiskResult:
         if m.patient_id not in self.baselines:  # seen without an intake: plain NEWS2 bands
             self._start(m.patient_id, default_ranges(m.patient_id), ranges.population_centres(None))
         base = self.baselines[m.patient_id]
@@ -110,10 +110,10 @@ class RiskEngine:
                 reason = f"{_LABEL[name]} {v:g}{_UNIT[name]}, {level}"
         tr = self.trend.update(m, levels, level, reason)
         live = self.latest.get(m.patient_id)
-        if live and m.minute_ts and live.ts and m.minute_ts - live.ts > NEWS2_MAX_AGE:
+        if live and m.period_ts and live.ts and m.period_ts - live.ts > NEWS2_MAX_AGE:
             live = None
         return RiskResult(
-            patient_id=m.patient_id, ts=m.minute_ts, level=tr.level, vital=vital, reason=tr.reason,
+            patient_id=m.patient_id, ts=m.period_ts, level=tr.level, vital=vital, reason=tr.reason,
             vital_levels=VitalLevels(**levels),
             vital_values=VitalValues(hr=m.hr, resp_rate=m.resp_rate, spo2=m.spo2, temp_c=m.temp_c),
             news2=live.news2 if live else None,

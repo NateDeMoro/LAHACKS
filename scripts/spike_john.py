@@ -58,7 +58,7 @@ def main():
             shown += 1
             m = (r.ts - T0).total_seconds() / 60
             v = r.vital_values
-            print(f"m{m:02.0f} {r.level:7} n2={r.news2} hr={v.hr:g} rr={v.resp_rate:g} sp={v.spo2:g} t={v.temp_c:g} "
+            print(f"m{m:02.0f} {r.level:7} n2={r.news2} hr={v.hr:g} rr={v.resp_rate} sp={v.spo2:g} t={v.temp_c:g} "
                   f"trend={r.trend_prob_fast and round(r.trend_prob_fast, 2)} {r.trend_tier} | {r.reason}")
         for a in out.i10:
             m = (a.ts - T0).total_seconds() / 60

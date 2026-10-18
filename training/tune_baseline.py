@@ -11,7 +11,7 @@ treat the spread-floor results as a lower bound on how often a live band would s
 import math
 from statistics import median
 
-from backend.contracts import BaselineConfig, MinuteSummary
+from backend.contracts import BaselineConfig, PeriodSummary
 from backend.risk_engine.engine import RiskEngine, load_config
 from backend.timeutil import offset_to_ts
 from scripts.build_eicu_fixtures import load_clean
@@ -29,7 +29,7 @@ def load_stays():
         if len(g) < MIN_ROWS or status.get(stay) not in ("Alive", "Expired"):
             continue
         g = g[g.observationoffset <= g.observationoffset.iloc[0] + WINDOW_MIN]
-        rows = [MinuteSummary(patient_id=f"eicu-{stay}", minute_ts=offset_to_ts(o), hr=h, resp_rate=r)
+        rows = [PeriodSummary(patient_id=f"eicu-{stay}", period_ts=offset_to_ts(o), hr=h, resp_rate=r)
                 for o, h, r in zip(g.observationoffset, g.heartrate, g.respiration)]
         stays.append((status[stay], g.observationoffset.iloc[0], rows))
     return stays
@@ -50,13 +50,13 @@ def run(cfg, stays):
         eng = RiskEngine(cfg)
         flags, first = 0, None
         for m in rows:
-            r = eng.on_minute(m)
+            r = eng.on_period(m)
             if r.level != "safe" and r.vital in ("hr", "resp_rate"):
                 flags += 1
                 if first is None:
-                    first = (m.minute_ts - rows[0].minute_ts).total_seconds() / 60
+                    first = (m.period_ts - rows[0].period_ts).total_seconds() / 60
         rg = eng.ranges[rows[0].patient_id]
-        hours = max((rows[-1].minute_ts - rows[0].minute_ts).total_seconds() / 3600, 1e-9)
+        hours = max((rows[-1].period_ts - rows[0].period_ts).total_seconds() / 3600, 1e-9)
         out[outcome].append((flags, hours, first, rg.hr.source == "personal", rg.resp_rate.source == "personal"))
     return out
 

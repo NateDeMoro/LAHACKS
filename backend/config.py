@@ -75,7 +75,7 @@ class SimulatorConfig:
 @dataclass(frozen=True)
 class IngestConfig:
     """Ingest service (S2). Times in seconds."""
-    window_s: float = 60.0  # rolling window for I13 and length of an I6 minute
+    window_s: float = 30.0  # rolling window for I13 (so NEWS2) and length of an I6 period
     sim_ttl_s: float = 5.0  # a simulator value stays current this long (live-mode merge)
     strap_ttl_s: float = 3.0  # a strap reading stays current this long; the strap sends about once a second
     min_samples: int = 5  # clean seconds a vital needs in the window before I13 reports a median
@@ -84,6 +84,7 @@ class IngestConfig:
     default_assignments: dict[int, str] = field(default_factory=lambda: {ReceiverConfig.wearable_id: "demo-001"})
     store_path: str = os.environ.get("INGEST_STORE_PATH", "data/ingest.sqlite")
     unassigned_log_every_s: float = 30.0
+    disabled_vitals: tuple[str, ...] = ("resp_rate",)  # the strap cannot measure breathing; dropped from both sources
 
 
 @dataclass(frozen=True)

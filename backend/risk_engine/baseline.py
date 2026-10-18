@@ -1,12 +1,12 @@
 """Personal baseline (T3): narrows the safe band for heart rate and breathing toward the patient's
-own readings. Use when updating I8 each minute from I6.
+own readings. Use when updating I8 each period from I6.
 
 Only the safe band moves, and only inward: the result stays inside the population safe band, danger
 edges are untouched, and a vital that scores NEWS2 points on arrival is never learned. Windows are
-counted in time from minute_ts, so 5-minute eICU rows and 1-minute live rows behave alike."""
+counted in time from period_ts, so 5-minute eICU rows and 30 s live rows behave alike."""
 from statistics import median
 
-from backend.contracts import BaselineConfig, MinuteSummary, PatientRanges, VitalRange
+from backend.contracts import BaselineConfig, PeriodSummary, PatientRanges, VitalRange
 from backend.risk_engine import news2
 
 VITALS = ("hr", "resp_rate")
@@ -15,8 +15,8 @@ _MAD_TO_SD = 1.4826  # robust standard deviation from the median absolute deviat
 _BAND_SD = 3.92      # a 95% band is 3.92 standard deviations wide
 
 
-def is_clean_minute(clean_seconds: int | None, min_clean_seconds: int | None) -> bool:
-    """A minute counts if clean_seconds is unknown or at least the minimum. Shared with trend.py."""
+def is_clean_period(clean_seconds: int | None, min_clean_seconds: int | None) -> bool:
+    """A period counts if clean_seconds is unknown or at least the minimum. Shared with trend.py."""
     return clean_seconds is None or clean_seconds >= (min_clean_seconds or 0)
 
 
@@ -68,7 +68,7 @@ class _VitalBaseline:
         tau = (pop.safe_high - pop.safe_low) / _BAND_SD  # how much people differ from each other
         n0 = min(max(sigma ** 2 / tau ** 2, cfg.n0_min), cfg.n0_max)
         gaps = sorted(b[0] - a[0] for a, b in zip(self.samples, self.samples[1:]))
-        n = len(values) * max(1.0, median(gaps))  # minutes of data, so 5-minute rows count 5 each
+        n = len(values) * median(gaps)  # minutes of data: 5-minute rows count 5 each, 30 s rows 0.5
         centre = (n0 * self.mu0 + n * med) / (n0 + n)
         half = cfg.k * sigma * (1 + 1 / (n0 + n)) ** 0.5
         low, high = min(centre - half, med), max(centre + half, med)
@@ -100,15 +100,15 @@ class PersonalBaseline:
         for v, b in self.vitals.items():
             b.rebase(getattr(population, v), centres[v])
 
-    def update(self, m: MinuteSummary) -> bool:
+    def update(self, m: PeriodSummary) -> bool:
         """Feed one I6 row; returns True when the ranges changed."""
-        if m.minute_ts is None or not is_clean_minute(m.clean_seconds, self.min_clean_seconds):
+        if m.period_ts is None or not is_clean_period(m.clean_seconds, self.min_clean_seconds):
             return False
         changed = False
         for v in VITALS:
             value = getattr(m, v)
             if value is not None:
-                changed |= self.vitals[v].update(m.minute_ts, value)
+                changed |= self.vitals[v].update(m.period_ts, value)
         return changed
 
     @property

@@ -13,7 +13,8 @@ def test_expected_news2_matches_scorer(pid):
     totals = []
     for at in KEY_FRACTIONS:
         s = keyframe_sample(p.script, at)
-        total, _ = news2.score(resp_rate=s.resp_rate, spo2=s.spo2, on_oxygen=t.on_oxygen,
+        # breathing is off in ingest, so it scores nothing
+        total, _ = news2.score(resp_rate=None, spo2=s.spo2, on_oxygen=t.on_oxygen,
                                sbp=t.sbp, hr=s.hr, alertness=t.alertness, temp_c=s.temp_c)
         totals.append(total)
     assert totals == p.script.expect.news2

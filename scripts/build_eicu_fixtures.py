@@ -90,7 +90,7 @@ def main():
     for (stay, g, peak), outcome in chosen:
         pid = f"eicu-{stay}"
         for r in g.itertuples():
-            row = dict(patient_id=pid, minute_ts=offset_to_ts(r.observationoffset).isoformat(),
+            row = dict(patient_id=pid, period_ts=offset_to_ts(r.observationoffset).isoformat(),
                        hr=_n(r.heartrate), resp_rate=_n(r.respiration), spo2=_n(r.sao2),
                        temp_c=_n(r.temperature), clean_seconds=None)
             if any(row[k] is not None for k in ("hr", "resp_rate", "spo2", "temp_c")):

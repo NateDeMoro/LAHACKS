@@ -355,7 +355,7 @@ def stage_eval(records_dir):
 
 def stage_bench():
     from datetime import datetime, timedelta, timezone
-    from backend.contracts import MinuteSummary
+    from backend.contracts import PeriodSummary
     from backend.risk_engine import fast_model
     from backend.risk_engine.trend import TrendHistory
     segments, _ = load_segments()
@@ -372,7 +372,7 @@ def stage_bench():
     base = datetime(2026, 1, 1, tzinfo=timezone.utc)
     n_pred = 0
     for k in range(len(seg)):
-        hist.add(MinuteSummary(patient_id="p", minute_ts=base + timedelta(minutes=k),
+        hist.add(PeriodSummary(patient_id="p", period_ts=base + timedelta(minutes=k),
                                hr=None if np.isnan(seg.hr[k]) else float(seg.hr[k]),
                                resp_rate=None if np.isnan(seg.resp_rate[k]) else float(seg.resp_rate[k]),
                                spo2=None if np.isnan(seg.spo2[k]) else float(seg.spo2[k]), temp_c=36.8, clean_seconds=60))
@@ -414,7 +414,7 @@ def stage_demo(path):
     print("minute  SpO2  forecast(cautious SpO2 low)  score")
     eng = engine.RiskEngine(base)
     for k, m in enumerate(f, 1):
-        res = eng.on_minute(m)
+        res = eng.on_period(m)
         if 30 <= k <= 48:
             print(f"{k:5d}  {m.spo2:5.1f}  {res.trend_reason_fast}  {res.trend_prob_fast}")
     for c in (0, 0.5, 1.0, 1.5, 2.0, json.loads(BUNDLE.read_text())["cutoff"]):
@@ -425,7 +425,7 @@ def stage_demo(path):
         first_warn, buf = None, io.StringIO()
         for k, m in enumerate(f, 1):
             with contextlib.redirect_stdout(buf):
-                r = eng.on_minute(m)
+                r = eng.on_period(m)
                 ap.feed(r)
             if first_warn is None and r.trend_tier == "warning":
                 first_warn = (k, m.spo2)

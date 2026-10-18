@@ -1,4 +1,61 @@
 {
+  "$defs": {
+    "VitalValues": {
+      "additionalProperties": false,
+      "properties": {
+        "hr": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hr"
+        },
+        "resp_rate": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resp Rate"
+        },
+        "spo2": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Spo2"
+        },
+        "temp_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Temp C"
+        }
+      },
+      "title": "VitalValues",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
   "properties": {
     "patient_id": {
@@ -85,6 +142,17 @@
       ],
       "default": null,
       "title": "Clean Seconds"
+    },
+    "latest": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VitalValues"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "run_state": {
       "anyOf": [

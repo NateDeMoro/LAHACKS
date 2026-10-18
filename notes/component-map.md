@@ -54,7 +54,7 @@ Inside the risk engine, baseline ranges pass I8 to the personal baseline, scorer
 | Alert logic | Stats | Persistence windows; NEWS2 ≥5 urgent, ≥7 high; one alert per problem; worsening supersedes; stays until acknowledged, then resolved | I9, I11 | I10 | Recorded I9 rows |
 | Nurse dashboard | Systems | Live vitals + NEWS2 each second; reason and NEWS2 points; ranges and trends; acknowledge, run buttons and a "Run ended" label | I8, I9, I10, I13, I14 | I11, I12 | Stub risk engine (plain NEWS2) |
 | Condition resolver | Both | Normalizes typed conditions (one model call), looks each up in public vocabularies, matches a table rule; ambiguous matches go back to the nurse as a question | I2 custom conditions, I4 | I16 | Hand-written typed conditions |
-| Evidence agent | Both | For a real condition with no table rule: searches PubMed read-only, drafts a limit with passages, runs the code gates; evidence is saved and reused per condition | I16 | I17 | The sources already in `rules.json` |
+| Evidence agent | Both | For a real condition with no table rule: searches PubMed read-only, picks a vital, a bound and a menu step (never a number) with supporting passages, runs the code gates; evidence is saved and reused per condition | I16, limit menu (I7) | I17 | The sources already in `rules.json` |
 | Fetch.ai agents (four) | Systems | ASI:One chat through the coordinator: register a patient with typed conditions, show risk status and open alerts, start a sample run. No messaging, no acknowledge, no ranking | I9, I10, intake and simulator routes | Chat answers | Stored I9 rows |
 
 ## Interface contracts
@@ -209,7 +209,7 @@ One active patient per wearable; readings from an unassigned wearable are droppe
 | value | new limit for the tier, in the vital's units |
 | tier | danger (the default when null) \| warning. Table rules use danger; drafted rules use warning |
 
-Tighten only: a high bound can only move down and a low bound only up. The engine clamps anything else. Facts and quotes are not passed here; they go to I15. A warning-tier adjustment narrows the safe band to the value and leaves the danger edge where it is, so the vital reads as warning beyond that value and danger only at the unchanged edge. It applies to that one patient, must sit inside the current warning band, and is never written back to `rules.json`. Its reason line on I8 says "unreviewed".
+Tighten only: a high bound can only move down and a low bound only up. The engine clamps anything else. Facts and quotes are not passed here; they go to I15. A warning-tier adjustment narrows the safe band to the value and leaves the danger edge where it is, so the vital reads as warning beyond that value and danger only at the unchanged edge. It applies to that one patient, takes its value from the limit menu (never from the model), must sit inside the current warning band, and is never written back to `rules.json`. Its reason line on I8 says "unreviewed".
 
 ### I6 Period summary
 
@@ -234,6 +234,7 @@ The simulator's 120-minute trend pre-roll uses this format but goes to the engin
 | fast_15_forecast_{spo2_low,rr_low,rr_high,hr_low,hr_high}_cautious.txt | the five LightGBM cautious-quantile models (10% for lowest, 90% for highest); these are the only model files loaded at runtime |
 | fast_15_forecast_*_median.txt | five median models, offline evaluation only (not loaded by the engine) |
 | fast_15_logreg.json | the logistic-regression alternative (`METHOD = "logreg"`), not shipped |
+| limit_menu.json | the limit menu for drafted rules (I17): per vital and bound, a few warning values, each with an id, a label and a source; set ahead of time, clinician-reviewed once, checked against the warning band when loaded |
 | config.json | `baseline` (minutes, n₀ bounds, k, spread floors, minimum widths), `alerts` (persistence window per trigger, `max_gap_minutes`, `clear_minutes`, `ack_cooldown_minutes`), `trend` (`fast_min_clean_minutes`, `fast_warning_cutoff`); all typed with defaults |
 
 The engine runs on stub files at first (NEWS2 only), so systems work never waits on training.
@@ -356,13 +357,13 @@ The model only proposes the canonical term and search terms; matching is done in
 | Field | Type / values |
 | --- | --- |
 | vocabulary, code | the condition the rule is for |
-| adjustments | [{vital, bound, value}], warning tier by construction |
+| picks | [{vital, bound, menu_id}], at most one pick per vital and bound; code fills the value from the limit menu, so the model never writes a number; warning tier by construction |
 | sources | [{kind (pmid \| doi \| guideline_url), id, title, year, passage}] |
 | evidence_label | strong \| medium \| weak |
 | retrieved_ts, evidence_hash | when the evidence was fetched and a hash of it; the same code returns the same I17 from the store |
 | gates | each gate and whether it passed |
 
-Emitted only when every gate passes: the IDs resolve, titles match, the passage is in the abstract, code reads the number out of the passage, a second distinct source gives the same number, the source is a guideline, review or trial, and the value is inside the per-vital window. When a gate fails, nothing is applied and the failed draft is kept for the reply and the log.
+Emitted only when every gate passes: the IDs resolve, titles match, the passage is in the abstract, two distinct sources each name the chosen vital in their passage, the source is a guideline, review or trial, and the pick is a real menu id. When a gate fails, nothing is applied and the failed draft is kept for the reply and the log.
 
 ## Decisions and open questions
 

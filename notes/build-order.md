@@ -89,8 +89,8 @@ Read left to right: everything in one column can be built at the same time. A ch
 | K1 Condition test set | Both | B2 | 40 invented and 60 real conditions (lay terms, typos, rare), terms that match several entries, 20 injection strings, about 25 rule-match labels, 10 no-effect conditions; `scripts/score_conditions.py` |
 | K2 Lookup and gate | Both | K1 | Code only: NLM client, fuzzy match, found / ambiguous / not_found (I16); targets 1–3 and 5 pass with no model |
 | K3 Normalizer | Both | K2 | One model call returning the canonical term and search terms, cached; measured on K1 |
-| K4 Rule matcher | Both | K2, B3 | Vocabulary code to a `rules.json` entry; the existing adjuster path runs unchanged |
-| K5 Evidence agent and warning-only apply | Both | K3, K4, T2 | PubMed search, code gates, saved evidence (I17); the engine applies the warning tier in `ranges.py`; on from the start with one kill-switch flag |
+| K4 Rule matcher | Both | K2, B3 | Vocabulary code to a `rules.json` entry; the existing adjuster path runs unchanged. Also write the limit menu (`models/limit_menu.json`) and replay each entry on eICU to measure its alert load |
+| K5 Evidence agent and warning-only apply | Both | K3, K4, T2 | PubMed search, a pick from the limit menu (never a number), code gates, saved evidence (I17); the engine applies the warning tier in `ranges.py`; on from the start with one kill-switch flag |
 | **C5 Agentic demo** | Both | F3, K5, C3 | In ASI:One: register a patient with a typed condition, see the limits and their sources, start a run, read risk status |
 
 T5 (the slow sepsis model) was dropped and has no row; the fast model is the only trend model (decisions.md). T4 and T6 are done and feed C3 and C4 as listed.

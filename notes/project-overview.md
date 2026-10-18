@@ -55,7 +55,7 @@ The seven NEWS2 parts, plus beat intervals.
 Age, sex (male or female; NHANES records only these), height and weight (metric), pregnancy, a conditions checklist, medications, chief complaint (free text), triage set (BP, alertness, pain 0–10, on oxygen, ESI level 1–5), arrival time. Fields and values are in I2.
 
 - **Conditions:** every condition with enough NHANES participants to fit a shift (counts in the training plan): hypertension, asthma, cancer, diabetes, thyroid, COPD, liver, heart disease (coronary, angina, heart attack combined), stroke, heart failure. Kidney disease pending a check.
-- **Medications:** names as typed, mapped to drug classes with NHANES RXQ_DRUG.
+- **Medications:** names as typed, mapped to drug classes with a small hardcoded lookup table (`backend/intake/lookup.py`), not the full NHANES RXQ_DRUG list.
 - **Left out on purpose:** known resting heart rate and athlete status, which a real intake form wouldn't have.
 
 ## How the risk engine works

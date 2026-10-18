@@ -273,7 +273,17 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - **Reading the score:** the labels are weak evidence (Claude-drafted, 20-case human sample) and the labeling guide's wording is close to the prompt's, so the near-perfect score is likely optimistic. **Revisit if:** the 15-20 fully human-written cases from B2 "Revisit if" score noticeably lower.
 
 ### Known gaps
-- Sample patients carry no `drug_classes` until the S5 lookup exists, and the guide never fires from the medication list alone, so U1 and C1 lose beta_blocker for now. chemo_fever is missed for C2 (capecitabine, no mention of chemo in the complaint); that matches the guide.
+- Sample patients carry no `drug_classes` themselves; the S5 lookup adds them at intake (U1 and C1 get beta_blocker), and the guide never fires from the medication list alone. chemo_fever is missed for C2 (capecitabine, no mention of chemo in the complaint); that matches the guide.
+
+## S5 Intake backend (reduced)
+
+### Backend only, small table, no fuzzy matching
+- **Scope:** demo tool, backend only. Load a profile, edit the chief complaint, assign a wearable, send I4 on. I2 in, I3 and I4 out unchanged; the page comes with S4 and calls the routes in `backend/intake/routes.py`.
+- **Small hardcoded table** (`backend/intake/lookup.py`) instead of the NHANES RXQ_DRUG list: six classes, plus a known-but-no-class list so everyday medications stay out of `unmatched_medications`. Option rejected: loading RXQ_DRUG, which has far more names than the demo needs.
+- **No fuzzy matching:** "metaprolol", "oxycotin" and "predisone" stay unmatched. Deterministic, and it matches the B2 labels, where they are the cases the adjuster reads from the complaint.
+- **Route words** (inhaler, nasal, spray, cream, ointment, eye, drops) drop the corticosteroid and beta_blocker classes but the name still counts as matched, following the labeling guide.
+- **Stale-result guard:** each intake gets a sequence number per patient; a background adjuster result is applied only if it is still the latest, so a quick resubmit with an edited complaint is not overwritten by the slower first call.
+- **Check:** `scripts/check_lookup.py` (all 100 B2 cases, samples, wearer fixture) and `scripts/intake_app.py --selftest`.
 
 ## T6 Fast trend model (training/, backend/risk_engine/fast_features.py, fast_model.py)
 

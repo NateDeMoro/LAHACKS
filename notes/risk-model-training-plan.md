@@ -98,7 +98,7 @@ The LLM is not trained on outcomes; it is prompted to extract facts into a fixed
 
 ### Medication lookup
 
-Mapping a drug name to a drug class is deterministic (the S5 intake lookup does it; the adjuster only reads `drug_classes`), and the LLM covers unmatched medications named in the complaint, using NHANES RXQ\_DRUG, which lists 1,551 drugs with Multum therapeutic classes ([RXQ\_DRUG doc](https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/1988/DataFiles/RXQ_DRUG.htm)). The LLM's job is the part a lookup can't do: slang, brand names, misspellings and phrases like "something for my nerves."
+Mapping a drug name to a drug class is deterministic (the S5 intake lookup does it from a small hardcoded table in `backend/intake/lookup.py`; the adjuster only reads `drug_classes`), and the LLM covers unmatched medications named in the complaint, instead of the full NHANES RXQ\_DRUG list (1,551 drugs with Multum classes, [RXQ\_DRUG doc](https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/1988/DataFiles/RXQ_DRUG.htm)). The demo needs only six classes and a few dozen names; the table covers every medication in the B2 test set, the sample patients and the wearer fixture, and misspellings stay unmatched on purpose. The LLM's job is the part a lookup can't do: slang, brand names, misspellings and phrases like "something for my nerves."
 
 ### Test set
 

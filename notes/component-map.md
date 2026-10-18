@@ -40,9 +40,9 @@ Inside the risk engine, baseline ranges pass I8 to the personal baseline, scorer
 | --- | --- | --- | --- | --- | --- |
 | Strap receiver | Systems | Polar H10 over Bluetooth (bleakheart); HR + beat intervals about 1 Hz; contact flag; auto-reconnect; computes breathing rate | Bluetooth | I1 | The strap, printing to the console |
 | Simulator | Systems | Six sample patients (I2 records), each with a fixed-length run that scripts every vital while the strap is ignored; 120-minute trend pre-roll; run state; live mode fills SpO2 and temp | I12, I8 (live mode only) | I1, sample I2 records, run state, trend pre-roll | A fake sink; `scripts/simulate_run.py` |
-| Intake form | Systems | Nurse enters profile, conditions, meds, triage set, chief complaint; auto patient ID; assigns wearable; can prefill from a sample patient | Nurse input, sample I2 records | I2 | Nothing |
+| Demo intake page (built with S4) | Systems | Nurse enters profile, conditions, meds, triage set, chief complaint; auto patient ID; assigns wearable; can prefill from a sample patient | Nurse input, sample I2 records | I2 | Nothing |
 | Ingest service | Systems | FastAPI + WebSocket; one entry function takes the source (strap or simulator); live mode merges strap and simulator per vital, run mode drops strap readings; wearable → patient; signal quality; rolling 60 s and one-minute medians; freezes when a run ends; storage (Tiger Data) | I1, I3 | I6, I13 | Simulator |
-| Intake service | Systems | Validates and stores the record; medication name → drug class (RXQ_DRUG); builds patient context | I2 | I3, I4 | Hand-written intake records |
+| Intake service | Systems | Validates and stores the record; medication name → drug class (small hardcoded table, `backend/intake/lookup.py`); builds patient context | I2 | I3, I4 | Hand-written intake records |
 | Context adjuster | Both | Code rules (age, drug classes, pregnant flag) plus one step-5-preview call that reads the chief complaint for facts and quotes; values come from rules.json; evidence logged separately | I4 | I5, I15 | The ~100 self-written test texts |
 | Evaluation log | Both | Facts + exact quotes per adjustment; scored against the test set | I15 | — | — |
 | Offline training | Stats | NHANES quantile fit; MIMIC-III minutes (fast trend, 15 min; the PhysioNet 2019 slow model, T5, is dropped); eICU replay to tune baseline settings (k, floors), windows, cutoffs | Public datasets | I7 | Nothing |
@@ -79,7 +79,7 @@ Affects S2, S4, S5, T1, B1. Models live in `backend/contracts.py`; JSON Schema i
 
 - **Field types:** every field nullable, default null, IDs included. Unknown fields are rejected. Timestamps must be timezone-aware; naive ones are rejected. Enumerated values are literal string sets exactly as listed below.
 - **WebSocket envelope:** every message is `{"type": "<interface ID>", "data": {...}}`.
-- **Endpoints (tentative):** `WS /ws/ingest` accepts I1. `WS /ws/dashboard` pushes I8, I9, I10, I13, I14 and accepts I11, I12. `POST /intake` takes I2 and returns the I3 assignment. Simulator routes: `GET /sim/profiles`, `GET /sim/profiles/{id}` (the sample's I2 record), `GET /sim/run`, `POST /sim/run`, `POST /sim/run/stop`, `POST /sim/run/reset`. `POST /sim/run` takes `{profile_id, patient_id?, wearable_id?}` and returns `202` with `{state, profile_id, patient_id}`; `404` for an unknown sample patient, `409` while a run is going. Sample records carry no `wearable_id` (the nurse picks it): after intake the caller passes the patient and the wearable from I3, otherwise the sample's own id and the default wearable are used.
+- **Endpoints (tentative):** `WS /ws/ingest` accepts I1. `WS /ws/dashboard` pushes I8, I9, I10, I13, I14 and accepts I11, I12. `POST /intake` takes I2 and returns the I3 assignment (422 for a missing or unknown wearable_id). Form contract routes (`backend/intake/routes.py`): `GET /intake/wearer` (the wearer's I2 record for prefill), `GET /intake/wearables` (wearable_id, bed label, current patient_id or null), `GET /intake/{patient_id}` (profile card: I4, current I8, I5, I15 items and adjuster state pending, done or structured only). Simulator routes: `GET /sim/profiles`, `GET /sim/profiles/{id}` (the sample's I2 record), `GET /sim/run`, `POST /sim/run`, `POST /sim/run/stop`, `POST /sim/run/reset`. `POST /sim/run` takes `{profile_id, patient_id?, wearable_id?}` and returns `202` with `{state, profile_id, patient_id}`; `404` for an unknown sample patient, `409` while a run is going. Sample records carry no `wearable_id` (the nurse picks it): after intake the caller passes the patient and the wearable from I3, otherwise the sample's own id and the default wearable are used.
 - **Band edges:** safe_low/safe_high and danger_low/danger_high are inclusive; a value at or below danger_low (or at or above danger_high) is danger. Stub I8: NEWS2 score-0 range is safe, score-3 values are danger. spo2 and temp_c have null danger_high.
 - **Null scoring:** a null vital gets null points and is left out of the total; never filled in.
 - **Rounding:** HR, RR and SpO2 round to whole numbers and temp_c to one decimal before banding, rounding half up (20.5 breaths becomes 21, 2 points; 24.5 becomes 25, 3 points).
@@ -115,7 +115,12 @@ Affects S2, S4, S5, T1, B1. Models live in `backend/contracts.py`; JSON Schema i
   - S2 owns `backend/app.py` and `WS /ws/dashboard`: a new client first gets the latest I8, I9, I13, I14 per patient and the open I10 alerts. Minute close runs `on_second`, `on_minute`, then `AlertLogic.on_risk`; I11 goes to `on_ack`, I12 to the simulator controller.
   - `RunSink` gains `assign(wearable_id, patient_id)`, called before the pre-roll.
 - Adjuster call order (affects S5): intake calls `adjust_structured(ctx)` (instant, no LLM) and `on_intake(ctx, i5)`, then `adjust(ctx)` (one LLM call, 4-40 s) and a second `on_intake(ctx, i5)` with the full I5. The second call is safe because `rebase` keeps what the baseline learned. S5 chooses whether to wait for the full result or apply in two steps.
-  - Pregnant flag (affects S5 and S3): the intake form sends null for `pregnant` unless the question was actually answered. A false from an unticked box blocks the text pregnancy rule. Sample records currently set `pregnant=False` (profiles.py), which has the same effect.
+  - Pregnant flag (affects S5 and S3): the intake form sends null for `pregnant` unless the question was actually answered. A false from an unticked box blocks the text pregnancy rule. Sample records currently set `pregnant=False` (profiles.py), a constructor default and not an answer: when prefilling from a sample the page shows the question as unanswered and sends null.
+  - Polling (affects S4): after `POST /intake`, poll `GET /intake/{patient_id}` until the adjuster state is no longer pending (4-40 s). To change the complaint, POST again with the same patient_id; `rebase` keeps what the baseline learned, and the code-only I5 applies at once until the new full result arrives.
+  - `ranges_listener` at intake (affects S2, S4): the intake service calls `engine.ranges_listener` after each `on_intake`, so the dashboard sees intake ranges before the first minute update.
+  - I15 reader: the S5 profile card is the first reader of I15 besides the evaluation log; the risk engine still never reads it.
+  - I3 rule (affects S2): when a patient arrives on a new wearable, the old wearable is freed. S2's wearable map must drop a patient's previous wearable. Valid wearables are the keys of `CONFIG.beds.labels` plus `CONFIG.receiver.wearable_id`.
+  - Engine thread (affects S2): only the adjuster's LLM call runs off the event loop; every engine call stays on it.
   - `RiskEngine.on_intake` applies I5 through `ranges.apply_i5`: moves only the danger edge, only inward, pulls the safe band inside it, adds a reason line.
 - Open items: none for I5; the rule list is in `models/rules.json` (B2).
 
@@ -172,7 +177,7 @@ One active patient per wearable; readings from an unassigned wearable are droppe
 | --- | --- |
 | all I2 fields | including chief_complaint |
 | bmi | computed from height and weight |
-| drug_classes | [Multum classes: beta_blocker, ssri, snri, opioid, corticosteroid, immunosuppressant. The NHANES fit uses beta_blocker, ssri, snri; the adjuster rules use beta_blocker, opioid, corticosteroid, immunosuppressant] |
+| drug_classes | [lookup classes: beta_blocker, ssri, snri, opioid, corticosteroid, immunosuppressant. The NHANES fit uses beta_blocker, ssri, snri; the adjuster rules use beta_blocker, opioid, corticosteroid, immunosuppressant] |
 | unmatched_medications | [names the lookup missed] |
 
 ### I5 Context adjustments

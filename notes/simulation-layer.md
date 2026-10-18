@@ -53,13 +53,13 @@ No run formed a personal baseline in 10 minutes. Fever alone cannot reach the da
 
 ## Expected changes with the context adjuster (B3)
 
-The replay table above predates B3. With `on_intake(ctx, i5)` applying the adjuster, sample runs change as below; the table is re-run at C3, not now. Sample records have no `drug_classes` until the S5 lookup exists, and the adjuster never fires from the medication list alone.
+The replay table above predates B3. With `on_intake(ctx, i5)` applying the adjuster, sample runs change as below; the table is re-run at C3, not now. Sample records carry no `drug_classes`; intake through the S5 lookup (`backend/intake/lookup.py`) adds them, and the adjuster never fires from the medication list alone.
 
-- **U1** (67, metoprolol, "Fever and chills"): gains age65 and suspected_infection, not beta_blocker yet. Temperature starts at 37.8 and danger edges are inclusive, so U1 is in danger from 0:00; the "urgent at 3-6 min" target no longer holds. After the lookup it gains beta_blocker.
-- **C1** (72, carvedilol): gains age65 only; gains beta_blocker after the lookup.
+- **U1** (67, metoprolol, "Fever and chills"): gains age65 and suspected_infection, and beta_blocker once intake runs through the lookup. Temperature starts at 37.8 and danger edges are inclusive, so U1 is in danger from 0:00; the "urgent at 3-6 min" target no longer holds and is re-flagged for the C3 re-run.
+- **C1** (72, carvedilol): gains age65, and beta_blocker once intake runs through the lookup.
 - **C2** ("Fever, shaking chills"): gains suspected_infection. Breathing 23 becomes danger at about 30% of the run. chemo_fever does not fire (the complaint never mentions chemo), a known gap.
 - **H1, H2, U2:** unchanged unless their complaint or age triggers a rule.
-- The U1 "fever on a beta-blocker" story is incomplete until the S5 lookup exists.
+- The U1 "fever on a beta-blocker" story needs intake to run through the S5 lookup.
 
 ## Trend pre-roll
 

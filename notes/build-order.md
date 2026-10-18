@@ -16,7 +16,7 @@ flowchart LR
     S2["S2 Ingest service<br/>I1 in · merge · I6 + I13 out"]
     S3["S3 Simulator<br/>sample patients + runs, live filler"]
     S4["S4 Dashboard<br/>live vitals I13 + NEWS2 I14"]
-    S5["S5 Intake form + service<br/>I2 → I3, I4 · med lookup"]
+    S5["S5 Intake backend<br/>I2 → I3, I4 · med lookup"]
     S6["S6 Run buttons<br/>load sample, start run I12"]
     S8["S8 Add-ons<br/>Tiger Data, Sentry, Vultr, domain, Fetch.ai"]
   end
@@ -70,7 +70,7 @@ Read left to right: everything in one column can be built at the same time. A ch
 | T1 NEWS2 scorer | Stats | P0 | P0 stub already scores the full table; T1 checks it against reference cases, covers edge cases and missing parts, and owns scoring from here. Done: NaN rejection, tests/risk_engine/test_news2.py |
 | **C1 Thin slice** | Both | S4, T1 | Simulated vitals flow end to end and NEWS2 moves on the dashboard |
 | **C2 Real strap live** | Systems | C1, S1 | The wearer's real HR and breathing rate show next to simulated SpO2 and temperature |
-| S5 Intake form + service | Systems | C2 | Submitting the form creates a patient, assigns the wearable (I3) and produces I4 with drug classes |
+| S5 Intake backend (reduced) | Systems | C2 to plug in | Backend only: `backend/intake/` (lookup, service, routes) and the dev app `scripts/intake_app.py`. Posting I2 assigns the wearable (I3), produces I4 with drug classes from a small hardcoded table, and applies the adjuster's I5 in two steps. The page itself is built with S4. Built against the dev app; "needs C2" applies only to plugging in S2 |
 | T2 Baseline ranges | Stats | T1 | NHANES quantile fit written to ranges.json; engine builds I8 from I4. Done: training/fit_ranges.py, backend/risk_engine/ranges.py |
 | T3 Personal baseline | Stats | T2 | I6 rows narrow the safe band; danger limits move only via I5. Done: backend/risk_engine/baseline.py (hr and breathing) |
 | T4 Alert logic | Stats | Step A | Recorded I9 rows produce I10 alerts with persistence windows and one alert per problem. Done: backend/risk_engine/alerts.py, tests/risk_engine/test_alerts.py, training/tune_alerts.py, replay_fixture --alerts |

@@ -80,4 +80,5 @@ If code already exists, skim the layout and fit the plan to it; no deep groundin
 | backend/app.py, backend/ingest/ | FastAPI app (`/ws/ingest`, `/ws/dashboard`, `/sim`); ingest service, per-patient streams (I13, I6), dashboard hub, SQLite store, wire parser | Building or changing S2, or running the backend (`uvicorn backend.app:create_app --factory`) |
 | notes/decisions.md | Log of every modelling choice, options, evidence | Making or defending a modelling choice |
 | notes/simulation-layer.md | Sample patients, run scripts and targets, trend pre-roll, end of run, how the simulator connects | Building or changing the simulator, run buttons, or sample-patient prefill |
+| backend/intake/, scripts/check_lookup.py, scripts/intake_app.py | S5 demo intake: drug-class lookup (small table), intake service (I2 to I3, I4, two-step I5), /intake routes; lookup check; dev app with --selftest | Changing intake, medication lookup or the form contract |
 | backend/simulator/ | Models, six sample patients, run generator, player, controller, routes | Changing a run, adding a sample patient, or wiring runs into ingest |

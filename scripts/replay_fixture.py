@@ -5,10 +5,13 @@ Usage:
   uv run python -m scripts.replay_fixture --wearer
   uv run python -m scripts.replay_fixture --i6 fixtures/wearer_drift_i6.jsonl
   uv run python -m scripts.replay_fixture [stay_id | --i6 PATH] --alerts [--ack-after 10]
+  uv run python -m scripts.replay_fixture [stay_id] --adjust
 --i6 replays any one-patient I6 file and prints each minute's vital levels and trend fields
 (the wearer's id gets the fixture intake, anything else runs with no intake).
 --alerts also runs alert logic on each I9 and prints the I10 stream (ALERT / RESOLVED lines, with
 what each alert supersedes); --ack-after N simulates a dashboard ack N minutes after every alert.
+--adjust runs the structured adjuster rules (age, drug classes, pregnant flag; no LLM) on each stay's
+intake and passes the I5 to on_intake, then prints the I8 danger edges that moved.
 --out writes the I9 rows; it is never written by default, so fixtures/eicu_i9.jsonl (the recorded
 stand-in used by alert logic and the Fetch.ai agent) is only replaced when asked for."""
 import argparse
@@ -16,6 +19,7 @@ from pathlib import Path
 
 from datetime import timedelta
 
+from backend.adjuster.adjuster import adjust_structured
 from backend.contracts import Acknowledgment, AlertConfig, PatientContext
 from backend.fixtures import DIR, iter_i13, load_context, load_i6, load_stays, stay_rows
 from backend.risk_engine.alerts import AlertLogic
@@ -72,14 +76,20 @@ class AlertPrinter:
               f"(no key ever had two open alerts)")
 
 
-def replay_stays(only, intake, out, alerts=False, ack_after=None):
+def replay_stays(only, intake, out, alerts=False, ack_after=None, adjust=False):
     rows, eng, i9_out = load_i6(), RiskEngine(), []
     for stay in load_stays():
         pid = stay["patient_id"]
         if only and only != pid:
             continue
         if intake:
-            eng.on_intake(PatientContext(patient_id=pid, age=stay.get("age"), sex=stay.get("sex")))
+            ctx = PatientContext(patient_id=pid, age=stay.get("age"), sex=stay.get("sex"))
+            res = adjust_structured(ctx) if adjust else None
+            eng.on_intake(ctx, res.i5 if res else None)
+            if res:
+                t = eng.intake_ranges[pid].temp_c
+                print(f"{pid} age {ctx.age}: I5 {[(a.rule_id, a.vital, a.bound, a.value) for a in res.i5.adjustments]}; "
+                      f"temp danger_high {t.danger_high}, safe_high {t.safe_high}")
         srows = stay_rows(rows, pid)
         by_ts = {r.minute_ts: r for r in srows}
         path, levels, first_personal = [], {}, None
@@ -146,6 +156,7 @@ if __name__ == "__main__":
     ap.add_argument("--no-intake", action="store_true", help="replay with no intake: plain NEWS2 bands")
     ap.add_argument("--wearer", action="store_true")
     ap.add_argument("--i6", help="replay one patient's I6 file, printing levels and trend fields")
+    ap.add_argument("--adjust", action="store_true", help="apply structured adjuster rules (no LLM) at intake")
     ap.add_argument("--out")
     ap.add_argument("--alerts", action="store_true", help="also run alert logic and print the I10 stream")
     ap.add_argument("--ack-after", type=float, help="with --alerts: ack every alert this many minutes later")
@@ -155,4 +166,4 @@ if __name__ == "__main__":
     elif a.wearer:
         replay_wearer()
     else:
-        replay_stays(a.stay, not a.no_intake, a.out, a.alerts, a.ack_after)
+        replay_stays(a.stay, not a.no_intake, a.out, a.alerts, a.ack_after, a.adjust)

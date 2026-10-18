@@ -74,9 +74,9 @@ class RiskEngine:
 
     def on_intake(self, ctx: PatientContext, adjustments: ContextAdjustments | None = None
                   ) -> PatientRanges:
-        # I5 is accepted and ignored here (applied with the context adjuster, B3)
         self.context[ctx.patient_id] = ctx
-        self._start(ctx.patient_id, ranges.build_population_ranges(ctx), ranges.population_centres(ctx))
+        population = ranges.apply_i5(ranges.build_population_ranges(ctx), adjustments)
+        self._start(ctx.patient_id, population, ranges.population_centres(ctx))
         return self.baselines[ctx.patient_id].ranges
 
     def on_second(self, w: LiveWindow) -> LiveNews2:

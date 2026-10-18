@@ -7,7 +7,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from backend.contracts import (PatientContext, PatientRanges, RangesFile, TempReference,
+from backend.contracts import (ContextAdjustments, PatientContext, PatientRanges, RangesFile, TempReference,
                                VitalRange)
 
 RANGES_PATH = Path(__file__).resolve().parents[2] / "models" / "ranges.json"
@@ -21,6 +21,7 @@ MIN_WIDTH = {"hr": 20, "sbp": 20, "temp_c": 0.6}  # a fitted band narrower than 
 MIN_SHIFT = {"hr": 2, "sbp": 2, "temp_c": 0.1}  # smaller shifts are not worth a reason line
 
 _NAME = {"hr": "heart rate", "sbp": "systolic BP", "temp_c": "temperature"}
+_ADJ_NAME = {**_NAME, "resp_rate": "breathing rate", "spo2": "SpO2"}
 _UNIT = {"hr": "bpm", "sbp": "mmHg", "temp_c": "C"}
 _LABEL = {"beta_blocker": "beta-blocker", "ssri": "SSRI", "snri": "SNRI", "copd": "COPD"}
 _FLAG_FEATURES_SKIP = {"age", "age_sq", "male", "bmi"}
@@ -43,6 +44,31 @@ def clamp_safe(vital: str, low: float | None, high: float | None) -> tuple[float
     if high is not None and d_high is not None:
         high = min(high, d_high - m)
     return low, high
+
+
+def apply_i5(pop: PatientRanges, i5: ContextAdjustments | None) -> PatientRanges:
+    """Move danger edges inward by the I5 adjustments, then pull the safe band back inside the moved edge.
+    Use when a patient's context tightens limits at intake. Loosening, unknown vitals and missing values are
+    ignored (I5 says the engine clamps anything else)."""
+    out = pop.model_copy(deep=True)
+    for a in (i5.adjustments or []) if i5 else []:
+        rng = getattr(out, a.vital, None) if a.vital in DANGER else None
+        if rng is None or a.bound not in ("low", "high") or a.value is None:
+            continue
+        m = MARGIN[a.vital]
+        reason = f"{_ADJ_NAME[a.vital]} danger {a.bound} limit {a.value:g}: {(a.rule_id or 'context').replace('_', ' ')}"
+        if a.bound == "high" and (rng.danger_high is None or a.value < rng.danger_high):
+            rng.danger_high = a.value
+            if rng.safe_high is not None:
+                rng.safe_high = round(min(rng.safe_high, a.value - m), 1)
+        elif a.bound == "low" and (rng.danger_low is None or a.value > rng.danger_low):
+            rng.danger_low = a.value
+            if rng.safe_low is not None:
+                rng.safe_low = round(max(rng.safe_low, a.value + m), 1)
+        else:
+            continue
+        rng.reasons = [*(rng.reasons or []), reason]
+    return out
 
 
 def _vital_range(vital: str, low: float | None, high: float | None, reasons: list[str]) -> VitalRange:

@@ -3,6 +3,7 @@ values (wearable, ingest URL, strap name) come from environment variables so the
 can sit in .env. Run with `uv run --env-file .env ...` to load it."""
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,16 @@ class LlmConfig:
 
 
 @dataclass(frozen=True)
+class AdjusterConfig:
+    """Context adjuster (B3). logs/ is gitignored: quotes come from patient complaints."""
+    log_path: Path = Path(__file__).resolve().parents[1] / "logs" / "adjuster_log.jsonl"  # I15 evaluation log
+    cache_path: Path = Path(__file__).resolve().parents[1] / "logs" / "adjuster_cache.json"
+    use_cache: bool = True
+    write_log: bool = True
+    parallelism: int = 3  # scoring concurrency; the lowest StepFun tier allows 5
+
+
+@dataclass(frozen=True)
 class BedConfig:
     """Bed label per wearable, used in alert messages."""
     labels: dict[int, str] = field(default_factory=lambda: {1: "Bed 4"})
@@ -77,6 +88,7 @@ class Config:
     receiver: ReceiverConfig = field(default_factory=ReceiverConfig)
     beds: BedConfig = field(default_factory=BedConfig)
     llm: LlmConfig = field(default_factory=LlmConfig)
+    adjuster: AdjusterConfig = field(default_factory=AdjusterConfig)
     simulator: SimulatorConfig = field(default_factory=SimulatorConfig)
     ingest: IngestConfig = field(default_factory=IngestConfig)
 

@@ -20,7 +20,7 @@ BASE = "https://physionet.org/files/mimic3wdb-matched/1.0/"
 log = logging.getLogger("fetch_mimic")
 
 
-def _get(url: str, dest: Path, tries: int = 4) -> int:
+def _get(url: str, dest: Path, tries: int = 6) -> int:
     """Download url to dest via temp file then rename; skips if dest exists. Returns bytes written (0 if skipped)."""
     if dest.exists():
         return 0
@@ -39,7 +39,7 @@ def _get(url: str, dest: Path, tries: int = 4) -> int:
             if i == tries - 1:
                 raise
             log.warning("retry %s (%s)", url, e)
-            time.sleep(2 * (i + 1))
+            time.sleep(min(60, 5 * 2 ** i))  # exponential backoff: 5,10,20,40,60 s
 
 
 def fetch_record(rec: str) -> tuple[str, int, int]:
@@ -54,7 +54,7 @@ def fetch_record(rec: str) -> tuple[str, int, int]:
     return rec, n, len(dats)
 
 
-def sample_records(n_patients: int, seed: int, per_patient: int) -> list[str]:
+def sample_records(n_patients: int, seed: int, per_patient: int, exclude: frozenset = frozenset()) -> list[str]:
     cache = OUT / "RECORDS-numerics"
     _get(BASE + "RECORDS-numerics", cache)
     recs = [l.strip() for l in cache.read_text().splitlines() if l.strip()]
@@ -62,7 +62,7 @@ def sample_records(n_patients: int, seed: int, per_patient: int) -> list[str]:
     for r in recs:
         by_patient.setdefault(r.split("/")[1], []).append(r)
     rng = random.Random(seed)
-    pats = sorted(by_patient)
+    pats = sorted(p for p in by_patient if p not in exclude)
     rng.shuffle(pats)
     out = []
     for p in pats[:n_patients]:
@@ -100,10 +100,24 @@ def main():
     ap.add_argument("--per-patient", type=int, default=1, help="max records downloaded per patient")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--workers", type=int, default=16)
+    ap.add_argument("--out", type=Path, default=None, help="output directory (default data/raw/mimic3wdb)")
+    ap.add_argument("--exclude-dir", type=Path, action="append", default=[],
+                    help="skip patients (pNNNNNN dirs) already present under this directory; repeatable")
+    ap.add_argument("--exclude-file", type=Path, default=None, help="text file of patient ids (pNNNNNN) to skip")
     ap.add_argument("--benchmark", action="store_true", help="download 10 records only and print throughput")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
-    recs = sample_records(a.patients, a.seed, a.per_patient)
+    global OUT
+    if a.out:
+        OUT = a.out.resolve()
+    exclude = set()
+    for d in a.exclude_dir:
+        exclude |= {q.name for q in d.glob("p??/p??????") if q.is_dir()}
+    if a.exclude_file:
+        exclude |= {l.strip() for l in a.exclude_file.read_text().split() if l.strip()}
+    recs = sample_records(a.patients, a.seed, a.per_patient, frozenset(exclude))
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / "manifest.txt").write_text("\n".join(recs) + "\n")
     if a.benchmark:
         recs = recs[:10]
     run(recs, a.workers)

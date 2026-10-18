@@ -400,6 +400,8 @@ Envelope = Literal["I1", "I8", "I9", "I10", "I11", "I12", "I13", "I14"]
 class WsMessage(Model):
     type: Envelope | None = None
     data: dict | None = None
+    sentry_trace: str | None = None  # trace headers from the sender, so a Sentry trace spans processes
+    baggage: str | None = None
 
 
 INTERFACES: dict[str, type[Model]] = {

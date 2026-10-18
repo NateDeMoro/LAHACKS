@@ -167,7 +167,7 @@ def adjust(ctx: PatientContext, *, client=None, cfg: LlmConfig | None = None, ll
         dropped, latency = [], 0.0
         if kept is None:
             try:
-                res = json_completion(msgs, TextReply, cfg, client)
+                res = json_completion(msgs, TextReply, cfg, client, purpose="adjuster")
                 kept, dropped = validate(res.value.proposals, ctx, structured)
                 latency = res.latency_s
                 if use_cache:

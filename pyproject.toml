@@ -8,6 +8,7 @@ dependencies = [
     "openai>=3.35.1",
     "psycopg[binary]>=3.3.6",
     "pydantic>=2,<3",
+    "sentry-sdk>=2.72.0",
     "uvicorn>=0.54.0",
 ]
 

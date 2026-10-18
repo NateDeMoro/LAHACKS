@@ -118,6 +118,16 @@ class IngestConfig:
 
 
 @dataclass(frozen=True)
+class ObservabilityConfig:
+    """Sentry. An empty DSN keeps it off. Each source sends about one reading a second, so those traces are sampled."""
+    dsn: str = os.environ.get("SENTRY_DSN", "")
+    environment: str = os.environ.get("SENTRY_ENVIRONMENT", "dev")
+    reading_trace_rate: float = 0.1  # receiver readings, ingest readings and the one-second tick
+    trace_rate: float = 1.0  # intake, period closes and requests
+    profile_rate: float = 1.0  # profiles run only while a sampled trace is open
+
+
+@dataclass(frozen=True)
 class Config:
     receiver: ReceiverConfig = field(default_factory=ReceiverConfig)
     beds: BedConfig = field(default_factory=BedConfig)
@@ -127,6 +137,7 @@ class Config:
     agents: AgentsConfig = field(default_factory=AgentsConfig)
     simulator: SimulatorConfig = field(default_factory=SimulatorConfig)
     ingest: IngestConfig = field(default_factory=IngestConfig)
+    observability: ObservabilityConfig = field(default_factory=ObservabilityConfig)
 
 
 CONFIG = Config()

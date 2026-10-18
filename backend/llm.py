@@ -10,6 +10,7 @@ import time
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
+import sentry_sdk
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError
 
@@ -47,9 +48,21 @@ def _ask(client: OpenAI, cfg: LlmConfig, messages: list[dict], model_cls: type[B
 
 
 def json_completion(messages: list[dict], model_cls: type[T], cfg: LlmConfig | None = None,
-                    client: OpenAI | None = None) -> LlmResult[T]:
+                    client: OpenAI | None = None, *, purpose: str | None = None) -> LlmResult[T]:
     """Ask for JSON matching model_cls. On a parse or validation failure, retry once with the error
-    fed back; a second failure, a cut-off reply or an API error raises LlmError."""
+    fed back; a second failure, a cut-off reply or an API error raises LlmError.
+    purpose names the feature asking ("adjuster"), so Sentry can group calls by it."""
+    purpose = purpose or model_cls.__name__
+    with sentry_sdk.start_span(op="llm.json_completion", name=purpose) as span:
+        span.set_data("llm.purpose", purpose)
+        res = _json_completion(messages, model_cls, cfg, client)
+        span.set_data("llm.retried", res.retried)  # the OpenAI span under this one has tokens per attempt
+        span.set_data("llm.completion_tokens", res.completion_tokens)
+        return res
+
+
+def _json_completion(messages: list[dict], model_cls: type[T], cfg: LlmConfig | None,
+                     client: OpenAI | None) -> LlmResult[T]:
     cfg = cfg or LlmConfig()
     client = client or make_client(cfg)
     start, retried, tokens = time.time(), False, 0

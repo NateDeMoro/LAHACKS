@@ -1,0 +1,69 @@
+"""Sentry setup shared by the backend and the receiver. Use once at process start.
+With no DSN Sentry stays off and every span call elsewhere is a no-op.
+Patient text stays out: no PII, no prompts or replies on AI spans; log codes and ids, not typed strings."""
+import logging
+
+import sentry_sdk
+from sentry_sdk.integrations.openai import OpenAIIntegration
+
+from backend.config import CONFIG, ObservabilityConfig
+
+log = logging.getLogger(__name__)
+
+READING_OPS = {"receiver.reading", "ingest.reading", "ingest.tick"}
+
+
+def _sampler(cfg: ObservabilityConfig):
+    def sample(ctx: dict) -> float:
+        parent = ctx.get("parent_sampled")
+        if parent is not None:  # follow the receiver's decision so a trace is whole or absent
+            return float(parent)
+        op = ctx["transaction_context"].get("op")
+        return cfg.reading_trace_rate if op in READING_OPS else cfg.trace_rate
+    return sample
+
+
+def _drop_access_log(log_item: dict, _hint: dict) -> dict | None:
+    """Every request and socket would otherwise become a log line; the traces already show them."""
+    return None if log_item.get("attributes", {}).get("logger.name") == "uvicorn.access" else log_item
+
+
+TEXT_ERRORS = {"ValidationError", "JSONDecodeError", "UnicodeDecodeError"}  # their messages quote the input
+
+
+def _withhold_error_text(event: dict, _hint: dict) -> dict:
+    """A pydantic error message repeats the value that failed, which can be a complaint or a typed condition."""
+    for exc in event.get("exception", {}).get("values", []):
+        if exc.get("type") in TEXT_ERRORS:
+            exc["value"] = f"{exc['type']} (message withheld)"
+    return event
+
+
+def init_sentry(service: str, cfg: ObservabilityConfig | None = None, *, transport=None) -> bool:
+    """transport is for tests, which read back what would have been sent."""
+    cfg = cfg or CONFIG.observability
+    if not cfg.dsn:
+        log.info("SENTRY_DSN is empty: Sentry is off")
+        return False
+    sentry_sdk.init(
+        dsn=cfg.dsn, environment=cfg.environment, traces_sampler=_sampler(cfg), transport=transport,
+        profile_session_sample_rate=cfg.profile_rate, profile_lifecycle="trace",
+        enable_logs=True, before_send_log=_drop_access_log, before_send=_withhold_error_text,
+        # Complaint text reaches prompts, replies and local variables, so none of them leave the process.
+        # A data_collection dict replaces the SDK's default scrubbing, so everything else is switched off here too.
+        data_collection={"user_info": False, "http_bodies": [], "stack_frame_variables": False,
+                         "gen_ai": {"inputs": False, "outputs": False}, "cookies": {"mode": "off"},
+                         "url_query_params": {"mode": "off"}, "http_headers": {"request": {"mode": "off"}},
+                         "database_query_data": False, "queues": False},
+        integrations=[OpenAIIntegration(include_prompts=False)],
+    )
+    sentry_sdk.set_tag("service", service)
+    return True
+
+
+def trace_fields() -> dict[str, str]:
+    """Trace headers for an outgoing WsMessage; empty when Sentry is off or no transaction is open (the scope's
+    own trace id lasts the whole process, so every such message would land in one trace)."""
+    if not sentry_sdk.is_initialized() or sentry_sdk.get_current_span() is None:
+        return {}
+    return {"sentry_trace": sentry_sdk.get_traceparent(), "baggage": sentry_sdk.get_baggage()}

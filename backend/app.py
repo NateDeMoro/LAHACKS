@@ -5,16 +5,18 @@ import contextlib
 import logging
 from pathlib import Path
 
+import sentry_sdk
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from backend.config import CONFIG
+from backend.observability import init_sentry
 from backend.timeutil import now_la
 from backend.contracts import ScenarioTrigger
 from backend.ingest.hub import DashboardHub
 from backend.ingest.service import IngestService
 from backend.ingest.store import Store
 from backend.ingest.tiger import TigerMirror, build_router as build_tiger_router
-from backend.ingest.wire import BadMessage, parse_envelope
+from backend.ingest.wire import BadMessage, parse_envelope, trace_headers
 from backend.intake.routes import build_router as build_intake_router
 from backend.intake.service import IntakeService
 from backend.risk_engine.alerts import AlertLogic
@@ -29,6 +31,7 @@ log = logging.getLogger(__name__)
 
 
 def create_app(engine: RiskEngine | None = None, store_path: str | Path | None = None) -> FastAPI:
+    init_sentry("backend")
     engine = engine or RiskEngine()
     alerts = AlertLogic(engine.config.alerts, engine.bed_label)
     store = Store(store_path or CONFIG.ingest.store_path)
@@ -98,14 +101,23 @@ def create_app(engine: RiskEngine | None = None, store_path: str | Path | None =
         await ws.accept()
         try:
             while True:
+                text = await ws.receive_text()
                 try:
-                    _, reading = parse_envelope(await ws.receive_text(), {"I1"})
+                    _, reading = parse_envelope(text, {"I1"})
                 except BadMessage as e:
                     log.warning("ingest message ignored: %s", e)  # keep the socket: a reconnect shows on the demo
                     continue
-                service.ingest(reading, "strap")
+                txn = sentry_sdk.continue_trace(trace_headers(text), op="ingest.reading", name="ingest reading")
+                with sentry_sdk.start_transaction(txn) as span:
+                    if reading.ts is not None:  # strap and backend share a clock in the demo, so this is the hop delay
+                        span.set_data("strap_to_ingest_s", (now_la() - reading.ts).total_seconds())
+                    service.ingest(reading, "strap")
         except WebSocketDisconnect:
             pass
+
+    @app.get("/health")
+    def health():
+        return {"ok": True}  # Sentry uptime check target
 
     @app.websocket("/ws/dashboard")
     async def ws_dashboard(ws: WebSocket):

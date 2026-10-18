@@ -87,6 +87,7 @@ class StrapLink:
             await hr.start_notify()
             notifying = True
             self.connected = True
+            log.info("strap connected", extra={"wearable_id": self.cfg.wearable_id})
             await self._wait_until_down(down)
         finally:
             self.connected = False

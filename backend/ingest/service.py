@@ -1,9 +1,12 @@
 """Ingest service (S2): routes readings to per-patient streams, and on every tick runs the pipeline
 I13 -> engine (I14), and at each period close I6 -> engine (I9) -> alert logic (I10)."""
 import asyncio
+import contextlib
 import logging
 from datetime import datetime
 from typing import Callable
+
+import sentry_sdk
 
 from backend.config import CONFIG, IngestConfig
 from backend.contracts import Acknowledgment, Model, RunState, VitalsReading
@@ -93,16 +96,21 @@ class IngestService:
     def on_ack(self, ack: Acknowledgment) -> bool:
         return self._alerts.on_ack(ack)
 
+    def _txn(self, op: str, name: str):
+        """A Sentry transaction, except during a skip replay, which runs thousands of ticks in one burst."""
+        return contextlib.nullcontext() if self.replaying else sentry_sdk.start_transaction(op=op, name=name)
+
     def tick(self, only: list[str] | None = None, *, skip_sim: bool = False) -> None:
         """One second for every stream, or just the patients in `only`. skip_sim leaves the scenario patients out."""
-        for stream in list(self._streams.values()):
-            pid = stream.patient_id
-            if (only is not None and pid not in only) or (skip_sim and pid in self._clocks):
-                continue
-            try:
-                self._tick_one(stream, self._now(pid))
-            except Exception:
-                log.exception("tick failed for %s", stream.patient_id)
+        with self._txn("ingest.tick", "ingest tick"):
+            for stream in list(self._streams.values()):
+                pid = stream.patient_id
+                if (only is not None and pid not in only) or (skip_sim and pid in self._clocks):
+                    continue
+                try:
+                    self._tick_one(stream, self._now(pid))
+                except Exception:
+                    log.exception("tick failed for %s", stream.patient_id)
 
     def _tick_one(self, stream: PatientStream, now: datetime) -> None:
         tick = stream.tick(now)
@@ -110,7 +118,8 @@ class IngestService:
         if not quiet:
             self._publish("I13", tick.live)
         try:
-            news2 = self.engine.on_second(tick.live)
+            with sentry_sdk.start_span(op="engine.second", name="news2"):
+                news2 = self.engine.on_second(tick.live)
             if not quiet:
                 self._publish("I14", news2)
         finally:  # the period still closes if the second's scoring failed
@@ -118,16 +127,18 @@ class IngestService:
                 self._close_period(tick.period)
 
     def _close_period(self, period) -> None:
-        self._store.write("I6", period, period.patient_id)
-        risk = self.engine.on_period(period)
-        if period.patient_id not in self._ranges_sent:  # the engine only announces ranges once they change
-            self._push_ranges(self.engine.ranges[period.patient_id])
-        self._publish("I9", risk)
-        self._on_risk(risk)
-        self._store.write("I9", risk, risk.patient_id)
-        for alert in self._alerts.on_risk(risk):
-            self._publish("I10", alert)
-            self._store.write("I10", alert, alert.patient_id)
+        with self._txn("engine.period", "engine period"):  # kept in full and profiled
+            self._store.write("I6", period, period.patient_id)
+            with sentry_sdk.start_span(op="engine.period", name="baseline and trend"):
+                risk = self.engine.on_period(period)
+            if period.patient_id not in self._ranges_sent:  # the engine only announces ranges once they change
+                self._push_ranges(self.engine.ranges[period.patient_id])
+            self._publish("I9", risk)
+            self._on_risk(risk)
+            self._store.write("I9", risk, risk.patient_id)
+            for alert in self._alerts.on_risk(risk):
+                self._publish("I10", alert)
+                self._store.write("I10", alert, alert.patient_id)
 
     def _push_ranges(self, ranges) -> None:
         self._ranges_sent.add(ranges.patient_id)

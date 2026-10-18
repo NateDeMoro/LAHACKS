@@ -14,12 +14,15 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 
+import sentry_sdk
+
 from backend.adjuster import adjuster as A
 from backend.adjuster import prompt as P
 from backend.adjuster import rules as R
 from backend.config import CONFIG, AdjusterConfig, LlmConfig
 from backend.adjuster.testset import TestCase, load_cases
 from backend.contracts import ContextAdjustments, PatientContext
+from backend.observability import init_sentry
 from backend.risk_engine import ranges
 from backend.risk_engine.ranges import DANGER
 
@@ -207,6 +210,13 @@ def selftest():
     print("selftest passed: structured firing, merge, order, tighten-only I5 on I8, quote check, drops, stub LLM, fallback, cache, log, bad cache and log, cache key")
 
 
+def adjust_traced(c: TestCase, cfg: LlmConfig, client=None):
+    """One fresh adjuster call as its own Sentry transaction, so a scoring run gives latency and token numbers."""
+    with sentry_sdk.start_transaction(op="eval.adjust", name="eval adjust") as txn:
+        txn.set_data("eval.case", c.id)
+        return A.adjust(to_ctx(c), cfg=cfg, client=client, use_cache=False, write_log=False)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--selftest", action="store_true")
@@ -226,10 +236,11 @@ def main():
         score(cases, outs, f"{a.split} structured only", verbose)
         return
     cfg = LlmConfig()
+    init_sentry("scoring")  # run with SENTRY_ENVIRONMENT=eval to keep these calls apart from demo traffic
     results = []
     for run in range(a.repeat):
         with ThreadPoolExecutor(CONFIG.adjuster.parallelism) as ex:  # cache and log are off: scoring measures fresh calls
-            outs = list(ex.map(lambda c: A.adjust(to_ctx(c), cfg=cfg, use_cache=False, write_log=False), cases))
+            outs = list(ex.map(lambda c: adjust_traced(c, cfg), cases))
         failed = sum(not o.llm_ok for o in outs)
         s = score(cases, outs, f"{a.split} run {run + 1} (prompt {P.PROMPT_VERSION}, LLM failures {failed})", verbose)
         results.append((outs, s))

@@ -16,6 +16,17 @@ def _finite(s: str) -> float | None:
     return v if math.isfinite(v) else None
 
 
+def trace_headers(text: str) -> dict[str, str]:
+    """Sentry headers a sender put in the envelope. A sender without Sentry sends no key, so those messages skip a second parse."""
+    if '"sentry_trace"' not in text:
+        return {}
+    try:
+        raw = json.loads(text)
+    except ValueError:
+        return {}
+    return {k: v for k, v in (("sentry-trace", raw.get("sentry_trace")), ("baggage", raw.get("baggage"))) if v}
+
+
 def parse_envelope(text: str, allowed: set[str]) -> tuple[str, Model]:
     """A non-finite number becomes null so the rest of the reading survives (component-map: treat as null)."""
     try:

@@ -5,6 +5,7 @@ from collections import deque
 
 from backend.config import ReceiverConfig
 from backend.contracts import VitalsReading, WsMessage
+from backend.observability import trace_fields
 
 log = logging.getLogger(__name__)
 
@@ -25,12 +26,17 @@ class IngestSender:
         self._queue: deque[str] = deque(maxlen=QUEUE_MAX)
         self._wake = asyncio.Event()
         self.connected = False
+        self.dropped = 0
 
     def send(self, reading: VitalsReading) -> bool:
         if not self.connected:
             return False
-        msg = WsMessage(type="I1", data=reading.model_dump(mode="json", exclude_none=True))
-        self._queue.append(msg.model_dump_json())
+        msg = WsMessage(type="I1", data=reading.model_dump(mode="json", exclude_none=True), **trace_fields())
+        if len(self._queue) == QUEUE_MAX:
+            self.dropped += 1
+            if self.dropped % 10 == 1:  # a slow socket drops one a second, so log the first and every tenth
+                log.warning("ingest socket is slow, dropping the oldest reading", extra={"dropped_total": self.dropped})
+        self._queue.append(msg.model_dump_json(exclude_none=True))  # keeps the wire unchanged when Sentry is off
         self._wake.set()
         return True
 

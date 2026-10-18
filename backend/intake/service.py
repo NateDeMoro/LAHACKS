@@ -10,6 +10,8 @@ import logging
 import secrets
 from typing import Callable
 
+import sentry_sdk
+
 from backend.adjuster import adjuster as A
 from backend.config import CONFIG, Config
 from backend.contracts import (AdjustmentEvidence, ContextAdjustments, IntakeRecord, PatientContext,
@@ -151,7 +153,8 @@ class IntakeService:
         if structured_only:
             self._card[pid]["state"] = DONE if preset else STRUCTURED_ONLY
             return assignment
-        self._spawn(self._finish(ctx, seq))
+        trace = {"sentry-trace": sentry_sdk.get_traceparent() or "", "baggage": sentry_sdk.get_baggage() or ""}
+        self._spawn(self._finish(ctx, seq, trace))
         if key and not cond:
             self._spawn(self._finish_conditions(ctx, seq, key))
         return assignment
@@ -187,10 +190,23 @@ class IntakeService:
             log.exception("condition apply failed for %s", pid)
             card["cond_state"] = FAILED
 
-    async def _finish(self, ctx: PatientContext, seq: int):
+    @staticmethod
+    def _describe(span, ctx: PatientContext, out: A.Outcome) -> None:
+        """Span data and a log line for one adjuster run. Ids and counts only, never complaint text."""
+        span.set_data("adjuster.llm_ok", out.llm_ok)
+        span.set_data("adjuster.cache_hit", out.llm_ok and out.latency_s == 0)
+        span.set_data("adjuster.dropped", len(out.dropped))
+        if (ctx.chief_complaint or "").strip() and not out.llm_ok:
+            log.warning("adjuster fell back to rules only", extra={"patient_id": ctx.patient_id})
+
+    async def _finish(self, ctx: PatientContext, seq: int, trace: dict[str, str]):
         pid = ctx.patient_id
         try:
-            out: A.Outcome = await asyncio.to_thread(self._adjust, ctx)
+            # Its own transaction inside the intake request's trace: the request has returned by now.
+            txn = sentry_sdk.continue_trace(trace, op="intake.adjust", name="intake adjust")
+            with sentry_sdk.start_transaction(txn) as span:
+                out: A.Outcome = await asyncio.to_thread(self._adjust, ctx)
+                self._describe(span, ctx, out)
         except Exception:  # the adjuster falls back on LLM failure itself; anything else keeps the structured result
             log.exception("adjuster failed for %s", pid)
             out = None

@@ -1,10 +1,13 @@
 """Turns Polar H10 heart-rate frames into I1 readings and feeds beats to the breathing estimator."""
+import logging
 from datetime import datetime
 from itertools import accumulate
 
 from backend.config import CONFIG, ReceiverConfig
 from backend.contracts import VitalsReading
 from backend.timeutil import LA
+
+log = logging.getLogger(__name__)
 
 
 class FrameProcessor:
@@ -17,6 +20,7 @@ class FrameProcessor:
         self._contact = True
         self._first_frame_s: float | None = None
         self._last_beat_s: float | None = None
+        self._last_reason: str | None = None
 
     def on_frame(self, tstamp_ns: int, avg_hr: int, rr_ms: list[int],
                  sensor_contact: bool | None) -> VitalsReading:
@@ -31,12 +35,13 @@ class FrameProcessor:
             self._set_contact(False)
             return self._reading(tstamp_ns, contact=False, rr_ms=[])
 
-        self._contact = True
+        self._set_contact(True)
         if rr_ms:
             start = t_end - sum(rr_ms) / 1000
             self._est.add_beats([start + c / 1000 for c in accumulate(rr_ms)], rr_ms)
-        return self._reading(tstamp_ns, contact=True, hr=avg_hr, rr_ms=list(rr_ms),
-                             resp_rate=self._est.estimate(t_end, contact=True))
+        resp_rate = self._est.estimate(t_end, contact=True)
+        self._log_breathing(resp_rate)
+        return self._reading(tstamp_ns, contact=True, hr=avg_hr, rr_ms=list(rr_ms), resp_rate=resp_rate)
 
     def no_strap(self, now_ns: int) -> VitalsReading:
         self._set_contact(False)
@@ -50,9 +55,18 @@ class FrameProcessor:
         return t_end - since <= self._cfg.no_beat_timeout_s
 
     def _set_contact(self, contact: bool) -> None:
+        if self._contact != contact:
+            log.info("strap contact %s", "regained" if contact else "lost", extra={"wearable_id": self._cfg.wearable_id})
         if self._contact and not contact:
             self._est.reset()
         self._contact = contact
+
+    def _log_breathing(self, resp_rate: float | None) -> None:
+        """Log when the breathing estimate changes between a value and a reason for none, not every second."""
+        reason = "ok" if resp_rate is not None else getattr(self._est, "last_reason", "unknown")
+        if reason != self._last_reason:
+            log.info("breathing estimate: %s", reason, extra={"wearable_id": self._cfg.wearable_id, "reason": reason})
+            self._last_reason = reason
 
     def _reading(self, ts_ns: int, contact: bool, hr=None, rr_ms=None, resp_rate=None) -> VitalsReading:
         return VitalsReading(

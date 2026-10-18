@@ -1,4 +1,4 @@
-"""Risk engine: NEWS2 every second; population ranges at intake; personal baseline and I9 every minute."""
+"""Risk engine: NEWS2 every second; population ranges at intake; personal baseline and I9 every period (30 s live)."""
 import json
 from pathlib import Path
 from datetime import timedelta

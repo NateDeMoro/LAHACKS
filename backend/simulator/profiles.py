@@ -36,7 +36,7 @@ _LIST = [
         "Rolled my ankle playing soccer, can't put weight on it.",
         118, 74, "alert", 5, False, 4,
         _script([72, 74, 73, 72], [14, 14, 15, 14], [98] * 4, [36.6] * 4, 101, [0, 0, 0, 0],
-                "None: the 8 s SpO2 dip is absorbed by the 60-second median",
+                "None: the 8 s SpO2 dip is absorbed by the 30-second median",
                 glitches=[Glitch(vital="spo2", at=0.5, duration_s=8, value=90)]),
     ),
     _profile(

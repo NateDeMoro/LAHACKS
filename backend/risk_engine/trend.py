@@ -1,4 +1,4 @@
-"""Fast trend wiring (Step A). Use when I9 needs trend fields on top of the per-minute levels.
+"""Fast trend wiring (Step A). Use when I9 needs trend fields on top of the per-period levels.
 
 Keeps each patient's last 60 minutes of clean minute values, starts after `fast_min_clean_minutes`
 of elapsed time, stays null while any vital is in danger (the fast label is not defined there),
@@ -23,6 +23,7 @@ class Row:
     hr: float | None
     resp_rate: float | None
     spo2: float | None
+    merged: bool = False  # two periods already averaged into this row
 
 
 def _mean(a: float | None, b: float | None) -> float | None:
@@ -32,7 +33,7 @@ def _mean(a: float | None, b: float | None) -> float | None:
 def _merge(first: Row, second: Row) -> Row:
     """Same clock minute: keep the first timestamp, average the vitals."""
     return Row(first.ts, _mean(first.hr, second.hr), _mean(first.resp_rate, second.resp_rate),
-               _mean(first.spo2, second.spo2))
+               _mean(first.spo2, second.spo2), merged=True)
 
 
 class TrendHistory:
@@ -46,7 +47,8 @@ class TrendHistory:
         if self.first_clean is None:
             self.first_clean = m.period_ts
         row = Row(m.period_ts, m.hr, m.resp_rate, m.spo2)
-        if self.rows and self.rows[-1].ts.replace(second=0, microsecond=0) == m.period_ts.replace(second=0, microsecond=0):
+        last = self.rows[-1] if self.rows else None
+        if last and not last.merged and last.ts.replace(second=0, microsecond=0) == m.period_ts.replace(second=0, microsecond=0):
             row = _merge(self.rows.pop(), row)  # the model was trained on one-minute rows; 30 s periods are paired up
         self.rows.append(row)
         while self.rows[0].ts < m.period_ts - HISTORY:
@@ -83,7 +85,7 @@ class Trend:
 
     def update(self, m: PeriodSummary, levels: dict[str, str | None], level: str,
                reason: str | None) -> TrendOutcome:
-        """Feed one minute with its classified levels; returns the (possibly raised) level and trend fields."""
+        """Feed one period with its classified levels; returns the (possibly raised) level and trend fields."""
         unchanged = TrendOutcome(level, reason)
         if m.period_ts is None or not is_clean_period(m.clean_seconds, self.min_clean_seconds):
             return unchanged

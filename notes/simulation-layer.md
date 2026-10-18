@@ -30,7 +30,7 @@ Values at 0 → 30% → 60% → 100% of the run. Breathing is scripted but inges
 
 | Run | Tier | Patient | Heart rate | Breathing | SpO2 | Temp °C | NEWS2 | Target alerts |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| H1 Ankle sprain | Healthy | 24 M, no conditions, ESI 4 | 72 → 74 → 73 → 72 | 14 → 14 → 15 → 14 | 98 flat; dips to 90 for 8 s at 50% | 36.6 | 0 → 0 → 0 → 0 | None; the 60-second median absorbs the dip |
+| H1 Ankle sprain | Healthy | 24 M, no conditions, ESI 4 | 72 → 74 → 73 → 72 | 14 → 14 → 15 → 14 | 98 flat; dips to 90 for 8 s at 50% | 36.6 | 0 → 0 → 0 → 0 | None; the 30-second median absorbs the dip |
 | H2 Sore throat | Healthy | 41 F, no conditions, ESI 5 | 78 → 78 → 105 → 80 | 15 → 15 → 22 → 16 | 97 → 97 → 96 → 97 | 36.8 | 0 → 0 → 1 → 0 | None; warning at most |
 | U1 Fever on a beta-blocker | At risk | 67 M, hypertension, diabetes, metoprolol | 82 → 88 → 98 → 112 | 18 → 20 → 23 → 26 | 95 → 94 → 91 → 89 | 37.8 → 38.2 → 38.7 → 39.2 | 1 → 2 → 5 → 7 | Urgent from about minute 6, high (7) at the end |
 | U2 Asthma flare | At risk | 31 F, asthma, albuterol | 96 → 104 → 118 → 132 | 20 → 24 → 27 → 28 | 95 → 94 → 91 → 89 | 36.9 | 2 → 2 → 5 → 6 | Urgent from about minute 6 |

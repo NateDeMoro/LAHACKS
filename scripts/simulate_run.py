@@ -18,7 +18,7 @@ class PrintSink:
     def ingest(self, reading, source):
         if self.count % self.every == 0:
             total, _ = news2.score(
-                resp_rate=None, spo2=reading.spo2,  # breathing is off in ingest hr=reading.hr, temp_c=reading.temp_c,
+                resp_rate=None, spo2=reading.spo2, hr=reading.hr, temp_c=reading.temp_c,  # breathing is off in ingest
                 sbp=self.triage.sbp, alertness=self.triage.alertness, on_oxygen=self.triage.on_oxygen)
             print(f"{self.count:>5}s  hr {reading.hr:>5g}  resp {reading.resp_rate:>3g}  "
                   f"spo2 {reading.spo2:>3g}  temp {reading.temp_c:>4.1f}  NEWS2 {total}  [{source}]")

@@ -207,12 +207,12 @@ def test_late_tick_skips_empty_periods_without_a_burst_of_rows():
     assert st.tick(at(401)).period is None
 
 
-def test_jittery_ticks_never_report_more_than_60_clean_seconds():
+def test_jittery_ticks_never_report_more_than_30_clean_seconds():
     st = PatientStream("p1", at(0))
     for i in range(1, 140):
         now = at(i * 0.9)
         st.on_reading(now, strap(), "strap")
-        assert st.tick(now).live.clean_seconds <= 60
+        assert st.tick(now).live.clean_seconds <= 30
 
 
 def test_medians_carry_no_float_noise():
@@ -226,7 +226,7 @@ def test_medians_carry_no_float_noise():
 def test_ending_a_run_hands_back_the_open_period():
     st = PatientStream("p1", at(0))
     st.set_run_state(at(0), "running")
-    for s in range(1, 90):  # one full period closes on the way; 29 s are left open
+    for s in range(1, 90):  # two periods close (at 30 and 60); the 30 s from 60 are left open
         st.on_reading(at(s), sim(hr=90, resp_rate=18, spo2=97, temp_c=37.0), "simulator")
         st.tick(at(s))
     last = st.set_run_state(at(90), "ended")

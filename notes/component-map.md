@@ -64,8 +64,8 @@ Shared rules: timestamps are LA local time with the UTC offset (`2026-10-18T10:1
 | I5 | Context adjustments | Context adjuster → Baseline ranges | Function call · once at intake | Tentative |
 | I6 | Period summary | Ingest → Risk engine | Function call · every period (30 s live) | Decided |
 | I7 | Model files | Offline training → Risk engine | Files in models/ · loaded at startup | Tentative |
-| I8 | Patient ranges | Baseline ranges → Personal baseline, scorers, alert logic, Simulator, Dashboard | In memory · set at intake, narrowed each minute | Tentative |
-| I9 | Risk result | Risk engine → Alert logic, Dashboard, storage, Fetch.ai agent | WebSocket push to dashboard · every minute | Decided |
+| I8 | Patient ranges | Baseline ranges → Personal baseline, scorers, alert logic, Simulator, Dashboard | In memory · set at intake, narrowed each period | Tentative |
+| I9 | Risk result | Risk engine → Alert logic, Dashboard, storage, Fetch.ai agent | WebSocket push to dashboard · every period (30 s live) | Decided |
 | I10 | Alert | Alert logic → Dashboard | WebSocket · when it fires or resolves | Tentative |
 | I11 | Acknowledgment | Dashboard → Alert logic | WebSocket · on click | Decided |
 | I12 | Scenario trigger | Dashboard → Simulator | WebSocket · on run button | Tentative |
@@ -248,7 +248,7 @@ Warning is everything between safe and danger.
 | vital, reason | the vital driving the level, one line |
 | vital_levels | {hr, resp_rate, spo2, temp_c}: safe \| warning \| danger each, null if the vital had no reading |
 | vital_values | {hr, resp_rate, spo2, temp_c}: the minute's values |
-| news2 | 0–20 total, latest live value (I14); null if that I14 is over 60 s older than the minute |
+| news2 | 0–20 total, latest live value (I14); null if that I14 is over 60 s older than the period |
 | news2_points | {resp_rate, spo2, on_oxygen, sbp, hr, alertness, temp_c}: 0–3 each; null with news2 |
 | trend_prob_fast | the 15-minute model's score, not a probability: how many points past the danger edge the cautious forecast lands (positive = past it; the shipped warning cutoff is 2.0); null until 15 clean minutes, while any vital is in danger, or with no model. The field name is kept for compatibility |
 | trend_tier | null \| warning; the trend raises the level to warning at most, never lowers it |
@@ -327,7 +327,7 @@ Never read by the risk engine. Used to score the adjuster against the labeled te
 ## Decisions and open questions
 
 - Breathing rate is computed in the strap receiver; the simulator sends a breathing rate directly.
-- The risk engine is a Python module with entry points at intake, every second and every minute.
+- The risk engine is a Python module with entry points at intake, every second and every period.
 - Alert logic owner: either works; listed as stats.
 - Context adjuster model: step-5-preview (required for the StepFun challenge); Jev optional.
 - The simulator is run-based (six sample patients, a fixed-length run each) rather than event buttons; see [simulation-layer.md](simulation-layer.md).

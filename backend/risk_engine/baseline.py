@@ -1,9 +1,9 @@
 """Personal baseline (T3): narrows the safe band for heart rate and breathing toward the patient's
-own readings. Use when updating I8 each minute from I6.
+own readings. Use when updating I8 each period from I6.
 
 Only the safe band moves, and only inward: the result stays inside the population safe band, danger
 edges are untouched, and a vital that scores NEWS2 points on arrival is never learned. Windows are
-counted in time from period_ts, so 5-minute eICU rows and 1-minute live rows behave alike."""
+counted in time from period_ts, so 5-minute eICU rows and 30 s live rows behave alike."""
 from statistics import median
 
 from backend.contracts import BaselineConfig, PeriodSummary, PatientRanges, VitalRange
@@ -16,7 +16,7 @@ _BAND_SD = 3.92      # a 95% band is 3.92 standard deviations wide
 
 
 def is_clean_period(clean_seconds: int | None, min_clean_seconds: int | None) -> bool:
-    """A minute counts if clean_seconds is unknown or at least the minimum. Shared with trend.py."""
+    """A period counts if clean_seconds is unknown or at least the minimum. Shared with trend.py."""
     return clean_seconds is None or clean_seconds >= (min_clean_seconds or 0)
 
 

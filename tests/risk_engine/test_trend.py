@@ -53,6 +53,13 @@ def test_half_minute_rows_reach_the_model_as_one_minute_rows(monkeypatch):
     assert [r.hr for r in rows[:-1]] == [72] * 17 and rows[-1].hr == 70
 
 
+def test_a_third_row_in_a_minute_is_kept_apart():
+    eng = RiskEngine()
+    for sec, hr in ((0, 60), (30, 60), (40, 100)):  # a run restarts the 30 s grid mid-minute
+        eng.on_period(row(0, hr=hr).model_copy(update={"period_ts": T0 + timedelta(seconds=sec)}))
+    assert [r.hr for r in list(eng.trend.histories["p"].rows)] == [60, 100]
+
+
 def test_threshold_counts_elapsed_time_not_rows(model):
     res = run([row(i, step=5) for i in range(5)])  # eICU spacing: minute 0, 5, 10, 15, 20
     assert [r.trend_tier for r in res] == [None, None, None, "warning", "warning"]

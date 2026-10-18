@@ -31,7 +31,9 @@ def _terms_key(terms: list[str] | None) -> tuple[str, ...]:
 def default_condition_fn(ctx: PatientContext):
     """Real lookup and evidence step; imported here so the intake service loads without them."""
     from backend.conditions import evidence, lookup, service
-    return service.process(ctx, resolve_fn=lookup.resolve,
+    from backend.conditions import normalize
+    norm = normalize.for_config()
+    return service.process(ctx, resolve_fn=lambda terms: lookup.resolve(terms, normalize_fn=norm),
                            draft_fn=lambda code, name: evidence.draft(code, name, vocabulary="nlm_conditions"))
 
 

@@ -61,6 +61,7 @@ class ConditionsConfig:
     """Custom conditions and drafted rules. logs/ is gitignored: evidence holds condition names."""
     enabled: bool = True  # kill switch for drafted rules; the lookup and checklist mapping stay on
     allowed_vitals: tuple[str, ...] = ("hr", "resp_rate", "spo2", "temp_c")  # sbp is a triage reading, never graded
+    normalize_enabled: bool = True  # fallback rewrite of a term the vocabulary did not find
     min_sources: int = 2  # distinct sources that must support a pick
     match_threshold: float = 0.85  # fuzzy match score for a typed term against the vocabulary
     max_abstracts: int = 8

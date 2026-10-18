@@ -81,13 +81,32 @@ def http_get(url: str, timeout: float) -> object:
         return json.loads(r.read(MAX_BYTES))
 
 
-def resolve(terms: list[str], *, fetch: Fetch | None = None,
-            cfg: ConditionsConfig = CONFIG.conditions) -> list[ResolvedCondition]:
+def resolve(terms: list[str], *, fetch: Fetch | None = None, cfg: ConditionsConfig = CONFIG.conditions,
+            normalize_fn: Callable[[str], list[str]] | None = None) -> list[ResolvedCondition]:
+    """normalize_fn, if given, is tried only for a term the vocabulary did not find: its candidate names are
+    looked up in turn and the first that resolves wins. The nurse's own text stays in `typed`."""
     fetch = fetch or http_get
-    return [_resolve_one(t, fetch, cfg) for t in sanitize_terms(terms)]
+    return [_resolve_one(t, fetch, cfg, normalize_fn) for t in sanitize_terms(terms)]
 
 
-def _resolve_one(typed: str, fetch: Fetch, cfg: ConditionsConfig) -> ResolvedCondition:
+def _resolve_one(typed: str, fetch: Fetch, cfg: ConditionsConfig, normalize_fn=None) -> ResolvedCondition:
+    first = _lookup(typed, fetch, cfg)
+    if first.status != "not_found" or normalize_fn is None:
+        return first
+    try:
+        alternatives = sanitize_terms(normalize_fn(typed))
+    except Exception:  # the normalizer is a convenience: its failure leaves the term not found
+        return first
+    for alt in alternatives:
+        found = _lookup(alt, fetch, cfg)
+        if found.status == "unavailable":
+            return found.model_copy(update={"typed": typed})
+        if found.status != "not_found":
+            return found.model_copy(update={"typed": typed})
+    return first
+
+
+def _lookup(typed: str, fetch: Fetch, cfg: ConditionsConfig) -> ResolvedCondition:
     flag = SYNONYM_FLAG.get(_norm(typed))
     if flag:
         return ResolvedCondition(typed=typed, canonical=flag.replace("_", " "), status="checklist", checklist=flag)
@@ -139,7 +158,7 @@ def _pick(typed: str, hits: list[Hit], threshold: float) -> ResolvedCondition:
     scored = sorted(((_score(tn, h.name), h) for h in hits), key=lambda p: -p[0])
     above = [(s, h) for s, h in scored if s >= threshold]
     if not above:
-        return ResolvedCondition(typed=typed, status="not_found")
+        return _by_synonym(typed, [h for _, h in scored])
     exact = next((h for _, h in above if _norm(h.name) == tn), None)
     if exact:
         return _found(typed, exact)
@@ -152,6 +171,19 @@ def _pick(typed: str, hits: list[Hit], threshold: float) -> ResolvedCondition:
                                  candidates=[Candidate(canonical=h.name, code=h.code)
                                              for h in close[:MAX_CANDIDATES]])
     return _found(typed, close[0])
+
+
+def _by_synonym(typed: str, hits: list[Hit]) -> ResolvedCondition:
+    """NLM matches synonyms ("celiac" finds Sprue, "kidney stones" finds Renal stone) that a name-similarity score
+    cannot see. The API only returns entries whose words all match what was typed, so a single distinct hit is
+    taken as that condition, and several are listed as candidates for the nurse (shown as not applied)."""
+    distinct = list({h.code or h.name: h for h in hits}.values())
+    if not distinct:
+        return ResolvedCondition(typed=typed, status="not_found")
+    if len(distinct) == 1:
+        return _found(typed, distinct[0])
+    return ResolvedCondition(typed=typed, vocabulary=VOCABULARY, status="ambiguous",
+                             candidates=[Candidate(canonical=h.name, code=h.code) for h in distinct[:MAX_CANDIDATES]])
 
 
 def _found(typed: str, hit: Hit) -> ResolvedCondition:

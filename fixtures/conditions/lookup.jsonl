@@ -7,9 +7,9 @@
 {"typed": "pneumonia aspiration", "label": "real", "expected_status": "found", "note": "exact or near-exact name in the vocabulary"}
 {"typed": "brain tumor", "label": "real", "expected_status": "found", "note": "exact or near-exact name in the vocabulary"}
 {"typed": "crohn's disease", "label": "real", "expected_status": "found", "note": "apostrophe removed from the search; vocabulary spells it Crohns"}
-{"typed": "celiac disease", "label": "real", "expected_status": "found", "note": "known miss: vocabulary lists it as Sprue"}
-{"typed": "huntington disease", "label": "real", "expected_status": "found", "note": "known miss: vocabulary lists chorea only"}
-{"typed": "parkinson disease", "label": "real", "expected_status": "found", "note": "known miss: vocabulary has Parkinsons, score below threshold"}
+{"typed": "celiac disease", "label": "real", "expected_status": "found", "note": "found as a synonym: the vocabulary lists it as Sprue"}
+{"typed": "huntington disease", "label": "real", "expected_status": "found", "note": "found as an ADJACENT match: the vocabulary lists Chorea (G25.5), not Huntington disease"}
+{"typed": "parkinson disease", "label": "real", "expected_status": "found", "note": "found as a synonym: the vocabulary lists Parkinsons"}
 {"typed": "zorbitis", "label": "invented", "expected_status": "not_found", "note": "invented word"}
 {"typed": "portal hypotension", "label": "invented", "expected_status": "not_found", "note": "invented or one word swapped from a real name"}
 {"typed": "lung cancel", "label": "invented", "expected_status": "not_found", "note": "invented or one word swapped from a real name"}

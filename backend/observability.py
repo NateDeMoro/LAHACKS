@@ -28,15 +28,19 @@ def _drop_access_log(log_item: dict, _hint: dict) -> dict | None:
     return None if log_item.get("attributes", {}).get("logger.name") == "uvicorn.access" else log_item
 
 
-def init_sentry(service: str, cfg: ObservabilityConfig | None = None) -> bool:
+def init_sentry(service: str, cfg: ObservabilityConfig | None = None, *, transport=None) -> bool:
+    """transport is for tests, which read back what would have been sent."""
     cfg = cfg or CONFIG.observability
     if not cfg.dsn:
         log.info("SENTRY_DSN is empty: Sentry is off")
         return False
     sentry_sdk.init(
-        dsn=cfg.dsn, environment=cfg.environment, traces_sampler=_sampler(cfg),
+        dsn=cfg.dsn, environment=cfg.environment, traces_sampler=_sampler(cfg), transport=transport,
         profile_session_sample_rate=cfg.profile_rate, profile_lifecycle="trace",
-        enable_logs=True, before_send_log=_drop_access_log, send_default_pii=False,
+        enable_logs=True, before_send_log=_drop_access_log,
+        # Complaint text reaches prompts, replies and local variables, so none of them leave the process.
+        data_collection={"user_info": False, "http_bodies": [], "stack_frame_variables": False,
+                         "gen_ai": {"inputs": False, "outputs": False}},
         integrations=[OpenAIIntegration(include_prompts=False)],
     )
     sentry_sdk.set_tag("service", service)

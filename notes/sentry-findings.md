@@ -9,8 +9,19 @@ What Sentry showed us and what we changed because of it. Fill a row only after t
 | `backend/observability.py` | One init for backend and receiver: tracing, logs, profiling, OpenAI integration (prompts off), PII off, `service` tag. No `SENTRY_DSN` keeps it off |
 | Receiver (`receiver/`) | A sampled trace per frame (frame processing, then send); logs for strap connect, contact lost and regained, breathing estimate reason changes, slow-socket drops. Trace headers ride in the I1 envelope |
 | Ingest (`backend/app.py`, `backend/ingest/service.py`) | `ingest reading` continues the receiver's trace with `strap_to_ingest_s`; `ingest tick` (sampled) with a news2 span; `engine period` (always, profiled); `GET /health` for the uptime check |
-| LLM (`backend/llm.py`, `backend/intake/service.py`) | `llm.json_completion` span (retried, tokens) around the OpenAI AI span; `intake adjust` transaction in the intake request's trace with `adjuster.llm_ok`, `cache_hit`, `dropped`; a log when the adjuster falls back to rules only |
+| Scoring (`scripts/score_adjuster.py`) | One `eval adjust` transaction per scored case; run with `SENTRY_ENVIRONMENT=eval` to get latency and token numbers apart from demo traffic |
+| LLM (`backend/llm.py`, `backend/intake/service.py`) | `llm.json_completion` span named by its `purpose` (retried, tokens) around the OpenAI AI span; `intake adjust` transaction in the intake request's trace with `adjuster.llm_ok`, `cache_hit`, `dropped`; a log when the adjuster falls back to rules only |
 | Frontend (`frontend/src/main.tsx`) | Browser tracing and Session Replay (inputs masked) when `VITE_SENTRY_DSN` is set |
+
+## Adding a new LLM feature
+
+1. Call `json_completion(..., purpose="<feature>")`. The OpenAI span, tokens and latency appear on their own; the purpose lets Sentry group by feature.
+2. Put cache and store hits on the enclosing span as attributes (`cache_hit`), so a fast call is not mistaken for a fast model.
+3. Log fallbacks and failures with ids and counts, never the text.
+4. If the work runs in a background task, capture `sentry_sdk.get_traceparent()` and `get_baggage()` before spawning it and continue the trace inside (see `IntakeService._finish`). Do this in a helper once a second feature needs it.
+5. Anything that fires every second goes in `READING_OPS` in `backend/observability.py`, or it is traced at 100%.
+6. Never put typed or model text in an event. `tests/observability/test_llm_spans.py` fails if a prompt, a reply or a local variable leaks.
+7. Add a row to the table above.
 
 ## Findings
 

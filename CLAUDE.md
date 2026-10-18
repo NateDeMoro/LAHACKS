@@ -73,7 +73,7 @@ If code already exists, skim the layout and fit the plan to it; no deep groundin
 | backend/observability.py, notes/sentry-findings.md | Sentry init shared by backend and receiver (sampling, logs, profiling, AI spans, PII off); what is instrumented and the findings log | Adding a span or log, changing sampling, or recording what Sentry showed us |
 | receiver/ | Strap receiver: breathing, frames, strap link, sender, main | Building or changing S1 |
 | scripts/hardware/ | Six guided strap checks (scan, connect, rhythm, contact, paced breathing, dropout) | Testing the strap, Bluetooth or breathing on real hardware |
-| tests/ | pytest suites, one folder per component (tests/receiver, tests/risk_engine, tests/simulator) | Running or adding tests |
+| tests/ | pytest suites, one folder per component (tests/receiver, tests/risk_engine, tests/simulator, tests/observability) | Running or adding tests |
 | training/ | Offline fits run with uv: fit_ranges.py (NHANES quantile fit to models/ranges.json), tune_baseline.py (eICU sweep of k and floors), tune_alerts.py (eICU sweep of alert windows) | Refitting the population bands or retuning baseline and alert settings |
 | backend/llm.py, backend/adjuster/ | StepFun JSON-completion helper; adjuster: rules.py (structured firing, I5 merge), prompt.py, adjuster.py (LLM reply, validator, cache, log), proposal.py (B1 smoke), testset.py | Calling an LLM or building the context adjuster (B1-B3) |
 | scripts/score_adjuster.py | Scores the adjuster on dev/test; --selftest (offline stub), --offline, --repeat | Changing the adjuster or its prompt |

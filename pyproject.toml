@@ -20,6 +20,7 @@ receiver = [
 
 [tool.uv]
 package = false
+default-groups = ["dev", "fixtures", "training", "receiver"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

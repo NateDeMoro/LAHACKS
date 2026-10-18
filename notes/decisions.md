@@ -140,6 +140,25 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 ### Dependencies
 - `lightgbm` is a runtime dependency (imported lazily; needs libomp on Mac, libgomp on Linux). `wfdb` is in the training group for the MIMIC numerics download.
 
+## T4 Alert logic (backend/risk_engine/alerts.py)
+
+### Conditions, persistence, severity (T4a)
+- **Keys:** one per patient and vital, one NEWS2 key and one trend key per patient. A vital key has two tiers: warning_persisted (level warning or danger, warning severity) and vital_danger (level danger, urgent). NEWS2 has urgent at 5-6 and high at 7 or more, each with the `news2_total_minutes` window. Trend is warning while `trend_tier` is warning; a null tier counts as "not holding", not as a missing observation.
+- **Persistence by timestamp:** a run starts at the first I9 where the tier's condition holds; it fires at the first observation at least the window later (window 0 fires on the first). A missing observation (null level, null `news2`) is skipped: it neither counts nor breaks the run and never fires. If the time since the key's last real observation exceeds `max_gap_minutes`, runs and the clear timer restart.
+
+### State table and lifecycle (T4b)
+- Implemented as in the plan. "Resolved" is a flag on an open alert. A resolved-but-unacknowledged alert whose problem returns (its window met again) is superseded by a new alert rather than un-resolved. After a cooldown re-fire the severity is the one currently holding (no new window), which can be lower than the acknowledged one. The resolved update keeps the alert's fields and takes the time of resolution as `ts`; the alert_id stays the creation id `patient|key|ts`.
+- **Clearing** is measured the same way as persistence (first clear observation, then `clear_minutes` later; same null and gap rules). Acknowledging a resolved alert goes to acknowledged and then idle on the next clear observation.
+- **Ack:** follows the supersede chain to the current head; an ack of an unknown or no-longer-live alert is logged and ignored. The cooldown runs from the ack's `ts` (the last seen I9 time if absent).
+
+### NEWS2 folding
+- When the NEWS2 key fires it supersedes every open vital alert of that patient (the `supersedes` list) and puts those vital keys back to idle. Vital keys keep tracking but do not fire while the NEWS2 alert is live: open and unresolved, or acknowledged (including after the ack).
+- **Choice:** the plan says "until its key returns to idle". A resolved-but-unacknowledged NEWS2 alert is treated as released, otherwise one forgotten alert would silence a real vital danger indefinitely. On release every vital still holding fires at once (no new window); one that cleared meanwhile does not.
+- Folded vital alerts that were already acknowledged are not superseded (nothing to replace); acking one of them later is ignored as no longer live.
+
+### Messages
+- Built from the bed label (engine.bed_label passed in as a callable; the patient_id if it returns nothing or raises), `vital_values` and `news2_points`: "Bed 4: breathing 26/min, 3 points". Points are left out when null (stale NEWS2). NEWS2 names drivers with 2 or more points (all scoring parts if none reach 2).
+
 ## Stated limits
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.
 - NHANES pulse is seated and resting; anxious waiting patients may run above the 90 bpm cap and show warning (check at C2; the fix would be a config offset).

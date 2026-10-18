@@ -22,6 +22,7 @@ class RunPlayer:
         samples: list[Sample],
         preroll: list[MinuteSummary],
     ) -> None:
+        self._sink.assign(wearable_id, patient_id)  # I3: ingest drops readings from a wearable it does not know
         if preroll:
             self._sink.seed_trend_history(patient_id, preroll)
         self._sink.set_run_state(patient_id, "running")

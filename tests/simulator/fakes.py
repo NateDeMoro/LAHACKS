@@ -11,6 +11,9 @@ class FakeSink:
         if self._clock:
             self._clock.t += self._cost
 
+    def assign(self, wearable_id, patient_id):
+        self.calls.append(("assign", wearable_id, patient_id))
+
     def set_run_state(self, patient_id, state):
         self.calls.append(("state", patient_id, state))
 

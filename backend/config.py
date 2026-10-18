@@ -59,11 +59,26 @@ class SimulatorConfig:
 
 
 @dataclass(frozen=True)
+class IngestConfig:
+    """Ingest service (S2). Times in seconds."""
+    window_s: float = 60.0  # rolling window for I13 and length of an I6 minute
+    sim_ttl_s: float = 5.0  # a simulator value stays current this long (live-mode merge)
+    strap_ttl_s: float = 3.0  # a strap reading stays current this long; the strap sends about once a second
+    min_samples: int = 5  # clean seconds a vital needs in the window before I13 reports a median
+    bounds: dict[str, tuple[float, float]] = field(default_factory=lambda: {  # impossible values only; danger must pass
+        "hr": (20, 250), "resp_rate": (3, 60), "spo2": (50, 100), "temp_c": (30, 45)})
+    default_assignments: dict[int, str] = field(default_factory=lambda: {ReceiverConfig.wearable_id: "demo-001"})
+    store_path: str = os.environ.get("INGEST_STORE_PATH", "data/ingest.sqlite")
+    unassigned_log_every_s: float = 30.0
+
+
+@dataclass(frozen=True)
 class Config:
     receiver: ReceiverConfig = field(default_factory=ReceiverConfig)
     beds: BedConfig = field(default_factory=BedConfig)
     llm: LlmConfig = field(default_factory=LlmConfig)
     simulator: SimulatorConfig = field(default_factory=SimulatorConfig)
+    ingest: IngestConfig = field(default_factory=IngestConfig)
 
 
 CONFIG = Config()

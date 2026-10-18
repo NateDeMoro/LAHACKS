@@ -63,8 +63,9 @@ async def test_seeds_then_runs_then_ends_and_nothing_follows():
     await play(sink, clock, n=3, preroll=rows)
 
     kinds = [c[0] if c[0] != "state" else c[2] for c in sink.calls]
-    assert kinds == ["seed", "running", "ingest", "ingest", "ingest", "ended"]
-    assert sink.calls[0] == ("seed", "p1", rows)
+    assert kinds == ["assign", "seed", "running", "ingest", "ingest", "ingest", "ended"]
+    assert sink.calls[0] == ("assign", 7, "p1")  # ingest drops readings from a wearable it does not know
+    assert sink.calls[1] == ("seed", "p1", rows)
 
 
 async def test_ticks_are_scheduled_from_the_start_so_slow_sleeps_and_sends_do_not_drift():

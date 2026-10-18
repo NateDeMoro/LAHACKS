@@ -24,6 +24,9 @@ class PrintSink:
                   f"spo2 {reading.spo2:>3g}  temp {reading.temp_c:>4.1f}  NEWS2 {total}  [{source}]")
         self.count += 1
 
+    def assign(self, wearable_id, patient_id):
+        print(f"wearable {wearable_id} -> {patient_id}")
+
     def set_run_state(self, patient_id, state):
         print(f"run state: {state}")
 

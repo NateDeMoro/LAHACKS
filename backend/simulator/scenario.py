@@ -1,5 +1,5 @@
 """Waiting-room scenario scripts (separate from the single-run scripts in profiles.py).
-Keyframes are given in simulated minutes of the 60-minute scenario and converted to run fractions."""
+Each patient's keyframes are minutes since that patient arrived; patients join the scenario at staggered times."""
 import asyncio
 import secrets
 import time
@@ -14,11 +14,13 @@ from backend.simulator.models import Expect, Keyframe, RunScript, Sample, Track
 from backend.simulator.profiles import PROFILES
 from backend.timeutil import now_la
 
-SCENARIO_MINUTES = 60
+SCENARIO_MINUTES = 100  # length of every patient's script, in minutes since their arrival
 _WOBBLE_STEP = {"hr": (2, 1), "resp_rate": (1, 1), "spo2": (0.8, 1), "temp_c": (0.05, 0.1)}
 
 
 def minute_script(points: dict[str, list[tuple[float, float]]], seed: int, news2: list[int], alerts: str) -> RunScript:
+    points = {v: pts if pts[-1][0] == SCENARIO_MINUTES else [*pts, (SCENARIO_MINUTES, pts[-1][1])]
+              for v, pts in points.items()}  # hold the last value to the end of the script
     tracks = {
         v: Track(keyframes=[Keyframe(at=m / SCENARIO_MINUTES, value=x) for m, x in pts],
                  wobble=_WOBBLE_STEP[v][0], step=_WOBBLE_STEP[v][1])
@@ -57,6 +59,7 @@ class ScenarioPatient:
     wearable_id: int
     record: IntakeRecord
     script: RunScript
+    join_minute: int  # scenario minute the patient arrives and monitoring starts
 
 
 def _john_record() -> IntakeRecord:
@@ -70,24 +73,26 @@ _W = CONFIG.simulator.scenario_wearable_ids
 # Order is bed order. H1 is called in at CALLED_IN_MINUTE; John replaces U2; C1 and C2 stay below high.
 SCENARIO_PATIENTS = [
     ScenarioPatient("h1", "Marcus Webb", _W[0], _rec("h1"),
-                    minute_script(_flat(72, 14, 98, 36.6), 201, [0] * 4, "None")),
+                    minute_script(_flat(72, 14, 98, 36.6), 201, [0] * 4, "None"), 0),
     ScenarioPatient("h2", "Priya Nair", _W[1], _rec("h2"),
-                    minute_script(_flat(78, 15, 97, 36.8, 80, 15, 97, 36.8), 202, [0] * 4, "None")),
+                    minute_script(_flat(78, 15, 97, 36.8, 80, 15, 97, 36.8), 202, [0] * 4, "None"), 13),
     ScenarioPatient("u1", "Walter Hobbs", _W[2], _rec("u1"),
-                    minute_script(_flat(82, 18, 96, 37.4, 90, 19, 95, 37.4), 203, [1, 1, 2, 2], "Amber at most")),
-    ScenarioPatient("john", "John Chamberlain", _W[3], _john_record(), JOHN_SCRIPT),
+                    minute_script(_flat(82, 18, 96, 37.4, 90, 19, 95, 37.4), 203, [1, 1, 2, 2], "Amber at most"), 24),
+    ScenarioPatient("john", "John Chamberlain", _W[3], _john_record(), JOHN_SCRIPT, 38),
     ScenarioPatient("c1", "Elena Ruiz", _W[4],
                     _rec("c1", triage=Triage(sbp=112, dbp=70, alertness="alert", pain=2, on_oxygen=False, level=2)),
-                    minute_script(_flat(90, 20, 95, 36.8, 96, 21, 94, 36.9), 204, [1, 2, 3, 4], "Below high")),
+                    minute_script(_flat(90, 20, 95, 36.8, 96, 21, 94, 36.9), 204, [1, 2, 3, 4], "Below high"), 46),
     ScenarioPatient("c2", "Dorothy Klein", _W[5],
                     _rec("c2", triage=Triage(sbp=108, dbp=66, alertness="alert", pain=0, on_oxygen=False, level=2)),
-                    minute_script(_flat(94, 19, 96, 37.4, 98, 20, 96, 37.5), 205, [1, 2, 3, 4], "Below high")),
+                    minute_script(_flat(94, 19, 96, 37.4, 98, 20, 96, 37.5), 205, [1, 2, 3, 4], "Below high"), 52),
 ]
 
-CALLED_IN_KEY, CALLED_IN_MINUTE = "h1", 25
-LEAD_IN_MINUTES = 20
-# Minutes each patient had been waiting when monitoring began; display only (the baseline counts from first data).
-ARRIVED_BEFORE = {"h1": 52, "h2": 41, "u1": 33, "john": 26, "c1": 17, "c2": 9}
+_JOHN_JOIN = next(p.join_minute for p in SCENARIO_PATIENTS if p.key == "john")
+# John's story is timed from his own arrival: the board opens 20 minutes after he arrives,
+# skips land at his minutes 30 and 45, and the scenario ends at his minute 60.
+LEAD_IN_MINUTES = _JOHN_JOIN + 20
+END_MINUTE = _JOHN_JOIN + 60
+CALLED_IN_KEY, CALLED_IN_MINUTE = "h1", _JOHN_JOIN + 25
 
 
 class ScenarioRunner:
@@ -102,13 +107,14 @@ class ScenarioRunner:
         self._ids: dict[str, str] = {}  # patient key -> this run's patient_id
         self._active: set[str] = set()  # patient keys still being monitored
         self._samples: dict[str, list[Sample]] = {}
+        self._joined: dict[str, int] = {}  # patient key -> scenario second they arrived
         self._pos = 0  # next sim second to play
         self._skip: tuple[int, asyncio.Event] | None = None
         self.at_end = False
 
     @property
     def total_s(self) -> int:
-        return SCENARIO_MINUTES * 60
+        return END_MINUTE * 60
 
     def sim_now(self) -> datetime | None:
         return self.clock() if self._start_ts else None
@@ -116,16 +122,20 @@ class ScenarioRunner:
     async def prepare(self) -> None:
         """Registers the six patients through intake and replays the lead-in. Needs the event loop."""
         await self.drop_all()
-        self._start_ts = now_la().replace(second=0, microsecond=0)
+        # Back-dated so the board opens at the current wall time.
+        self._start_ts = now_la().replace(second=0, microsecond=0) - timedelta(minutes=LEAD_IN_MINUTES)
         self.clock.freeze(self._start_ts)
         run = secrets.token_hex(2)
         self.at_end, self._pos = False, 0
-        for p in SCENARIO_PATIENTS:
+        for p in sorted(SCENARIO_PATIENTS, key=lambda p: p.join_minute):
+            await self._replay(p.join_minute * 60)  # earlier arrivals build history until this one walks in
+            self.clock.freeze(self._start_ts + timedelta(seconds=self._pos))
             pid = self._ids[p.key] = f"{p.record.patient_id}-{run}"
-            self._samples[p.key] = generate(p.script, self.total_s)
+            self._joined[p.key] = self._pos
+            self._samples[p.key] = generate(p.script, SCENARIO_MINUTES * 60)
             self._svc.set_clock(pid, self.clock)
             rec = p.record.model_copy(update={"patient_id": pid, "name": p.name, "wearable_id": p.wearable_id,
-                                              "arrival_ts": self._start_ts - timedelta(minutes=ARRIVED_BEFORE[p.key])})
+                                              "arrival_ts": self.clock()})
             await self._intake.submit(rec, structured_only=True)
             self._svc.set_run_state(pid, "running")
             self._active.add(p.key)
@@ -194,7 +204,7 @@ class ScenarioRunner:
         for key in self._active:
             pid = self._ids[key]
             w = self._svc.wearable_of(pid)  # follows a strap swap from the sensor modal
-            s = self._samples[key][i]
+            s = self._samples[key][i - self._joined[key]]
             self._svc.ingest(VitalsReading(wearable_id=w, ts=ts, hr=s.hr, resp_rate=s.resp_rate, spo2=s.spo2,
                                            temp_c=s.temp_c, contact=True), "simulator")
 
@@ -210,6 +220,6 @@ class ScenarioRunner:
         for pid in self._ids.values():
             self._svc.drop(pid)
         self._registry.forget_simulated()
-        self._ids.clear(); self._active.clear(); self._samples.clear()
+        self._ids.clear(); self._active.clear(); self._samples.clear(); self._joined.clear()
         self._start_ts, self._pos, self._skip = None, 0, None
         self.clock.anchor(now_la())

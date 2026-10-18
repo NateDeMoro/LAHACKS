@@ -63,8 +63,8 @@ def test_preroll_rows():
     run_start = datetime(2026, 5, 2, 10, 30, 41, 500, tzinfo=tz)
     rows = preroll_rows(script, "sim-u1", run_start, 60)
     assert len(rows) == 60
-    assert rows[-1].minute_ts == datetime(2026, 5, 2, 10, 29, tzinfo=tz)
-    assert [b.minute_ts - a.minute_ts for a, b in zip(rows, rows[1:])] == [timedelta(minutes=1)] * 59
+    assert rows[-1].period_ts == datetime(2026, 5, 2, 10, 29, tzinfo=tz)
+    assert [b.period_ts - a.period_ts for a, b in zip(rows, rows[1:])] == [timedelta(minutes=1)] * 59
     start = keyframe_sample(script, 0)
     for r in rows:
         assert r.patient_id == "sim-u1" and r.clean_seconds == 60

@@ -1,4 +1,4 @@
-"""Event store: readings, minute summaries, risk results and alerts in one SQLite table.
+"""Event store: readings, period summaries, risk results and alerts in one SQLite table.
 Writes go through a queue so a slow or failing disk never stalls the live tick."""
 import asyncio
 import contextlib
@@ -35,7 +35,7 @@ class Store:
         if len(self._queue) == self._queue.maxlen and not self._warned_full:
             self._warned_full = True
             log.warning("store queue full; dropping the oldest rows")
-        ts = getattr(model, "ts", None) or getattr(model, "minute_ts", None)
+        ts = getattr(model, "ts", None) or getattr(model, "period_ts", None)
         self._queue.append((kind, patient_id, ts.isoformat() if ts else None, source,
                             model.model_dump_json()))
         self._wake.set()

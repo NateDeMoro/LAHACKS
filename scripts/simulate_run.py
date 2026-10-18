@@ -18,7 +18,7 @@ class PrintSink:
     def ingest(self, reading, source):
         if self.count % self.every == 0:
             total, _ = news2.score(
-                resp_rate=reading.resp_rate, spo2=reading.spo2, hr=reading.hr, temp_c=reading.temp_c,
+                resp_rate=None, spo2=reading.spo2, hr=reading.hr, temp_c=reading.temp_c,  # breathing is off in ingest
                 sbp=self.triage.sbp, alertness=self.triage.alertness, on_oxygen=self.triage.on_oxygen)
             print(f"{self.count:>5}s  hr {reading.hr:>5g}  resp {reading.resp_rate:>3g}  "
                   f"spo2 {reading.spo2:>3g}  temp {reading.temp_c:>4.1f}  NEWS2 {total}  [{source}]")
@@ -31,7 +31,7 @@ class PrintSink:
         print(f"run state: {state}")
 
     def seed_trend_history(self, patient_id, rows):
-        print(f"trend pre-roll: {len(rows)} rows, {rows[0].minute_ts:%H:%M} to {rows[-1].minute_ts:%H:%M}")
+        print(f"trend pre-roll: {len(rows)} rows, {rows[0].period_ts:%H:%M} to {rows[-1].period_ts:%H:%M}")
 
 
 async def _instant(_delay):

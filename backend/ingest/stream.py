@@ -1,4 +1,4 @@
-"""One patient's readings, turned into I13 (every tick) and I6 (every minute). Pure: the caller
+"""One patient's readings, turned into I13 (every tick) and I6 (every period). Pure: the caller
 passes the clock, so a replay or a test can run it faster than real time."""
 from collections import deque
 from dataclasses import dataclass
@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from statistics import median
 
 from backend.config import CONFIG, IngestConfig
-from backend.contracts import LiveWindow, MinuteSummary, RunState, VitalsReading
+from backend.contracts import LiveWindow, PeriodSummary, RunState, VitalsReading, VitalValues
 from backend.simulator.models import Source
 
 VITALS = ("hr", "resp_rate", "spo2", "temp_c")
@@ -15,7 +15,7 @@ VITALS = ("hr", "resp_rate", "spo2", "temp_c")
 @dataclass(frozen=True)
 class Tick:
     live: LiveWindow
-    minute: MinuteSummary | None
+    period: PeriodSummary | None
 
 
 @dataclass(frozen=True)
@@ -34,19 +34,19 @@ class PatientStream:
 
     def _start(self, now: datetime) -> None:
         """Clears everything; minutes count from here, so a run gives whole minutes."""
-        self._minute_start = now
-        self._window: deque[_Sample] = deque(maxlen=int(self._cfg.window_s))  # ticks can jitter; I13 allows 60 at most
-        self._minute: list[_Sample] = []
+        self._period_start = now
+        self._window: deque[_Sample] = deque(maxlen=int(self._cfg.window_s))  # ticks can jitter; never hold more seconds than the window
+        self._period: list[_Sample] = []
         self._strap: tuple[datetime, VitalsReading] | None = None
         self._sim: dict[str, tuple[datetime, float]] = {}
         self._sim_contact: tuple[datetime, bool] | None = None
         self._frozen: LiveWindow | None = None
 
-    def set_run_state(self, now: datetime, state: RunState) -> MinuteSummary | None:
-        """Returns the minute left open when a run ends: no tick will close it once the window is frozen."""
+    def set_run_state(self, now: datetime, state: RunState) -> PeriodSummary | None:
+        """Returns the period left open when a run ends: no tick will close it once the window is frozen."""
         last = None
         if state == "ended" and self.run_state != "ended":
-            last = self._summarise_minute() if self._minute else None
+            last = self._summarise_period() if self._period else None
             self._frozen = self._live(now).model_copy(update={"run_state": "ended"})
         elif state != self.run_state:
             self._start(now)
@@ -70,11 +70,11 @@ class PatientStream:
     def tick(self, now: datetime) -> Tick:
         if self.run_state == "ended":
             return Tick(self._frozen.model_copy(update={"window_end_ts": now}), None)
-        minute = self._close_minute(now)
+        period = self._close_period(now)
         sample = self._sample(now)
         self._window.append(sample)
-        self._minute.append(sample)
-        return Tick(self._live(now), minute)
+        self._period.append(sample)
+        return Tick(self._live(now), period)
 
     def _fresh(self, ts: datetime, now: datetime, ttl: float) -> bool:
         return now - ts <= timedelta(seconds=ttl)
@@ -84,6 +84,8 @@ class PatientStream:
         strap = self._strap[1] if self._strap and self._fresh(self._strap[0], now, cfg.strap_ttl_s) else None
         merged: dict[str, float | None] = {}
         for v in VITALS:
+            if v in cfg.disabled_vitals:
+                continue
             sim = self._sim.get(v)
             if sim and self._fresh(sim[0], now, cfg.sim_ttl_s):
                 merged[v] = sim[1]
@@ -102,22 +104,24 @@ class PatientStream:
         while self._window and self._window[0].ts <= cutoff:
             self._window.popleft()
         med, seconds = self._medians(self._window, self._cfg.min_samples)
+        newest = self._window[-1] if self._window else None
+        latest = VitalValues(**newest.values) if newest and newest.clean else None
         return LiveWindow(patient_id=self.patient_id, window_end_ts=now, clean_seconds=seconds,
-                          run_state=self.run_state, **med)
+                          latest=latest, run_state=self.run_state, **med)
 
-    def _close_minute(self, now: datetime) -> MinuteSummary | None:
+    def _close_period(self, now: datetime) -> PeriodSummary | None:
         length = timedelta(seconds=self._cfg.window_s)
-        if now < self._minute_start + length:
+        if now < self._period_start + length:
             return None
-        out = self._summarise_minute()
-        # After a stall, jump to the minute that contains now instead of emitting empty rows.
-        self._minute_start += length * ((now - self._minute_start) // length)
-        self._minute = []
+        out = self._summarise_period()
+        # After a stall, jump to the period that contains now instead of emitting empty rows.
+        self._period_start += length * ((now - self._period_start) // length)
+        self._period = []
         return out
 
-    def _summarise_minute(self) -> MinuteSummary:
-        med, seconds = self._medians(self._minute, 1)
-        return MinuteSummary(patient_id=self.patient_id, minute_ts=self._minute_start,
+    def _summarise_period(self) -> PeriodSummary:
+        med, seconds = self._medians(self._period, 1)
+        return PeriodSummary(patient_id=self.patient_id, period_ts=self._period_start,
                              clean_seconds=seconds, **med)
 
     @staticmethod

@@ -94,14 +94,21 @@ class ContextAdjustments(Model):  # I5
     adjustments: list[Adjustment] | None = None
 
 
-class MinuteSummary(Model):  # I6
+class PeriodSummary(Model):  # I6
     patient_id: str | None = None
-    minute_ts: Ts = None
+    period_ts: Ts = None
     hr: float | None = None
     resp_rate: float | None = None
     spo2: float | None = None
     temp_c: float | None = None
     clean_seconds: int | None = None
+
+
+class VitalValues(Model):
+    hr: float | None = None
+    resp_rate: float | None = None
+    spo2: float | None = None
+    temp_c: float | None = None
 
 
 class LiveWindow(Model):  # I13
@@ -112,6 +119,7 @@ class LiveWindow(Model):  # I13
     spo2: float | None = None
     temp_c: float | None = None
     clean_seconds: int | None = None
+    latest: VitalValues | None = None  # newest clean second, for the dashboard's live numbers
     run_state: RunState | None = None
 
 
@@ -150,13 +158,6 @@ class VitalLevels(Model):
     temp_c: Level | None = None
 
 
-class VitalValues(Model):
-    hr: float | None = None
-    resp_rate: float | None = None
-    spo2: float | None = None
-    temp_c: float | None = None
-
-
 class RiskResult(Model):  # I9
     patient_id: str | None = None
     ts: Ts = None
@@ -165,7 +166,7 @@ class RiskResult(Model):  # I9
     reason: str | None = None
     vital_levels: VitalLevels | None = None
     vital_values: VitalValues | None = None
-    news2: int | None = None  # null when the latest I14 is over 60 s older than the minute
+    news2: int | None = None  # null when the latest I14 is over 60 s older than the period
     news2_points: News2Points | None = None
     trend_prob_fast: float | None = None
     trend_tier: TrendTier | None = None
@@ -223,7 +224,7 @@ class BaselineConfig(Model):
     min_minutes: float = 10
     arrival_check_minutes: float = 3
     learn_minutes: float = 30
-    min_clean_seconds: int = 40
+    min_clean_seconds: int = 20
     n0_min: float = 0.5
     n0_max: float = 5
     k: float = 2.5
@@ -329,7 +330,7 @@ class WsMessage(Model):
 
 INTERFACES: dict[str, type[Model]] = {
     "I1": VitalsReading, "I2": IntakeRecord, "I3": WearableAssignment,
-    "I4": PatientContext, "I5": ContextAdjustments, "I6": MinuteSummary,
+    "I4": PatientContext, "I5": ContextAdjustments, "I6": PeriodSummary,
     "I7": ModelConfig, "I8": PatientRanges, "I9": RiskResult, "I10": Alert,
     "I11": Acknowledgment, "I12": ScenarioTrigger, "I13": LiveWindow,
     "I14": LiveNews2, "I15": AdjustmentEvidence,

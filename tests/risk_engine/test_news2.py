@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from backend.contracts import LiveWindow, MinuteSummary
+from backend.contracts import LiveWindow, PeriodSummary
 from backend.risk_engine import news2
 
 
@@ -47,7 +47,7 @@ def test_non_finite_is_treated_as_null(bad):
     assert total is None and pts.hr is None and pts.temp_c is None
 
 
-@pytest.mark.parametrize("model,field", [(MinuteSummary, "hr"), (LiveWindow, "resp_rate")])
+@pytest.mark.parametrize("model,field", [(PeriodSummary, "hr"), (LiveWindow, "resp_rate")])
 def test_contract_rejects_nan_and_infinity(model, field):
     for bad in (math.nan, math.inf):
         with pytest.raises(ValueError):

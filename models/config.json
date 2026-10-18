@@ -3,7 +3,7 @@
     "min_minutes": 10,
     "arrival_check_minutes": 3,
     "learn_minutes": 30,
-    "min_clean_seconds": 40,
+    "min_clean_seconds": 20,
     "n0_min": 0.5,
     "n0_max": 5,
     "k": 2.5,

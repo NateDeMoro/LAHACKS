@@ -4,20 +4,20 @@ from datetime import timedelta
 
 import pytest
 
-from backend.contracts import MinuteSummary
+from backend.contracts import PeriodSummary
 from backend.risk_engine import fast_model
 from backend.risk_engine.engine import RiskEngine
 from risk_helpers import T0
 
 
 def row(i, step=1, hr=72, rr=15, spo2=98, clean=60):
-    return MinuteSummary(patient_id="p", minute_ts=T0 + timedelta(minutes=i * step), hr=hr,
+    return PeriodSummary(patient_id="p", period_ts=T0 + timedelta(minutes=i * step), hr=hr,
                          resp_rate=rr, spo2=spo2, temp_c=36.8, clean_seconds=clean)
 
 
 def run(rows):
     eng = RiskEngine()
-    return [eng.on_minute(r) for r in rows]
+    return [eng.on_period(r) for r in rows]
 
 
 @pytest.fixture
@@ -40,6 +40,24 @@ def test_starts_after_15_elapsed_minutes(model):
     res = run([row(i) for i in range(17)])
     assert all(r.trend_prob_fast is None for r in res[:15])
     assert res[15].trend_prob_fast == 9.0 and res[15].trend_tier == "warning"
+
+
+def test_half_minute_rows_reach_the_model_as_one_minute_rows(monkeypatch):
+    seen = []
+    monkeypatch.setattr(fast_model, "load", lambda: True)
+    monkeypatch.setattr(fast_model, "predict", lambda history: seen.append(list(history.rows)))
+    run([row(i, step=0.5, hr=70 + 4 * (i % 2)) for i in range(35)])  # 30 s rows: 17 whole minutes and a half
+    rows = seen[-1]  # the last minute holds only its first 30 s row
+    assert len(rows) == 18
+    assert [r.ts for r in rows] == [T0 + timedelta(minutes=k) for k in range(18)]
+    assert [r.hr for r in rows[:-1]] == [72] * 17 and rows[-1].hr == 70
+
+
+def test_a_third_row_in_a_minute_is_kept_apart():
+    eng = RiskEngine()
+    for sec, hr in ((0, 60), (30, 60), (40, 100)):  # a run restarts the 30 s grid mid-minute
+        eng.on_period(row(0, hr=hr).model_copy(update={"period_ts": T0 + timedelta(seconds=sec)}))
+    assert [r.hr for r in list(eng.trend.histories["p"].rows)] == [60, 100]
 
 
 def test_threshold_counts_elapsed_time_not_rows(model):
@@ -107,6 +125,6 @@ def test_stale_news2_is_nulled():
     from backend.contracts import LiveWindow
     eng = RiskEngine()
     eng.on_second(LiveWindow(patient_id="p", window_end_ts=T0, hr=72, resp_rate=15, spo2=98, temp_c=36.8))
-    fresh = eng.on_minute(row(0))
-    stale = eng.on_minute(row(2))  # 120 s after the last I14
+    fresh = eng.on_period(row(0))
+    stale = eng.on_period(row(2))  # 120 s after the last I14
     assert fresh.news2 is not None and stale.news2 is None and stale.news2_points is None

@@ -7,19 +7,19 @@ Decision support. Not a diagnosis. A research prototype.
 ## How it works
 
 1. A Polar H10 strap sends heart rate and beat intervals over Bluetooth.
-2. The receiver turns beat intervals into a breathing rate.
+2. The receiver also estimates a breathing rate. Ingest drops it for now.
 3. A simulator fills in SpO2 and temperature, or plays a scripted patient.
-4. Ingest merges the sources and keeps a 60-second window.
-5. The risk engine scores NEWS2 every second.
-6. Every minute it checks the patient's own baseline and trend.
+4. Ingest merges the sources. It keeps a 30-second window.
+5. The risk engine scores NEWS2 every second from that window.
+6. Every 30 seconds it checks the patient's own baseline and trend.
 7. Alert logic turns risk results into alerts.
 8. The dashboard shows it all and takes acknowledgments.
 
 ## What works today
 
-- Strap receiver. Reconnects. Computes breathing rate.
+- Strap receiver. Reconnects. Estimates breathing rate (unused).
 - Simulator. Six sample patients. Ten-minute runs.
-- Ingest service. Live window every second. Minute summary every minute.
+- Ingest service. Live window every second. Latest vitals beside it. Period summary every 30 seconds.
 - Risk engine. NEWS2. Population ranges. Personal baseline.
 - Alert logic. Persistence windows. One alert per problem.
 - Backend app. Two WebSockets. SQLite storage.

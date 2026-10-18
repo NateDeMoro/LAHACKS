@@ -67,7 +67,7 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - Learning forever would slowly absorb a deterioration. After the window the band stops moving but readings are still classified, so a later slow drift inside the population range still reaches warning (synthetic wearer: band 59-85 frozen, drift reaches warning at 87).
 
 ### Windows count time, not rows
-- eICU rows are 5 minutes, live rows 1 minute. Windows and n use `minute_ts` so both behave alike.
+- eICU rows are 5 minutes, live rows 1 minute. Windows and n use `period_ts` so both behave alike.
 
 ### Chosen start values: k = 2.5, floor multiplier 1.0 (HR floor 5, breathing 1; min widths 16 and 6)
 - **Evidence** (`training/tune_baseline.py`, first 4 hours of 1,945 eICU stays: 1,778 survivors, 167 non-survivors): relative to population bands only, k=2.5 / x1.0 raises the survivor flag rate to 1.07x and the non-survivor flag share to 1.03x. k=3.0 / x1.0 gives 1.04x / 1.03x; k=2.0 / x0.5 gives 1.19x / 1.04x; x1.5 gives about 1.02x but narrows less. Under the chosen setting a personal HR band forms in 53% of survivor stays and breathing in 42%.
@@ -77,7 +77,7 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 
 ### Other T3 behaviours (added after review)
 - **Late or repeated intake keeps what was learned.** `RiskEngine.on_intake` after readings started rebases the population ranges and refits from the samples seen; it does not reset the baseline.
-- **I8 changes are pushed by callback, not returned.** `on_minute` returns I9 as before, and `engine.ranges_listener(PatientRanges)` is called when a patient's I8 changes, so existing callers (replay, dashboard stand-ins) keep working. Documented in component-map.
+- **I8 changes are pushed by callback, not returned.** `on_period` returns I9 as before, and `engine.ranges_listener(PatientRanges)` is called when a patient's I8 changes, so existing callers (replay, dashboard stand-ins) keep working. Documented in component-map.
 - **BaselineConfig has real defaults** (the shipped values), the one model that breaks the "every field nullable" rule, so a missing setting can never crash the engine.
 - **Known limits, left as is:** one abnormal reading in the first 3 minutes skips that vital for the whole stay, and so does a median outside the population band at the first fit (a stressed arrival that settles stays unpersonalized). A vital can also drop from personal back to population if its median later leaves the band (stay eicu-2621632 does). A simple rule is easier to defend than a retry heuristic we can't tune on this data.
 - **Two minimum widths:** `ranges.py` MIN_WIDTH (HR 20, SBP 20, temperature 0.6) is the narrowest fitted population band we trust before falling back to NEWS2 score-0; the config `min_width` (HR 16, breathing 6) is the narrowest personal band. A personal band may be tighter than a population one because it describes one person.
@@ -125,11 +125,11 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - Typed with real defaults like `BaselineConfig`, replacing the loose `persistence_windows` and `probability_cutoffs` dicts, so a missing key cannot crash the engine and T4/T6 each own named keys. Defaults: windows 5 min (warning persisted, trend), 2 min (vital danger, NEWS2), `max_gap_minutes` 10, `clear_minutes` 5, `ack_cooldown_minutes` 15; fast trend starts after 15 minutes with a placeholder cutoff of 0.5 (T6 sets it). The I7 file table drops `slow` and `fast_30` and adds `fast_15.txt` and `fast_15_features.json`.
 
 ### Fast trend rules in trend.py
-- **Starts after 15 clean minutes, counted by elapsed `minute_ts`** from the first clean minute (not rows), so 5-minute eICU rows and 1-minute live rows behave alike. The clean-minute test is the one from the personal baseline, extracted to `baseline.is_clean_minute` and reused; baseline behaviour is unchanged.
+- **Starts after 15 clean minutes, counted by elapsed `period_ts`** from the first clean minute (not rows), so 5-minute eICU rows and 1-minute live rows behave alike. The clean-minute test is the one from the personal baseline, extracted to `baseline.is_clean_period` and reused; baseline behaviour is unchanged.
 - **Null while any vital is in danger:** the fast label is not defined for minutes already in danger.
 - **Raise-only to warning:** the trend can lift safe to warning, never lower a level and never reach urgent.
 - **Failure handling:** `fast_model.py` is a stub (`load()` False, `predict()` None) with its own lazy LightGBM import, so a baseline version needs no LightGBM. `trend.py` catches any exception from load or predict, logs once, and leaves the fields null.
-- **Only engine change:** `on_minute` calls trend once after classification. With the stub, replaying all 7 eICU stays (intake on and off) differs from the pre-change output only by the new fields.
+- **Only engine change:** `on_period` calls trend once after classification. With the stub, replaying all 7 eICU stays (intake on and off) differs from the pre-change output only by the new fields.
 
 ### Bed labels
 - In `backend/config.py` (wearable 1 is "Bed 4"). `RiskEngine.bed_label` reads the wearable from the stored I4 and falls back to the patient_id, so unknown patients still get a readable message.
@@ -438,6 +438,19 @@ Same 52 held-out patients (3,149 monitored hours), a third look at them. False a
 ### Known skews
 - Strap breathing rate is not the impedance RESP in MIMIC; SpO2 is simulated in the demo; the label uses fixed NEWS2 limits while live levels use personal ranges; ICU patients sit near edges so the matched cutoff is tight; the eICU second check from section 4b is dropped (5-minute spacing cannot feed timestamp windows).
 - **Demo consequence (Rule 1, superseded by "T6 ship"):** the distance baseline ignores slope, so on the gradual demo slide (`fixtures/fast_spo2_drop_i6.jsonl`, 97 to 90 over 20 minutes) the score reaches the cutoff only about at SpO2 91, and the trend tier never appears before the danger level. Extrapolation (cutoff 3.26) would warn near SpO2 94. Left as shipped per the rule; revisit at C3.
+
+### 30 s periods, one window for NEWS2 and the engine
+- **Options:** keep 60 s; NEWS2 on 30 s but the engine on 60 s (split the setting); both on 30 s.
+- **Why both on 30 s:** one setting (`IngestConfig.window_s`), and the NEWS2 copied into each I9 covers the same 30 s as that period's vitals. The dashboard no longer waits on the window for live numbers, because I13 carries `latest`. Alert persistence is timestamp based, so its windows stay in minutes. Alerts can fire up to about 30 s sooner.
+- **Costs:** 30 s medians are noisier (baseline spread, level flips; persistence damps both), and the baseline's arrival check sees about 7 noisy rows instead of 4, so a few more patients near an edge may get "abnormal on arrival". Baseline `min_clean_seconds` goes 40 to 20.
+- **Baseline weight:** `n` is the time between rows, without the old one-minute floor, so 30 s rows count half a minute. 5-minute rows are unchanged.
+- **Trend model:** trained on 1-minute rows, whose min, max and spread differ from twice as many 30 s points, so `TrendHistory` merges rows in the same clock minute (mean). A half-filled last minute is scored every other period.
+
+### Name: period
+- "Minute" no longer fits, and "interval" clashes with `rr_intervals_ms`. `MinuteSummary`, `minute_ts`, `on_minute` and `is_clean_minute` became `PeriodSummary`, `period_ts`, `on_period` and `is_clean_period`. Real durations keep "minutes" (`*_minutes` settings, `elapsed_minutes`). Older entries in this file keep the old words.
+
+### Breathing rate off
+- The strap cannot measure it. Ingest drops it for both sources (`IngestConfig.disabled_vitals`) rather than the receiver or simulator, so one config line brings it back. Sample runs keep their breathing tracks; their NEWS2 targets are scored without it, and U1, U2 and C1 had other vitals retuned or their targets lowered (U2 now peaks at 6, so it reaches urgent but not high).
 
 ## Stated limits
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.

@@ -233,7 +233,7 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 
 ### Minutes start at the patient's stream start
 - **Options:** from assignment or run start; wall-clock minutes.
-- **Why:** a 10-minute run gives 10 whole rows instead of 11 with partial ends, and rows line up with the 120-minute pre-roll. Cost: the rows do not match Tiger Data's clock buckets, so the live path does not depend on a database aggregate.
+- **Why:** a 10-minute run gives 10 whole rows instead of 11 with partial ends. The pre-roll still rounds to clock minutes, so there can be a gap of up to a minute between its last row and the first live row; recheck when T6 adds `seed_trend_history`. Cost: the rows do not match Tiger Data's clock buckets, so the live path does not depend on a database aggregate.
 
 ### A clean second needs contact and a heart rate
 - **Options:** contact and hr; per-vital counts; any non-null vital.

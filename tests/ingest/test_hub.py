@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -121,18 +122,30 @@ async def test_slow_client_loses_oldest_and_disconnect_cleans_up():
     h.publish("I13", LiveWindow(patient_id="p", hr=5))  # no client left; must not raise
 
 
+def wait_until(pred, seconds=2.0):
+    end = time.time() + seconds
+    while time.time() < end and not pred():
+        time.sleep(0.01)
+    return pred()
+
+
 def test_acknowledged_alert_leaves_the_snapshot():
     h = hub(on_ack=lambda a: True)
     h.publish("I10", Alert(alert_id="a1", patient_id="p1", severity="urgent"))
     with client_for(h).websocket_connect("/ws") as ws:
         ws.receive_json()
         ws.send_text(json.dumps({"type": "I11", "data": {"alert_id": "a1"}}))
-        for _ in range(50):  # the ack is handled in the server task; wait until a fresh client sees it
-            with client_for(h).websocket_connect("/ws") as other:
-                h.publish("I13", LiveWindow(patient_id="p1"))
-                if other.receive_json()["type"] == "I13":
-                    break
-    assert "a1" not in h._alerts
+        assert wait_until(lambda: "a1" not in h._alerts)
+
+
+def test_acking_a_superseded_alert_clears_the_alert_that_replaced_it():
+    h = hub(on_ack=lambda a: True)  # alert logic acks the head of the chain
+    h.publish("I10", Alert(alert_id="a1", patient_id="p1", severity="urgent"))
+    h.publish("I10", Alert(alert_id="a2", patient_id="p1", severity="high", supersedes=["a1"]))
+    with client_for(h).websocket_connect("/ws") as ws:
+        ws.receive_json()
+        ws.send_text(json.dumps({"type": "I11", "data": {"alert_id": "a1"}}))  # the screen had not drawn a2 yet
+        assert wait_until(lambda: not h._alerts)
 
 
 def test_newest_message_per_patient_comes_last_and_forget_clears_a_patient():

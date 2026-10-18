@@ -28,6 +28,7 @@ class DashboardHub:
         self._on_ack, self._on_scenario, self._queue_max = on_ack, on_scenario, queue_max
         self._latest: dict[tuple[str, str | None], dict] = {}
         self._alerts: dict[str, dict] = {}
+        self._replaced_by: dict[str, str] = {}  # alert logic acks the newest alert of a chain, whichever id was clicked
         self._clients: set[_Client] = set()
 
     @property
@@ -43,6 +44,7 @@ class DashboardHub:
         elif type_ == "I10" and env["data"].get("alert_id"):
             for old in env["data"].get("supersedes") or []:
                 self._alerts.pop(old, None)
+                self._replaced_by[old] = env["data"]["alert_id"]
             self._alerts[env["data"]["alert_id"]] = env
         for c in self._clients:
             self._put(c, env)
@@ -94,7 +96,10 @@ class DashboardHub:
                 if type_ == "I12":
                     self._on_scenario(model)
                 elif self._on_ack(model):  # an acknowledged alert is not shown as open to a client that reconnects
-                    self._alerts.pop(model.alert_id, None)
+                    head = model.alert_id
+                    while head in self._replaced_by:
+                        head = self._replaced_by[head]
+                    self._alerts.pop(head, None)
             except BadMessage as e:
                 log.warning("dashboard message ignored: %s", e)
             except Exception:

@@ -38,6 +38,7 @@ class IngestService:
         self._wearables[wearable_id] = patient_id
         if old is not None and old != patient_id and old not in self._wearables.values():
             self._streams.pop(old, None)
+            self._ranges_sent.discard(old)  # it may come back, and the engine will not announce unchanged ranges
             self._on_drop(old)
         if patient_id not in self._streams:
             self._streams[patient_id] = PatientStream(patient_id, self._clock(), self._cfg)

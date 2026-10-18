@@ -33,7 +33,7 @@ class PatientStream:
         self._start(now)
 
     def _start(self, now: datetime) -> None:
-        """Clears everything; minutes count from here so they line up with the trend pre-roll."""
+        """Clears everything; minutes count from here, so a run gives whole minutes."""
         self._minute_start = now
         self._window: deque[_Sample] = deque(maxlen=int(self._cfg.window_s))  # ticks can jitter; I13 allows 60 at most
         self._minute: list[_Sample] = []

@@ -111,7 +111,7 @@ Affects S2, S4, S5, T1, B1. Models live in `backend/contracts.py`; JSON Schema i
 - **Ingest (S2) rules (`backend/ingest/`, decisions.md "S2 Ingest"):**
   - A wearable has one patient and a patient one wearable, set by `IngestService.assign(wearable_id, patient_id)` (the I3 call). Config seeds wearable 1 with `demo-001`; the simulator's `RunSink.assign` registers its patient at run start; intake (S5) calls the same function. Unassigned wearables are dropped and logged.
   - A second is clean when contact is true and hr is present. Only clean seconds feed medians; `clean_seconds` counts them (at most 60 in I13). Values outside wide plausibility bounds are dropped. A vital needs 5 clean samples in the window before I13 reports it.
-  - Minutes (I6) start at the patient's stream start (assignment, or the start or reset of a run) so they line up with the 120-minute trend pre-roll. When a run ends, the open minute is closed at once.
+  - Minutes (I6) start at the patient's stream start (assignment, or the start or reset of a run), so a 10-minute run gives 10 whole rows. The simulator's pre-roll rounds to clock minutes, so its last row can sit up to a minute before the first live row; check this when the engine gets `seed_trend_history` (T6). When a run ends, the open minute is closed at once.
   - S2 owns `backend/app.py` and `WS /ws/dashboard`: a new client first gets the latest I8, I9, I13, I14 per patient and the open I10 alerts. Minute close runs `on_second`, `on_minute`, then `AlertLogic.on_risk`; I11 goes to `on_ack`, I12 to the simulator controller.
   - `RunSink` gains `assign(wearable_id, patient_id)`, called before the pre-roll.
 - Open items: none for I5; the rule list is in `models/rules.json` (B2).

@@ -129,6 +129,15 @@ def test_dropped_patient_is_forgotten_by_the_hub():
     assert gone == ["demo-001"]
 
 
+def test_a_patient_who_comes_back_gets_ranges_again():
+    svc, clock, out = make()
+    seconds(svc, clock, 70, hr=70, resp_rate=15)
+    svc.assign(1, "p-other")
+    svc.assign(1, "demo-001")
+    seconds(svc, clock, 70, hr=70, resp_rate=15)
+    assert [r.patient_id for r in out.of("I8")].count("demo-001") == 2
+
+
 def test_ranges_are_pushed_once_even_before_a_personal_baseline_exists():
     svc, clock, out = make()
     seconds(svc, clock, 130, hr=70, resp_rate=15)

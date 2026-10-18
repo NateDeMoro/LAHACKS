@@ -94,9 +94,9 @@ class ContextAdjustments(Model):  # I5
     adjustments: list[Adjustment] | None = None
 
 
-class MinuteSummary(Model):  # I6
+class PeriodSummary(Model):  # I6
     patient_id: str | None = None
-    minute_ts: Ts = None
+    period_ts: Ts = None
     hr: float | None = None
     resp_rate: float | None = None
     spo2: float | None = None
@@ -329,7 +329,7 @@ class WsMessage(Model):
 
 INTERFACES: dict[str, type[Model]] = {
     "I1": VitalsReading, "I2": IntakeRecord, "I3": WearableAssignment,
-    "I4": PatientContext, "I5": ContextAdjustments, "I6": MinuteSummary,
+    "I4": PatientContext, "I5": ContextAdjustments, "I6": PeriodSummary,
     "I7": ModelConfig, "I8": PatientRanges, "I9": RiskResult, "I10": Alert,
     "I11": Acknowledgment, "I12": ScenarioTrigger, "I13": LiveWindow,
     "I14": LiveNews2, "I15": AdjustmentEvidence,

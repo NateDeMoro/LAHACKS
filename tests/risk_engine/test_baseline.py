@@ -5,12 +5,12 @@ import pytest
 from backend.contracts import BaselineConfig
 from backend.risk_engine.baseline import PersonalBaseline
 from backend.risk_engine.engine import RiskEngine
-from risk_helpers import ctx, minute
+from risk_helpers import ctx, period
 
 
 def feed(base, hrs, rrs=None, start=0, step=1):
     for i, hr in enumerate(hrs):
-        base.update(minute(start + i * step, hr=hr, rr=None if rrs is None else rrs[i]))
+        base.update(period(start + i * step, hr=hr, rr=None if rrs is None else rrs[i]))
 
 
 def steady(level, n, sd=1.0, seed=0):
@@ -72,7 +72,7 @@ def test_default_config_has_every_setting():
 def test_late_intake_keeps_what_was_learned():
     eng = RiskEngine()
     for i, hr in enumerate(steady(72, 20)):
-        eng.on_minute(minute(i, hr=hr))  # readings arrive before any intake
+        eng.on_period(period(i, hr=hr))  # readings arrive before any intake
     assert eng.ranges["p"].hr.source == "personal"
     eng.on_intake(ctx())
     assert eng.ranges["p"].hr.source == "personal"
@@ -84,7 +84,7 @@ def test_late_intake_keeps_what_was_learned():
 def test_late_intake_keeps_a_skipped_vital_skipped():
     eng = RiskEngine()
     for i in range(20):
-        eng.on_minute(minute(i, hr=95.0))  # scores NEWS2 points on arrival
+        eng.on_period(period(i, hr=95.0))  # scores NEWS2 points on arrival
     eng.on_intake(ctx())
     assert eng.ranges["p"].hr.source == "population"
     assert "abnormal on arrival" in " ".join(eng.ranges["p"].hr.reasons)
@@ -143,7 +143,7 @@ def test_windows_count_time_not_rows(cfg, pop):
 def test_dirty_minutes_are_ignored(cfg, pop):
     b = make(cfg, pop)
     for i, hr in enumerate(steady(75, 20)):
-        b.update(minute(i, hr=hr, clean=10))
+        b.update(period(i, hr=hr, clean=10))
     assert b.ranges.hr.source == "population"
 
 
@@ -160,19 +160,19 @@ def test_engine_flags_a_drift_inside_the_population_band(cfg):
     seen = []
     eng.ranges_listener = seen.append
     for i, hr in enumerate(steady(70, 31, sd=1)):
-        eng.on_minute(minute(i, hr=hr))
+        eng.on_period(period(i, hr=hr))
     assert seen and eng.ranges["p"].hr.source == "personal"
-    assert eng.on_minute(minute(40, hr=86)).level == "warning"  # inside 51-90, outside the personal band
+    assert eng.on_period(period(40, hr=86)).level == "warning"  # inside 51-90, outside the personal band
     assert eng.intake_ranges["p"].hr.source == "population"      # the simulator's copy never narrows
 
 
 def test_engine_without_intake_uses_plain_news2_bands():
     eng = RiskEngine()
-    res = eng.on_minute(minute(0, hr=95, pid="eicu-1"))
+    res = eng.on_period(period(0, hr=95, pid="eicu-1"))
     assert res.level == "warning" and eng.ranges["eicu-1"].hr.safe_high == 90
 
 
 def test_engine_classifies_with_news2_rounding():
     eng = RiskEngine()
-    assert eng.on_minute(minute(0, rr=20.4, pid="x")).level == "safe"   # rounds to 20
-    assert eng.on_minute(minute(1, rr=20.5, pid="x")).level == "warning"  # rounds to 21
+    assert eng.on_period(period(0, rr=20.4, pid="x")).level == "safe"   # rounds to 20
+    assert eng.on_period(period(1, rr=20.5, pid="x")).level == "warning"  # rounds to 21

@@ -126,7 +126,7 @@ Built: models, profiles, generator, pre-roll, player, controller, routes, consol
 | Needs | Check |
 | --- | --- |
 | Ingest, S2 | Start a run through an app that mounts the router. Ingest sees readings with `source` simulator, drops strap readings during the run, and still merges strap and simulator in live mode. I13 goes out each second with `run_state` running, then ended; at the end the window is frozen and no I6 rows follow. |
-| Engine `seed_trend_history`, T5/T6 | Called once with 120 rows before the first reading. The personal baseline stays population (the pre-roll must not reach `on_minute`). |
+| Engine `seed_trend_history`, T5/T6 | Called once with 120 rows before the first reading. The personal baseline stays population (the pre-roll must not reach `on_period`). |
 | Alert logic, T4 | Alerts match the target alerts above: none for H1 and H2, urgent then high for U1, U2, C1, high at once for C2. Alerts stay up after the run ends. |
 | Dashboard and I12 handler, S4/S6 | The run button reaches `controller.start`; the screen shows the last values and "Run ended" after the data stops. |
 | Intake form and service, S5 | Prefill from `GET /sim/profiles/{id}`, `POST /intake`, then a run with the returned patient and the I3 wearable. |

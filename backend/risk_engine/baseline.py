@@ -3,10 +3,10 @@ own readings. Use when updating I8 each minute from I6.
 
 Only the safe band moves, and only inward: the result stays inside the population safe band, danger
 edges are untouched, and a vital that scores NEWS2 points on arrival is never learned. Windows are
-counted in time from minute_ts, so 5-minute eICU rows and 1-minute live rows behave alike."""
+counted in time from period_ts, so 5-minute eICU rows and 1-minute live rows behave alike."""
 from statistics import median
 
-from backend.contracts import BaselineConfig, MinuteSummary, PatientRanges, VitalRange
+from backend.contracts import BaselineConfig, PeriodSummary, PatientRanges, VitalRange
 from backend.risk_engine import news2
 
 VITALS = ("hr", "resp_rate")
@@ -15,7 +15,7 @@ _MAD_TO_SD = 1.4826  # robust standard deviation from the median absolute deviat
 _BAND_SD = 3.92      # a 95% band is 3.92 standard deviations wide
 
 
-def is_clean_minute(clean_seconds: int | None, min_clean_seconds: int | None) -> bool:
+def is_clean_period(clean_seconds: int | None, min_clean_seconds: int | None) -> bool:
     """A minute counts if clean_seconds is unknown or at least the minimum. Shared with trend.py."""
     return clean_seconds is None or clean_seconds >= (min_clean_seconds or 0)
 
@@ -100,15 +100,15 @@ class PersonalBaseline:
         for v, b in self.vitals.items():
             b.rebase(getattr(population, v), centres[v])
 
-    def update(self, m: MinuteSummary) -> bool:
+    def update(self, m: PeriodSummary) -> bool:
         """Feed one I6 row; returns True when the ranges changed."""
-        if m.minute_ts is None or not is_clean_minute(m.clean_seconds, self.min_clean_seconds):
+        if m.period_ts is None or not is_clean_period(m.clean_seconds, self.min_clean_seconds):
             return False
         changed = False
         for v in VITALS:
             value = getattr(m, v)
             if value is not None:
-                changed |= self.vitals[v].update(m.minute_ts, value)
+                changed |= self.vitals[v].update(m.period_ts, value)
         return changed
 
     @property

@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta, timezone
 import pytest
 from fakes import FakeSink
 
-from backend.contracts import MinuteSummary
+from backend.contracts import PeriodSummary
 from backend.simulator.models import Sample
 from backend.simulator.player import RunPlayer
 
@@ -31,7 +31,7 @@ def samples(n):
 
 
 def summary():
-    return MinuteSummary(minute_ts=datetime(2026, 1, 1, tzinfo=UTC), hr=70.0)
+    return PeriodSummary(period_ts=datetime(2026, 1, 1, tzinfo=UTC), hr=70.0)
 
 
 async def play(sink, clock, n=5, preroll=()):

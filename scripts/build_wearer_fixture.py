@@ -14,7 +14,7 @@ sim = random.Random(8)  # separate stream so the heart rate and breathing series
 rows = []
 for i in range(60):
     hr = 72 + (14 * (i - 30) / 30 if i >= 30 else 0) + rnd.gauss(0, 1.5)
-    rows.append(dict(patient_id="demo-001", minute_ts=offset_to_ts(i).isoformat(), hr=round(hr, 1),
+    rows.append(dict(patient_id="demo-001", period_ts=offset_to_ts(i).isoformat(), hr=round(hr, 1),
                      resp_rate=round(15 + rnd.gauss(0, 0.8), 1),
                      spo2=round(min(100, max(96, 98 + sim.gauss(0, 0.5)))),
                      temp_c=round(36.8 + sim.gauss(0, 0.1), 1), clean_seconds=60))

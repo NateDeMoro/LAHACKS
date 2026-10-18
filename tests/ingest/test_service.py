@@ -75,7 +75,7 @@ def test_assign_replaces_the_wearables_patient():
     assert {w.patient_id for w in out.of("I13")} == {"p-new"}
 
 
-def test_minute_close_feeds_engine_alerts_hub_and_store():
+def test_period_close_feeds_engine_alerts_hub_and_store():
     svc, clock, out = make()
     svc.assign(1, "p1")
     svc.set_run_state("p1", "running")
@@ -91,7 +91,7 @@ def test_minute_close_feeds_engine_alerts_hub_and_store():
     assert "I1" in kinds
 
 
-def test_last_minute_of_a_run_is_closed_when_the_run_ends():
+def test_last_period_of_a_run_is_closed_when_the_run_ends():
     svc, clock, out = make()
     svc.assign(1, "p1")
     svc.set_run_state("p1", "running")

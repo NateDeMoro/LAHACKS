@@ -1,5 +1,5 @@
 """Ingest service (S2): routes readings to per-patient streams, and on every tick runs the pipeline
-I13 -> engine (I14), and at each minute close I6 -> engine (I9) -> alert logic (I10)."""
+I13 -> engine (I14), and at each period close I6 -> engine (I9) -> alert logic (I10)."""
 import asyncio
 import logging
 from datetime import datetime
@@ -61,7 +61,7 @@ class IngestService:
             log.warning("run state %s for unknown patient %s ignored", state, patient_id)
             return
         if last := stream.set_run_state(self._clock(), state):
-            self._close_minute(last)
+            self._close_period(last)
 
     def seed_trend_history(self, patient_id: str, rows: list) -> None:
         seed = getattr(self.engine, "seed_trend_history", None)  # the engine does not have it yet (T6)
@@ -84,15 +84,15 @@ class IngestService:
         self._publish("I13", tick.live)
         try:
             self._publish("I14", self.engine.on_second(tick.live))
-        finally:  # the minute still closes if the second's scoring failed
-            if tick.minute:
-                self._close_minute(tick.minute)
+        finally:  # the period still closes if the second's scoring failed
+            if tick.period:
+                self._close_period(tick.period)
 
-    def _close_minute(self, minute) -> None:
-        self._store.write("I6", minute, minute.patient_id)
-        risk = self.engine.on_minute(minute)
-        if minute.patient_id not in self._ranges_sent:  # the engine only announces ranges once they change
-            self._push_ranges(self.engine.ranges[minute.patient_id])
+    def _close_period(self, period) -> None:
+        self._store.write("I6", period, period.patient_id)
+        risk = self.engine.on_period(period)
+        if period.patient_id not in self._ranges_sent:  # the engine only announces ranges once they change
+            self._push_ranges(self.engine.ranges[period.patient_id])
         self._publish("I9", risk)
         self._store.write("I9", risk, risk.patient_id)
         for alert in self._alerts.on_risk(risk):

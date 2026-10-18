@@ -112,7 +112,7 @@ def test_ended_run_freezes_the_window_but_keeps_the_clock_moving():
     st.on_reading(at(9), sim(hr=200), "simulator")  # ignored once ended
     t = st.tick(at(300))
     assert t.live.hr == 90 and t.live.window_end_ts == at(300) and t.live.run_state == "ended"
-    assert t.minute is None
+    assert t.period is None
 
 
 def test_reset_to_live_clears_the_window():
@@ -126,18 +126,18 @@ def test_reset_to_live_clears_the_window():
     assert t.live.hr is None and t.live.clean_seconds == 0 and t.live.run_state == "live"
 
 
-def test_minutes_start_at_the_stream_start():
+def test_periods_start_at_the_stream_start():
     st = PatientStream("p1", at(100))
     ticks = run_live(st, 125, start=101)
-    minutes = [t.minute for t in ticks if t.minute]
-    assert [m.minute_ts for m in minutes] == [at(100), at(160)]
-    assert minutes[0].hr == 70 and minutes[0].clean_seconds == 59  # first tick lands 1 s after the start
+    periods = [t.period for t in ticks if t.period]
+    assert [m.period_ts for m in periods] == [at(100), at(160)]
+    assert periods[0].hr == 70 and periods[0].clean_seconds == 59  # first tick lands 1 s after the start
 
 
-def test_minute_with_no_clean_data_still_reports_zero_seconds():
+def test_period_with_no_clean_data_still_reports_zero_seconds():
     st = PatientStream("p1", at(0))
-    minutes = [t.minute for t in (st.tick(at(s)) for s in range(1, 62)) if t.minute]
-    assert len(minutes) == 1 and minutes[0].hr is None and minutes[0].clean_seconds == 0
+    periods = [t.period for t in (st.tick(at(s)) for s in range(1, 62)) if t.period]
+    assert len(periods) == 1 and periods[0].hr is None and periods[0].clean_seconds == 0
 
 
 def test_implausible_values_are_dropped():
@@ -153,12 +153,12 @@ def test_custom_config_changes_min_samples():
     assert run_live(st, 2)[-1].live.hr == 70
 
 
-def test_late_tick_skips_empty_minutes_without_a_burst_of_rows():
+def test_late_tick_skips_empty_periods_without_a_burst_of_rows():
     st = PatientStream("p1", at(0))
     run_live(st, 10)
     t = st.tick(at(400))  # loop stalled for over six minutes
-    assert t.minute is not None
-    assert st.tick(at(401)).minute is None
+    assert t.period is not None
+    assert st.tick(at(401)).period is None
 
 
 def test_jittery_ticks_never_report_more_than_60_clean_seconds():
@@ -177,14 +177,14 @@ def test_medians_carry_no_float_noise():
     assert t.live.temp_c == 36.65
 
 
-def test_ending_a_run_hands_back_the_open_minute():
+def test_ending_a_run_hands_back_the_open_period():
     st = PatientStream("p1", at(0))
     st.set_run_state(at(0), "running")
-    for s in range(1, 90):  # one full minute closes on the way; 29 s are left open
+    for s in range(1, 90):  # one full period closes on the way; 29 s are left open
         st.on_reading(at(s), sim(hr=90, resp_rate=18, spo2=97, temp_c=37.0), "simulator")
         st.tick(at(s))
     last = st.set_run_state(at(90), "ended")
-    assert last.minute_ts == at(60) and last.hr == 90 and last.clean_seconds == 30
+    assert last.period_ts == at(60) and last.hr == 90 and last.clean_seconds == 30
     assert st.set_run_state(at(91), "ended") is None  # a repeat finds nothing open
 
 

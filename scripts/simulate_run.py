@@ -31,7 +31,7 @@ class PrintSink:
         print(f"run state: {state}")
 
     def seed_trend_history(self, patient_id, rows):
-        print(f"trend pre-roll: {len(rows)} rows, {rows[0].minute_ts:%H:%M} to {rows[-1].minute_ts:%H:%M}")
+        print(f"trend pre-roll: {len(rows)} rows, {rows[0].period_ts:%H:%M} to {rows[-1].period_ts:%H:%M}")
 
 
 async def _instant(_delay):

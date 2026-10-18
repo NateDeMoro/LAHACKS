@@ -8,9 +8,9 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from backend.contracts import MinuteSummary, TrendConfig
+from backend.contracts import PeriodSummary, TrendConfig
 from backend.risk_engine import fast_model
-from backend.risk_engine.baseline import is_clean_minute
+from backend.risk_engine.baseline import is_clean_period
 
 log = logging.getLogger(__name__)
 
@@ -32,11 +32,11 @@ class TrendHistory:
         self.rows: deque[Row] = deque()
         self.first_clean: datetime | None = None
 
-    def add(self, m: MinuteSummary):
+    def add(self, m: PeriodSummary):
         if self.first_clean is None:
-            self.first_clean = m.minute_ts
-        self.rows.append(Row(m.minute_ts, m.hr, m.resp_rate, m.spo2))
-        while self.rows[0].ts < m.minute_ts - HISTORY:
+            self.first_clean = m.period_ts
+        self.rows.append(Row(m.period_ts, m.hr, m.resp_rate, m.spo2))
+        while self.rows[0].ts < m.period_ts - HISTORY:
             self.rows.popleft()
 
     def elapsed_minutes(self, now: datetime) -> float:
@@ -68,15 +68,15 @@ class Trend:
             self._failed = True
             log.exception(msg)
 
-    def update(self, m: MinuteSummary, levels: dict[str, str | None], level: str,
+    def update(self, m: PeriodSummary, levels: dict[str, str | None], level: str,
                reason: str | None) -> TrendOutcome:
         """Feed one minute with its classified levels; returns the (possibly raised) level and trend fields."""
         unchanged = TrendOutcome(level, reason)
-        if m.minute_ts is None or not is_clean_minute(m.clean_seconds, self.min_clean_seconds):
+        if m.period_ts is None or not is_clean_period(m.clean_seconds, self.min_clean_seconds):
             return unchanged
         hist = self.histories.setdefault(m.patient_id, TrendHistory())
         hist.add(m)
-        if hist.elapsed_minutes(m.minute_ts) < self.cfg.fast_min_clean_minutes or \
+        if hist.elapsed_minutes(m.period_ts) < self.cfg.fast_min_clean_minutes or \
            "danger" in levels.values() or not self.model_loaded:
             return unchanged
         try:

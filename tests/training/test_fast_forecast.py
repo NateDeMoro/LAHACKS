@@ -7,7 +7,7 @@ import pytest
 
 lgb = pytest.importorskip("lightgbm")
 
-from backend.contracts import MinuteSummary
+from backend.contracts import PeriodSummary
 from backend.risk_engine import fast_features as ff
 from backend.risk_engine import fast_model
 from backend.risk_engine.trend import TrendHistory
@@ -79,7 +79,7 @@ def _history(spo2, hr=75.0, rr=16.0):
     h = TrendHistory()
     base = datetime(2026, 1, 1, tzinfo=timezone.utc)
     for k, s in enumerate(spo2):
-        h.add(MinuteSummary(patient_id="p", minute_ts=base + timedelta(minutes=k), hr=hr, resp_rate=rr, spo2=s,
+        h.add(PeriodSummary(patient_id="p", period_ts=base + timedelta(minutes=k), hr=hr, resp_rate=rr, spo2=s,
                             temp_c=36.8, clean_seconds=60))
     return h
 
@@ -112,7 +112,7 @@ def test_train_serve_parity(tmp_path, monkeypatch):
         h = TrendHistory()
         base = datetime(2026, 1, 1, tzinfo=timezone.utc)
         for k in range(i + 1):
-            h.add(MinuteSummary(patient_id="p", minute_ts=base + timedelta(minutes=k), hr=float(hr[k]), resp_rate=16.0,
+            h.add(PeriodSummary(patient_id="p", period_ts=base + timedelta(minutes=k), hr=float(hr[k]), resp_rate=16.0,
                                 spo2=None if np.isnan(spo2[k]) else float(spo2[k]), temp_c=36.8, clean_seconds=60))
         live = fast_model.predict(h)[0]
         assert live == pytest.approx(train_scores[i], abs=1e-6)

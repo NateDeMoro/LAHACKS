@@ -2,7 +2,7 @@
 import random
 from datetime import datetime, timedelta
 
-from backend.contracts import MinuteSummary
+from backend.contracts import PeriodSummary
 from backend.simulator.models import SIM_VITALS, RunScript, Sample, Track
 
 
@@ -50,7 +50,7 @@ def generate(script: RunScript, length_s: int) -> list[Sample]:
     return out
 
 
-def preroll_rows(script: RunScript, patient_id: str, run_start: datetime, minutes: int) -> list[MinuteSummary]:
+def preroll_rows(script: RunScript, patient_id: str, run_start: datetime, minutes: int) -> list[PeriodSummary]:
     """One-minute rows at the script's 0:00 values, oldest first, ending the minute before run_start."""
     rngs = _rngs(script, "-preroll")
     start = keyframe_sample(script, 0)
@@ -61,6 +61,6 @@ def preroll_rows(script: RunScript, patient_id: str, run_start: datetime, minute
         for v in SIM_VITALS:
             t = script.tracks[v]
             values[v] = _device(t, v, getattr(start, v) + rngs[v].uniform(-t.wobble, t.wobble))
-        rows.append(MinuteSummary(patient_id=patient_id, minute_ts=last - timedelta(minutes=minutes - 1 - k),
+        rows.append(PeriodSummary(patient_id=patient_id, period_ts=last - timedelta(minutes=minutes - 1 - k),
                                   clean_seconds=60, **values))
     return rows

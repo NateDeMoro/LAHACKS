@@ -4,20 +4,20 @@ from datetime import timedelta
 
 import pytest
 
-from backend.contracts import MinuteSummary
+from backend.contracts import PeriodSummary
 from backend.risk_engine import fast_model
 from backend.risk_engine.engine import RiskEngine
 from risk_helpers import T0
 
 
 def row(i, step=1, hr=72, rr=15, spo2=98, clean=60):
-    return MinuteSummary(patient_id="p", minute_ts=T0 + timedelta(minutes=i * step), hr=hr,
+    return PeriodSummary(patient_id="p", period_ts=T0 + timedelta(minutes=i * step), hr=hr,
                          resp_rate=rr, spo2=spo2, temp_c=36.8, clean_seconds=clean)
 
 
 def run(rows):
     eng = RiskEngine()
-    return [eng.on_minute(r) for r in rows]
+    return [eng.on_period(r) for r in rows]
 
 
 @pytest.fixture
@@ -107,6 +107,6 @@ def test_stale_news2_is_nulled():
     from backend.contracts import LiveWindow
     eng = RiskEngine()
     eng.on_second(LiveWindow(patient_id="p", window_end_ts=T0, hr=72, resp_rate=15, spo2=98, temp_c=36.8))
-    fresh = eng.on_minute(row(0))
-    stale = eng.on_minute(row(2))  # 120 s after the last I14
+    fresh = eng.on_period(row(0))
+    stale = eng.on_period(row(2))  # 120 s after the last I14
     assert fresh.news2 is not None and stale.news2 is None and stale.news2_points is None

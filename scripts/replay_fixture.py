@@ -91,7 +91,7 @@ def replay_stays(only, intake, out, alerts=False, ack_after=None, adjust=False):
                 print(f"{pid} age {ctx.age}: I5 {[(a.rule_id, a.vital, a.bound, a.value) for a in res.i5.adjustments]}; "
                       f"temp danger_high {t.danger_high}, safe_high {t.safe_high}")
         srows = stay_rows(rows, pid)
-        by_ts = {r.minute_ts: r for r in srows}
+        by_ts = {r.period_ts: r for r in srows}
         path, levels, first_personal = [], {}, None
         ap = AlertPrinter(eng, ack_after) if alerts else None
         if ap:
@@ -99,7 +99,7 @@ def replay_stays(only, intake, out, alerts=False, ack_after=None, adjust=False):
         for w in iter_i13(srows):  # no sleeping: fast-forwarded
             i14 = eng.on_second(w)
             if w.window_end_ts in by_ts:
-                i9 = eng.on_minute(by_ts[w.window_end_ts])
+                i9 = eng.on_period(by_ts[w.window_end_ts])
                 i9_out.append(i9.model_dump_json())
                 if ap:
                     ap.feed(i9)
@@ -126,7 +126,7 @@ def replay_wearer():
     pop = eng.intake_ranges["demo-001"].hr
     print(f"population HR safe {pop.safe_low}-{pop.safe_high}  reasons: {pop.reasons}")
     for i, m in enumerate(load_i6(DIR / "wearer_drift_i6.jsonl")):
-        res = eng.on_minute(m)
+        res = eng.on_period(m)
         hr = eng.ranges[m.patient_id].hr
         if i % 5 == 4:
             print(f"min {i + 1:2d} HR {m.hr:5.1f} band {hr.safe_low}-{hr.safe_high} ({hr.source}) -> {res.level}")
@@ -139,7 +139,7 @@ def replay_i6(path, alerts=False, ack_after=None):
         eng.on_intake(ctx)
     ap = AlertPrinter(eng, ack_after) if alerts else None
     for i, m in enumerate(rows):
-        r = eng.on_minute(m)
+        r = eng.on_period(m)
         if ap:
             ap.feed(r)
             continue

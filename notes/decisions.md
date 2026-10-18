@@ -67,7 +67,7 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - Learning forever would slowly absorb a deterioration. After the window the band stops moving but readings are still classified, so a later slow drift inside the population range still reaches warning (synthetic wearer: band 59-85 frozen, drift reaches warning at 87).
 
 ### Windows count time, not rows
-- eICU rows are 5 minutes, live rows 1 minute. Windows and n use `minute_ts` so both behave alike.
+- eICU rows are 5 minutes, live rows 1 minute. Windows and n use `period_ts` so both behave alike.
 
 ### Chosen start values: k = 2.5, floor multiplier 1.0 (HR floor 5, breathing 1; min widths 16 and 6)
 - **Evidence** (`training/tune_baseline.py`, first 4 hours of 1,945 eICU stays: 1,778 survivors, 167 non-survivors): relative to population bands only, k=2.5 / x1.0 raises the survivor flag rate to 1.07x and the non-survivor flag share to 1.03x. k=3.0 / x1.0 gives 1.04x / 1.03x; k=2.0 / x0.5 gives 1.19x / 1.04x; x1.5 gives about 1.02x but narrows less. Under the chosen setting a personal HR band forms in 53% of survivor stays and breathing in 42%.
@@ -77,7 +77,7 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 
 ### Other T3 behaviours (added after review)
 - **Late or repeated intake keeps what was learned.** `RiskEngine.on_intake` after readings started rebases the population ranges and refits from the samples seen; it does not reset the baseline.
-- **I8 changes are pushed by callback, not returned.** `on_minute` returns I9 as before, and `engine.ranges_listener(PatientRanges)` is called when a patient's I8 changes, so existing callers (replay, dashboard stand-ins) keep working. Documented in component-map.
+- **I8 changes are pushed by callback, not returned.** `on_period` returns I9 as before, and `engine.ranges_listener(PatientRanges)` is called when a patient's I8 changes, so existing callers (replay, dashboard stand-ins) keep working. Documented in component-map.
 - **BaselineConfig has real defaults** (the shipped values), the one model that breaks the "every field nullable" rule, so a missing setting can never crash the engine.
 - **Known limits, left as is:** one abnormal reading in the first 3 minutes skips that vital for the whole stay, and so does a median outside the population band at the first fit (a stressed arrival that settles stays unpersonalized). A vital can also drop from personal back to population if its median later leaves the band (stay eicu-2621632 does). A simple rule is easier to defend than a retry heuristic we can't tune on this data.
 - **Two minimum widths:** `ranges.py` MIN_WIDTH (HR 20, SBP 20, temperature 0.6) is the narrowest fitted population band we trust before falling back to NEWS2 score-0; the config `min_width` (HR 16, breathing 6) is the narrowest personal band. A personal band may be tighter than a population one because it describes one person.
@@ -125,11 +125,11 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - Typed with real defaults like `BaselineConfig`, replacing the loose `persistence_windows` and `probability_cutoffs` dicts, so a missing key cannot crash the engine and T4/T6 each own named keys. Defaults: windows 5 min (warning persisted, trend), 2 min (vital danger, NEWS2), `max_gap_minutes` 10, `clear_minutes` 5, `ack_cooldown_minutes` 15; fast trend starts after 15 minutes with a placeholder cutoff of 0.5 (T6 sets it). The I7 file table drops `slow` and `fast_30` and adds `fast_15.txt` and `fast_15_features.json`.
 
 ### Fast trend rules in trend.py
-- **Starts after 15 clean minutes, counted by elapsed `minute_ts`** from the first clean minute (not rows), so 5-minute eICU rows and 1-minute live rows behave alike. The clean-minute test is the one from the personal baseline, extracted to `baseline.is_clean_minute` and reused; baseline behaviour is unchanged.
+- **Starts after 15 clean minutes, counted by elapsed `period_ts`** from the first clean minute (not rows), so 5-minute eICU rows and 1-minute live rows behave alike. The clean-minute test is the one from the personal baseline, extracted to `baseline.is_clean_period` and reused; baseline behaviour is unchanged.
 - **Null while any vital is in danger:** the fast label is not defined for minutes already in danger.
 - **Raise-only to warning:** the trend can lift safe to warning, never lower a level and never reach urgent.
 - **Failure handling:** `fast_model.py` is a stub (`load()` False, `predict()` None) with its own lazy LightGBM import, so a baseline version needs no LightGBM. `trend.py` catches any exception from load or predict, logs once, and leaves the fields null.
-- **Only engine change:** `on_minute` calls trend once after classification. With the stub, replaying all 7 eICU stays (intake on and off) differs from the pre-change output only by the new fields.
+- **Only engine change:** `on_period` calls trend once after classification. With the stub, replaying all 7 eICU stays (intake on and off) differs from the pre-change output only by the new fields.
 
 ### Bed labels
 - In `backend/config.py` (wearable 1 is "Bed 4"). `RiskEngine.bed_label` reads the wearable from the stored I4 and falls back to the patient_id, so unknown patients still get a readable message.

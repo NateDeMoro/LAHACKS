@@ -10,7 +10,7 @@ const label = (c: string) => (c === 'copd' ? 'COPD' : c[0].toUpperCase() + c.sli
 const ALERT = [['alert', 'Alert'], ['new_confusion', 'New confusion'], ['voice', 'Voice'], ['pain', 'Pain'], ['unresponsive', 'Unresponsive']] as const
 
 const input = 'h-11 flex items-center px-3 rounded-[6px] border border-edge text-[15px] leading-5 text-ink bg-ground w-full'
-const H = ({ t }: { t: string }) => <div className="font-mono text-[12px] leading-4 tracking-[0.08em] text-muted">{t}</div>
+const H = ({ t }: { t: string }) => <div className="text-[15px] leading-5.5 font-[600] text-ink">{t}</div>
 const F = ({ t, children, grow = 1 }: { t: string; children: React.ReactNode; grow?: number }) => (
   <div className="flex flex-col min-w-0 gap-1.5" style={{ flex: `${grow} 1 0` }}><div className="text-[13px] leading-4.5 font-[500] text-ink">{t}</div>{children}</div>
 )
@@ -67,7 +67,7 @@ export default function CheckIn() {
       </div>
       <div className="flex items-end justify-between pt-7 pb-5 px-10">
         <div className="flex flex-col gap-1.5">
-          <div className="text-[36px] leading-10 tracking-[-0.015em] font-[600] text-ink">Check in a patient</div>
+          <div className="text-title font-[600] text-ink">Check in a patient</div>
           <div className="text-[15px] leading-5.5 text-muted">Arrival {patients.length + 1} · {fmtClock(now)} · patient ID assigned when you check in</div>
         </div>
         <button onClick={autofill} className="h-9 px-4 rounded-[6px] border border-edge bg-ground text-[14px] leading-5 font-[500] text-ink">Autofill my details</button>
@@ -75,7 +75,7 @@ export default function CheckIn() {
       <div className="flex pb-6 gap-10 px-10">
         <div className="flex flex-col grow basis-0 min-w-0 gap-7">
           <div className="flex flex-col gap-3.5">
-            <H t="PATIENT" />
+            <H t="Patient" />
             <div className="flex gap-4">
               <F t="Name" grow={2}><input className={input} value={name} onChange={(e) => setName(e.target.value)} /></F>
               <F t="Age"><input className={`${input} font-mono`} inputMode="numeric" value={age} onChange={(e) => setAge(e.target.value)} /></F>
@@ -87,7 +87,7 @@ export default function CheckIn() {
               <F t="Pregnant">{sex === 'female' ? <Seg opts={[['no', 'No'], ['yes', 'Yes']] as const} value={preg == null ? null : preg ? 'yes' : 'no'} onChange={(v) => setPreg(v === 'yes')} /> : <div className={`${input} bg-fog border-0 text-[14px] text-muted`}>Not applicable</div>}</F>            </div>
           </div>
           <div className="flex flex-col pt-6 gap-3.5 border-t border-line">
-            <H t="HEALTH HISTORY" />
+            <H t="Health history" />
             <div className="flex flex-col gap-2">
               <div className="text-[13px] leading-4.5 font-[500] text-ink">Conditions</div>
               <div className="flex flex-wrap gap-2">
@@ -111,13 +111,13 @@ export default function CheckIn() {
             </div>
           </div>
           <div className="flex flex-col pt-6 gap-3.5 border-t border-line">
-            <H t="REASON FOR VISIT" />
+            <H t="Reason for visit" />
             <F t="Chief complaint, in the patient's words">
               <textarea value={cc} onChange={(e) => setCc(e.target.value)} className="min-h-19 p-3 rounded-[6px] border border-edge text-[15px] leading-5.5 text-ink" />
             </F>
           </div>
           <div className="flex flex-col pt-6 gap-4 border-t border-line">
-            <H t="TRIAGE · TAKEN ONCE" />
+            <H t="Taken at triage" />
             <div className="flex items-start gap-4">
               <F t="Blood pressure (mmHg)" grow={2}>
                 <div className="flex items-center gap-2"><input className={`${input} font-mono`} inputMode="numeric" value={sbp} onChange={(e) => setSbp(e.target.value)} /><span className="font-mono text-[18px] text-muted">/</span><input className={`${input} font-mono`} inputMode="numeric" value={dbp} onChange={(e) => setDbp(e.target.value)} /></div>
@@ -131,7 +131,6 @@ export default function CheckIn() {
         </div>
         <div className="flex flex-col w-100 shrink-0 pl-8 gap-4 border-l border-line">
           <div className="flex flex-col gap-2">
-            <H t="HEART RATE SENSOR" />
             <div className="text-[22px] leading-7 font-[600] text-ink">Link a strap to this patient</div>
             <div className="text-[14px] leading-5.25 text-muted">Wet the electrodes and fit the strap snug under the chest. Close the Polar app on your phone so it doesn't hold the connection.</div>
           </div>

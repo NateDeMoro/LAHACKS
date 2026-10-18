@@ -7,6 +7,7 @@ import type { PatientRow, RunStatus } from './types'
 import Board from './pages/Board'
 import Patient from './pages/Patient'
 import CheckIn from './pages/CheckIn'
+import ConnectionBanner from './components/ConnectionBanner'
 
 const readRoute = () => location.hash.replace(/^#/, '') || '/'
 
@@ -39,6 +40,7 @@ export default function App() {
   return (
     <AppCtx.Provider value={ctx}>
       <div className="min-h-screen bg-ground text-[12px] leading-4">
+        <ConnectionBanner />
         {m ? <Patient id={decodeURIComponent(m[1])} /> : route === '/checkin' ? <CheckIn /> : <Board />}
       </div>
     </AppCtx.Provider>

@@ -33,7 +33,6 @@ export default function SensorModal({ patientId, onClose }: { patientId: string;
           <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 2 L12 12 M12 2 L2 12" fill="none" stroke="#56616B" strokeWidth="1.6" /></svg>
         </button>
         <div className="flex flex-col gap-2">
-          <div className="font-mono text-[12px] leading-4 tracking-[0.08em] text-muted">HEART RATE SENSOR</div>
           <div className="text-[22px] leading-7 font-[600] text-ink">Link a strap to this patient</div>
           <div className="text-[14px] leading-5.25 text-muted">Wet the electrodes and fit the strap snug under the chest. Close the Polar app on your phone so it doesn't hold the connection.</div>
         </div>

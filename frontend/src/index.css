@@ -15,7 +15,21 @@
   --color-low: #2B7A57;
   --color-low-tint: #E3F1E9;
   --color-edge: #8C98A1;
-  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --text-hero: 40px;
+  --text-hero--line-height: 44px;
+  --text-title: 28px;
+  --text-title--line-height: 32px;
+  --text-value: 24px;
+  --text-value--line-height: 32px;
+  --text-heading: 18px;
+  --text-heading--line-height: 24px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-small: 13px;
+  --text-small--line-height: 18px;
+  --text-micro: 12px;
+  --text-micro--line-height: 16px;
+  --font-sans:"IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 

@@ -26,13 +26,13 @@ export default function Board() {
     <div className="flex flex-col">
       <div className="flex items-center justify-between shrink-0 pt-7 pb-5 px-10">
         <div className="flex flex-col gap-1">
-          <div className="text-[28px] leading-8 tracking-[-0.01em] font-[600] text-ink">Waiting room</div>
-          <div className="text-[14px] leading-5 text-muted">{patients.length} patients · first come, first served · order never changes</div>
+          <div className="text-title font-[600] text-ink">Waiting room</div>
+          <div className="text-body text-muted">{patients.length} patients · first come, first served · order never changes</div>
         </div>
         <div className="flex items-center gap-5">
           <div className="flex items-center gap-2">
             <label className="flex items-center h-9 px-3 rounded-[6px] gap-2.5 bg-ground border border-edge">
-              <span className="font-mono text-[11px] leading-3.5 tracking-[0.08em] text-muted">MODE</span>
+              <span className="text-small text-muted">Mode</span>
               <select value={mode} onChange={(e) => setMode(e.target.value as Mode)} className="bg-transparent text-[14px] leading-5 font-[500] text-ink outline-none cursor-pointer">
                 <option value="live">Live</option>
                 <option value="sim">Simulation</option>
@@ -51,8 +51,8 @@ export default function Board() {
             )}
           </div>
           <div className="w-px h-7 shrink-0 bg-line" />
-          <div className="flex items-center gap-2"><Glyph sev="high" size={14} /><div className="font-mono text-[20px] leading-6 font-[500] text-high">{highs}</div><div className="text-[14px] leading-5 font-[500] text-ink">high</div></div>
-          <div className="flex items-center gap-2"><Glyph sev="amber" size={14} /><div className="font-mono text-[20px] leading-6 font-[500] text-urgent">{ambers}</div><div className="text-[14px] leading-5 font-[500] text-ink">medium</div></div>
+          <div className="flex items-center gap-2"><Glyph sev="high" size={14} /><div className="font-mono text-heading font-[500] text-high">{highs}</div><div className="text-body font-[500] text-ink">high</div></div>
+          <div className="flex items-center gap-2"><Glyph sev="amber" size={14} /><div className="font-mono text-heading font-[500] text-urgent">{ambers}</div><div className="text-body font-[500] text-ink">medium</div></div>
           <div className="w-px h-7 shrink-0 bg-line" />
           <div className="font-mono text-[16px] leading-5 text-muted" title={mode === 'sim' ? 'simulated time' : 'time'}>{fmtClock(now)}</div>
         </div>

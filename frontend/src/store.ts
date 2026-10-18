@@ -8,9 +8,13 @@ export interface State {
   i13: Record<string, I13>
   i14: Record<string, I14>
   alerts: Record<string, I10> // open alerts by alert_id
+  seen: Record<string, number> // browser time of each patient's last I13
 }
 
-let state: State = { connected: false, i8: {}, i9: {}, i13: {}, i14: {}, alerts: {} }
+// The strap sends about one frame a second; this much silence reads as stale.
+const STALE_MS = 5000
+
+let state: State = { connected: false, i8: {}, i9: {}, i13: {}, i14: {}, alerts: {}, seen: {} }
 const listeners = new Set<() => void>()
 const set = (s: State) => { state = s; listeners.forEach((l) => l()) }
 
@@ -20,7 +24,7 @@ export function handleMessage(msg: { type: string; data: any }) {
   switch (msg.type) {
     case 'I8': return set({ ...state, i8: { ...state.i8, [d.patient_id]: d } })
     case 'I9': return set({ ...state, i9: { ...state.i9, [d.patient_id]: d } })
-    case 'I13': return set({ ...state, i13: { ...state.i13, [d.patient_id]: d } })
+    case 'I13': return set({ ...state, i13: { ...state.i13, [d.patient_id]: d }, seen: { ...state.seen, [d.patient_id]: Date.now() } })
     case 'I14': return set({ ...state, i14: { ...state.i14, [d.patient_id]: d } })
     case 'I10': {
       const alerts = { ...state.alerts }
@@ -34,6 +38,13 @@ export function handleMessage(msg: { type: string; data: any }) {
 export const setConnected = (connected: boolean) => set({ ...state, connected })
 export const getState = () => state
 export const useStore = () => useSyncExternalStore((l) => { listeners.add(l); return () => { listeners.delete(l) } }, () => state)
+
+/** Seconds of silence once a patient's stream has gone quiet; null if fresh, never seen, or the socket is down (the banner covers that). */
+export function staleSecs(s: State, pid: string, now: number): number | null {
+  const at = s.seen[pid]
+  if (!s.connected || at == null || now - at <= STALE_MS) return null
+  return Math.round((now - at) / 1000)
+}
 
 const rank: Record<string, number> = { warning: 1, urgent: 1, high: 2 }
 export function openAlerts(s: State, pid: string): I10[] {

@@ -1,11 +1,11 @@
 import { alertText, isMinor } from '../store'
 import type { I10 } from '../types'
 
-const KIND: Record<string, string> = { trend: 'PREDICTED', news2_total: 'NEWS2 SCORE', vital_danger: 'VITAL IN DANGER' }
+const KIND: Record<string, string> = { trend: 'Predicted', news2_total: 'NEWS2 score', vital_danger: 'Vital in danger' }
 const SEVERITY: Record<string, { word: string; text: string; bar: string }> = {
   high: { word: 'High', text: 'text-high', bar: 'border-l-high' },
-  urgent: { word: 'Urgent', text: 'text-urgent', bar: 'border-l-urgent-solid' },
-  warning: { word: 'Warning', text: 'text-urgent', bar: 'border-l-urgent-solid' },
+  urgent: { word: 'Medium', text: 'text-urgent', bar: 'border-l-urgent-solid' },
+  warning: { word: 'Medium', text: 'text-urgent', bar: 'border-l-urgent-solid' },
 }
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 const POINTS = /,\s*(\d+) points?$/
@@ -24,19 +24,19 @@ export default function WhyUrgent({ alerts }: { alerts: I10[] }) {
   const main = alerts.filter((a) => !isMinor(a))
   return (
     <div className="flex flex-col gap-3">
-      <div className="font-mono text-[12px] leading-4 tracking-[0.08em] text-muted">WHY URGENT</div>
-      {main.length === 0 && <div className="text-[15px] leading-5.75 text-muted">Nothing urgent right now.</div>}
+      <div className="text-small font-[600] text-muted">Why urgent</div>
+      {main.length === 0 && <div className="text-body text-muted">Nothing urgent right now.</div>}
       {main.map((a) => {
         const sev = SEVERITY[a.severity ?? ''] ?? SEVERITY.warning
         const { head, detail } = parts(a)
         return (
           <div key={a.alert_id} className={`flex flex-col gap-1 pl-3 border-l-3 ${sev.bar}`}>
-            <div className="flex items-center justify-between font-mono text-[11px] leading-3.5 tracking-[0.08em]">
+            <div className="flex items-center justify-between text-micro">
               <div className="text-muted">{KIND[a.trigger ?? ''] ?? 'ALERT'}</div>
-              <div className={`font-[600] ${sev.text}`}>{sev.word.toUpperCase()}</div>
+              <div className={`font-[600] ${sev.text}`}>{sev.word}</div>
             </div>
-            <div className="text-[17px] leading-6 font-[600] text-ink">{head}</div>
-            {detail && <div className="text-[14px] leading-5 text-muted">{detail}</div>}
+            <div className="text-heading font-[600] text-ink">{head}</div>
+            {detail && <div className="text-body text-muted">{detail}</div>}
           </div>
         )
       })}

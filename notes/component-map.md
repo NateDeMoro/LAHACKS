@@ -196,7 +196,6 @@ One active patient per wearable; readings from an unassigned wearable are droppe
 | bmi | computed from height and weight |
 | drug_classes | [lookup classes: beta_blocker, ssri, snri, opioid, corticosteroid, immunosuppressant. The NHANES fit uses beta_blocker, ssri, snri; the adjuster rules use beta_blocker, opioid, corticosteroid, immunosuppressant] |
 | unmatched_medications | [names the lookup missed] |
-| resolved_conditions | the I16 items for each custom condition; null until the resolver finishes |
 
 ### I5 Context adjustments
 
@@ -210,7 +209,7 @@ One active patient per wearable; readings from an unassigned wearable are droppe
 | value | new limit for the tier, in the vital's units |
 | tier | danger (the default when null) \| warning. Table rules use danger; drafted rules use warning |
 
-Tighten only: a high bound can only move down and a low bound only up. The engine clamps anything else. Facts and quotes are not passed here; they go to I15. A warning-tier adjustment narrows the safe band to the value and leaves the danger edge where it is, so the vital reads as warning beyond that value and danger only at the unchanged edge. It applies to that one patient, takes its value from the limit menu (never from the model), must sit inside the current warning band, and is never written back to `rules.json`. Its reason line on I8 says "unreviewed".
+Tighten only: a high bound can only move down and a low bound only up. The engine clamps anything else. Facts and quotes are not passed here; they go to I15. A warning-tier adjustment narrows the safe band to the value and leaves the danger edge where it is, so the vital reads as warning beyond that value and danger only at the unchanged edge. It applies to that one patient, takes its value from the limit menu (never from the model), must sit inside the current safe band (a value outside it is a no-op), and is never written back to `rules.json`. Its reason line on I8 says "unreviewed".
 
 ### I6 Period summary
 
@@ -235,7 +234,7 @@ The simulator's 120-minute trend pre-roll uses this format but goes to the engin
 | fast_15_forecast_{spo2_low,rr_low,rr_high,hr_low,hr_high}_cautious.txt | the five LightGBM cautious-quantile models (10% for lowest, 90% for highest); these are the only model files loaded at runtime |
 | fast_15_forecast_*_median.txt | five median models, offline evaluation only (not loaded by the engine) |
 | fast_15_logreg.json | the logistic-regression alternative (`METHOD = "logreg"`), not shipped |
-| limit_menu.json | the limit menu for drafted rules (I17): per vital and bound, a few warning values, each with an id, a label and a source; set ahead of time, clinician-reviewed once, checked against the warning band when loaded |
+| limit_menu.json | the limit menu for drafted rules (I17): per vital and bound, a few steps, each with an id, a kind (relative: tighten the patient's own safe edge by an amount; absolute: a new edge), a label and a source; set ahead of time, reviewed once; absolute values are checked against score-0 when loaded, and code skips a step that would not tighten the band or would leave it too narrow |
 | config.json | `baseline` (minutes, n₀ bounds, k, spread floors, minimum widths), `alerts` (persistence window per trigger, `max_gap_minutes`, `clear_minutes`, `ack_cooldown_minutes`), `trend` (`fast_min_clean_minutes`, `fast_warning_cutoff`); all typed with defaults |
 
 The engine runs on stub files at first (NEWS2 only), so systems work never waits on training.
@@ -347,8 +346,8 @@ Never read by the risk engine. Used to score the adjuster against the labeled te
 | items | [{typed, canonical, vocabulary, code, status, candidates, rule_id}] |
 | typed | the nurse's text, as entered |
 | canonical, vocabulary, code | the matched entry (NLM conditions or ICD-10-CM) and its code; null unless found |
-| status | found \| ambiguous \| not_found |
-| candidates | for ambiguous, up to 5 {canonical, code}; the intake page shows a picker, then intake is submitted again with the pick |
+| status | found \| ambiguous \| not_found \| checklist \| unavailable (the vocabulary service failed; never read as not_found) |
+| candidates | for ambiguous, up to 5 {canonical, code}; v1 lists them on the card as not applied (no picker) |
 | rule_id | the table rule the code maps to, or null |
 
 The model only proposes the canonical term and search terms; matching is done in code. `found` means the vocabulary holds an entry within the match threshold, not that the condition is real by definition. `not_found` changes nothing and is logged.

@@ -43,7 +43,7 @@ Targets, proposed and measured on a test set we build first. Treat them as a smo
 - Evidence is saved with each draft (papers, passages, hash) and reused for that condition, so the same condition gives the same limits on any day.
 - Promotion to a permanent rule is a normal commit to `rules.json` by a reviewer reading the log. Nate's hand review of the seven current rules is the model for that review.
 - No nurse messaging, no acknowledge from chat (I11 stays dashboard only), no recheck ranking. Risk shows as level colors and open alerts on the dashboard.
-- The evidence step is a fixed pipeline, not a tool loop: code runs the PubMed search from the normalizer's search terms and fetches the top abstracts, then one model call reads them and picks from the menu. This works without tool calling on step-5-preview and keeps the steps deterministic where code can do them.
+- The evidence step is a fixed pipeline, not a tool loop: code runs the PubMed search from the NLM canonical condition name (never the typed text) and fetches the top abstracts, then one model call reads them and picks from the menu. This works without tool calling on step-5-preview and keeps the steps deterministic where code can do them.
 - Every model call goes through `backend/llm.py` to step-5-preview. Pydantic stays the only JSON layer (no Instructor, no PydanticAI); closed `Literal` sets, `extra="forbid"` and length caps go on every new schema, and the code-side gates above cover what a schema cannot.
 
 ## Architecture
@@ -52,22 +52,22 @@ The condition path is two modules in `backend/conditions/` called by the intake 
 
 | Module | Model call | Code | Model can write |
 | --- | --- | --- | --- |
-| Condition resolver | Normalizes typed conditions: canonical term, synonyms, search terms (sees only the typed strings) | Vocabulary lookup and fuzzy match, rule match, writes I16 | No |
+| Condition resolver | None (the normalizer was dropped; NLM does prefix matching and the typed text is only a search string) | Sanitize, NLM lookup and fuzzy match, checklist mapping, writes I16 | n/a |
 | Adjuster (existing) | Reads the chief complaint for facts and quotes | Validator, clamp; writes I5 and I15 | No |
 | Evidence step | Reads code-fetched abstracts and picks a vital, a bound and a menu step, or none; sees no patient data | PubMed search and fetch, gates, menu lookup, clamp for that patient's warning edge; writes I17, I5 and I15 | No |
 
-Intake page: a custom-conditions field beside the checklist, a picker when a term matches several entries (the nurse picks and the page posts again with the same patient_id, the existing re-submit pattern), and a profile card that shows each condition's status, the limits that changed, quotes or sources, the evidence label, and "unreviewed" on drafts. The card text comes from templates over typed data, and a script checks that every number in it is in that data. There is no writer model.
+Intake page: a custom-conditions field beside the checklist and a profile card that shows each condition's status, the limits that changed, sources, the evidence label, and "unreviewed" on drafts. Several matches are listed as "not applied" (no picker in v1). The service exposes this on `GET /intake/{patient_id}` (`conditions` plus drafted items in `i15_items`); the page itself is the dashboard owner's. The card text comes from templates over typed data. There is no writer model.
 
 Flow for one typed condition:
 
 1. Intake validates I2 in code (custom conditions length-capped, control characters stripped) and returns code-only limits at once.
-2. Normalize (one model call): canonical term, synonyms, search terms.
-3. Look up in NLM Clinical Tables (conditions, ICD-10-CM), fuzzy-match in code: found with a code, not found, or several matches. Several matches: the card shows a picker and the step runs again with the pick. Not found: nothing changes, the card says so, the attempt is logged.
-4. Rule match: vocabulary code to a `rules.json` entry. Found: the existing adjuster path runs unchanged.
+2. Look up each typed term in NLM Clinical Tables (conditions) and fuzzy-match in code: found with a code, checklist (the typed term maps to one of the ten checklist conditions, which sets that flag instead of drafting), ambiguous, not found, or unavailable (the service failed; never shown as not found).
+3. Found, no table rule exists for it: code runs the PubMed search and fetches abstracts; one model call picks from the limit menu (or none); gates run. No rule in `rules.json` is keyed to a condition, so there is no rule-match step.
+4. Gates pass: the pick becomes a warning-tier adjustment for that patient. Code turns the menu step into an absolute safe edge from the patient's own population band; a step that would not tighten the band or would leave it too narrow is skipped. One draft per vital and bound across conditions, the milder step wins. Any gate fails: nothing moves and the card shows the suggestion as not applied.
 5. No rule: code runs the PubMed search and fetches abstracts, the model picks from the limit menu (or none), and gates run. All pass: I17 is emitted with the menu id, code looks up the value, and it is applied as a warning for that patient. Any fail: nothing moves, the card shows the suggestion marked not applied, and the failed gates are logged.
 6. The card updates. The nurse's screen polls `GET /intake/{patient_id}` as it does today.
 
-The structured result is immediate (the existing two-step I5). The normalize call, the adjuster call and the evidence pass are 25–45 s each (`backend/llm.py`) and the lowest StepFun tier allows 5 concurrent calls, so a drafted rule lands minutes after intake. A repeat condition is served from the evidence store. Model, PubMed, NLM and Crossref calls run off the event loop with timeouts; every engine call stays on it; any failure falls back to the result already applied.
+The structured result is immediate (the existing two-step I5). The adjuster call and the evidence pass are 25–45 s each (`backend/llm.py`) and the lowest StepFun tier allows 5 concurrent calls, so a drafted rule lands minutes after intake. A repeat condition is served from the evidence store. Model, PubMed, NLM and Crossref calls run off the event loop with timeouts; every engine call stays on it; any failure falls back to the result already applied.
 
 ## Stack
 
@@ -85,11 +85,11 @@ Three of the seven current rules (chemo_fever, opioid, beta_blocker) cite only g
 
 | Path | Holds |
 | --- | --- |
-| `backend/conditions/` | Normalizer, vocabulary lookup, rule matcher, PubMed client, evidence step, gates, evidence store |
+| `backend/conditions/` | menu, lookup, service (orchestration), pubmed, evidence, gates, store |
 | `backend/risk_engine/ranges.py` | A warning-tier path beside `apply_i5` (narrows the safe edge, leaves danger alone) |
 | `backend/intake/` | Calls the condition modules after I4; `GET /intake/{patient_id}` adds I16 and drafted items |
 | `models/limit_menu.json` | The limit menu (an I7 file): per vital and bound, a few warning values with an id, a label and a source each |
-| `backend/config.py` | A conditions section: kill switch, per-patient cap, match threshold, timeouts |
+| `backend/config.py` | `ConditionsConfig`: kill switch, allowed vitals, min sources, match threshold, timeouts, paths |
 | `fixtures/conditions/` | Test sets and the rule-match labels |
 | `scripts/score_conditions.py` | Scores each layer, same shape as `score_adjuster.py` |
 
@@ -100,7 +100,7 @@ Each layer gets a labeled file and a scoring script: build on dev, score test on
 | Layer | Data | Passes when |
 | --- | --- | --- |
 | Lookup | Lay terms and typos; a rare-disease list; clinician-written diagnosis strings if the eICU or MIMIC tables are on hand (not checked, `/data` is gitignored); invented names generated then dropped if they match NLM or an exact PubMed phrase; real names with a word swapped; terms that match several entries; 20 injection strings | Targets 1–3 and 5 |
-| Rule match | About 25 conditions hand-labeled with the expected rule or none | Every label, no model in the loop |
+| Checklist mapping | Typed terms labeled with the checklist condition they should set | Every label, no model in the loop |
 | Citation gates | The sources in `rules.json` as known-good; known-bad made by changing a PMID digit, pairing a real PMID with another title, rewording the quote | Accepts every good, rejects every bad |
 | No-rule path | The seven rules as an answer key (below) plus 10 conditions with no known effect on vital signs | Hit rates below |
 | Pipeline end to end | Typed conditions through intake against stubbed NLM, PubMed and model; failure drills (NLM down, PubMed down, step-5-preview timeout, malformed model reply) | A failure leaves the code-only result in place, nothing writes to `rules.json`, the cap and kill switch hold |
@@ -119,6 +119,21 @@ Leave-one-rule-out comparison: hide one of the seven rules, send its trigger (th
 | Source authority | Finds a guideline, review or trial, judged by hand | Judged by hand |
 
 Limits: seven is a smoke test, and because the menu holds the hidden rules' own numbers it measures picking the right vital and step, not recalling a number. Four of the seven are not conditions (three drugs and an age band), so they exercise the evidence step but not the lookup. The rules were written from literature the model may also know, so recovering them shows it finds the mainstream answer, not that it copes with a rare condition. Beta blocker at 110 bpm and age 65 at 37.8 °C are flagged in `rules.json` as unconfirmed, so a disagreement there is a finding. Add answer keys we did not write (for example NEWS2's own SpO2 Scale 2 for hypercapnic respiratory failure, from memory, confirm in the Royal College of Physicians document).
+
+## Built (branch claude/quirky-cannon-pw47tc) and what testing showed
+
+Built test-first: contracts I16 and I17 plus the I2, I5 and I15 changes, `models/limit_menu.json`, `backend/conditions/` (menu, lookup, service, pubmed, evidence, gates, store), the warning tier in `ranges.apply_i5`, intake wiring and the card, `scripts/score_conditions.py`, and `tests/conditions/` plus two risk-engine test files (506 tests pass; 3 older failures are unrelated). Not run: a real model call and the live evidence path.
+
+Decisions applied from review: menu steps are relative to the patient's own safe edge (an absolute value outside the safe band does nothing); all four graded vitals are allowed by default and SBP never is; the normalizer, rule-match step and picker are dropped from v1; one draft per vital and bound with the milder step winning; the service keeps each patient's drafts and merges them into every apply, so a later adjuster result or a resubmit cannot erase them, and a resubmit with different conditions drops them.
+
+Findings pinned by tests:
+- Safe bands are already narrower than NEWS2 score-0 (a 50-year-old's temperature ceiling is 37.3), so the sourced absolute 37.8 °C entry could never apply and was removed.
+- The strong temperature step (0.6 °C) has no effect for an 85-year-old: the band is 36.1–37.2 and the minimum width stops it.
+- NLM lookup (42 labeled cases, recorded responses): 9 of 12 real conditions found (celiac disease, Huntington and Parkinson disease miss), 9 of 9 invented names not found, 12 of 12 checklist terms mapped, 7 of 7 injection strings not found. A smoke test, not coverage.
+- One-letter swaps of real names ("lung cancel", "portal hypotension") would pass the 0.85 fuzzy threshold; the API's prefix matching is what stops them today. A higher threshold breaks real typos.
+- Typos and lay terms ("asthmaa", "heart attack") return nothing from the API now that there is no normalizer.
+- Open risk: a patient whose resting reading is already past a drafted edge (HR 88 against a drafted 85) stays in warning and a warning alert opens at 10 minutes and never clears, because the baseline will not learn from an out-of-range level.
+- Unverified: StepFun accepting `maxLength` and `maxItems` in the strict schema; the full model-plus-PubMed path end to end.
 
 ## Later: Fetch.ai
 

@@ -31,7 +31,8 @@ def _terms_key(terms: list[str] | None) -> tuple[str, ...]:
 def default_condition_fn(ctx: PatientContext):
     """Real lookup and evidence step; imported here so the intake service loads without them."""
     from backend.conditions import evidence, lookup, service
-    return service.process(ctx, resolve_fn=lookup.resolve, draft_fn=evidence.draft)
+    return service.process(ctx, resolve_fn=lookup.resolve,
+                           draft_fn=lambda code, name: evidence.draft(code, name, vocabulary="nlm_conditions"))
 
 
 class UnknownWearable(ValueError):

@@ -39,9 +39,14 @@ const rank: Record<string, number> = { warning: 1, urgent: 1, high: 2 }
 export function openAlerts(s: State, pid: string): I10[] {
   return Object.values(s.alerts).filter((a) => a.patient_id === pid)
 }
-/** Tile colour: highest open alert severity. warning/urgent -> amber, high -> red, none -> green. */
+/** "Outside usual" (personal baseline) alerts: shown quietly, never colour a tile. */
+export const isMinor = (a: I10) => a.trigger === 'warning_persisted'
+/** Alerts with the ones that matter first, minor ones last. */
+export const rankedAlerts = (s: State, pid: string): I10[] =>
+  openAlerts(s, pid).sort((a, b) => (+isMinor(a) - +isMinor(b)) || ((b.severity === 'high' ? 1 : 0) - (a.severity === 'high' ? 1 : 0)))
+/** Tile colour: highest open alert severity, ignoring minor alerts. warning/urgent -> amber, high -> red, none -> green. */
 export function tileSeverity(s: State, pid: string): 'low' | 'amber' | 'high' {
   let top = 0
-  for (const a of openAlerts(s, pid)) top = Math.max(top, rank[a.severity ?? ''] ?? 0)
+  for (const a of openAlerts(s, pid)) if (!isMinor(a)) top = Math.max(top, rank[a.severity ?? ''] ?? 0)
   return top === 2 ? 'high' : top === 1 ? 'amber' : 'low'
 }

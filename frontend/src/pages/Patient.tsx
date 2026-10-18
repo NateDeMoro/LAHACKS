@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import * as api from '../api'
 import { Glyph, SEV, VITALS, fmtClock, go, levelBorder, show, useApp, waitingMin } from '../lib'
-import { openAlerts, tileSeverity, useStore } from '../store'
+import { isMinor, rankedAlerts, tileSeverity, useStore } from '../store'
 import type { I10, I9, IntakeCard, VitalKey } from '../types'
 import VitalChart from '../components/VitalChart'
 import SensorModal from '../components/SensorModal'
@@ -24,7 +24,7 @@ export default function Patient({ id }: { id: string }) {
   useEffect(() => { api.getHistory(id).then(setRows).catch(() => {}) }, [id, tsKey])
   useEffect(() => { api.getCard(id).then(setCard).catch(() => setCard(null)) }, [id, modal])
 
-  const alerts = openAlerts(s, id).sort((a, b) => (b.severity === 'high' ? 1 : 0) - (a.severity === 'high' ? 1 : 0))
+  const alerts = rankedAlerts(s, id)
   const sev = tileSeverity(s, id)
   const c = SEV[sev]
   const news2 = mode === 'live' ? 0 : i14?.news2 ?? i9?.news2
@@ -147,7 +147,7 @@ export default function Patient({ id }: { id: string }) {
             {alerts.map((a) => (
               <div key={a.alert_id} className="flex flex-col gap-1 pb-2">
                 <div className="font-mono text-[11px] leading-3.5 tracking-[0.08em] text-muted">{KIND[a.trigger ?? ''] ?? 'ALERT'}</div>
-                <div className="text-[15px] leading-5.75 font-[600] text-ink">{a.message}</div>
+                <div className={`text-[15px] leading-5.75 ${isMinor(a) ? 'text-muted' : 'font-[600] text-ink'}`}>{a.message}</div>
                 {why(a) && <div className="text-[14px] leading-5 text-muted">{why(a)}</div>}
               </div>
             ))}

@@ -1,5 +1,5 @@
 import { go, Glyph, levelBorder, SEV, VITALS, fmtClock, show, useApp, waitingMin } from '../lib'
-import { openAlerts, tileSeverity, useStore } from '../store'
+import { rankedAlerts, tileSeverity, useStore } from '../store'
 import type { PatientRow } from '../types'
 
 export default function Tile({ p, index }: { p: PatientRow; index: number }) {
@@ -8,8 +8,7 @@ export default function Tile({ p, index }: { p: PatientRow; index: number }) {
   const sev = tileSeverity(s, p.patient_id)
   const c = SEV[sev]
   const i13 = s.i13[p.patient_id], i9 = s.i9[p.patient_id], i14 = s.i14[p.patient_id]
-  const alerts = openAlerts(s, p.patient_id)
-  const top = [...alerts].sort((a, b) => (b.severity === 'high' ? 1 : 0) - (a.severity === 'high' ? 1 : 0))[0]
+  const top = rankedAlerts(s, p.patient_id)[0]
   const news2 = mode === 'live' ? 0 : i14?.news2 ?? i9?.news2
   const wait = waitingMin(p.arrival_ts, now)
   const note = top?.message ?? (i9?.level && i9.level !== 'safe' ? i9.reason : null)

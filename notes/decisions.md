@@ -159,6 +159,21 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 ### Messages
 - Built from the bed label (engine.bed_label passed in as a callable; the patient_id if it returns nothing or raises), `vital_values` and `news2_points`: "Bed 4: breathing 26/min, 3 points". Points are left out when null (stale NEWS2). NEWS2 names drivers with 2 or more points (all scoring parts if none reach 2).
 
+### Tuning the windows (training/tune_alerts.py, eICU)
+- **Setup:** 1,945 stays (1,778 survivors, 167 non-survivors), first 24 h each, engine run once per stay with intake from age and sex (I9 cached), alert logic swept with every alert acknowledged 10 minutes later. Metrics: survivor new alerts per patient-hour; median minutes to the first alert for non-survivors.
+- **Table (all four windows together):**
+
+| window (min) | survivor alerts/h | warning | danger | NEWS2 | non-survivor median min to 1st | non-survivors alerted |
+|---|---|---|---|---|---|---|
+| 0 | 3.47 | 2.59 | 0.50 | 0.37 | 0 | 100% |
+| 5 | 2.74 | 2.12 | 0.37 | 0.24 | 5 | 100% |
+| 10 | 2.40 | 1.88 | 0.33 | 0.19 | 10 | 100% |
+| 15 | 2.20 | 1.74 | 0.31 | 0.15 | 15 | 100% |
+
+- **One at a time (others at 5/2/2):** warning window 0/5/10/15 gives 3.43/2.74/2.44/2.26 alerts/h; vital-danger window 2.90/2.74/2.72/2.70 (danger alerts fall 0.63 to 0.29 but nothing else moves); NEWS2 window 2.79/2.74/2.79/2.79 (NEWS2 alerts fall 0.37 to 0.15 as folding shifts alerts onto the vitals, so the total does not drop).
+- **Chosen:** `warning_persisted_minutes` 10 (a warning is not an interruption; 10 saves about 11% over 5 for a median 5-minute later first alert, and 15 saves only 7% more). `vital_danger_minutes` 2, `news2_total_minutes` 2 and `trend_minutes` 5 unchanged: urgent alerts should not wait, and the trend trigger cannot be exercised on eICU.
+- **Limits:** eICU rows are 5 minutes apart, so a window of 1 to 5 minutes behaves like 5 here; only 0 differs. Windows under 5 minutes (the urgent ones) cannot be resolved on this data and are set at C2 on the real strap. ICU patients are abnormal almost throughout (about 2.7 alerts per patient-hour at the defaults), so the absolute rates overstate a waiting room; use the table for the shape only. Revisit at C2 and C3.
+
 ## Stated limits
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.
 - NHANES pulse is seated and resting; anxious waiting patients may run above the 90 bpm cap and show warning (check at C2; the fix would be a config offset).

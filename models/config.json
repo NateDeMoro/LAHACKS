@@ -11,7 +11,7 @@
     "min_width": {"hr": 16, "resp_rate": 6}
   },
   "alerts": {
-    "warning_persisted_minutes": 5,
+    "warning_persisted_minutes": 10,
     "vital_danger_minutes": 2,
     "news2_total_minutes": 2,
     "trend_minutes": 5,

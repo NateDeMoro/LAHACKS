@@ -73,7 +73,7 @@ Read left to right: everything in one column can be built at the same time. A ch
 | S5 Intake form + service | Systems | C2 | Submitting the form creates a patient, assigns the wearable (I3) and produces I4 with drug classes |
 | T2 Baseline ranges | Stats | T1 | NHANES quantile fit written to ranges.json; engine builds I8 from I4. Done: training/fit_ranges.py, backend/risk_engine/ranges.py |
 | T3 Personal baseline | Stats | T2 | I6 rows narrow the safe band; danger limits move only via I5. Done: backend/risk_engine/baseline.py (hr and breathing) |
-| T4 Alert logic | Stats | Step A | Recorded I9 rows produce I10 alerts with persistence windows and one alert per problem |
+| T4 Alert logic | Stats | Step A | Recorded I9 rows produce I10 alerts with persistence windows and one alert per problem. Done: backend/risk_engine/alerts.py, tests/risk_engine/test_alerts.py, training/tune_alerts.py, replay_fixture --alerts |
 | B1 step-5-preview call | Both | P0 | A test call returns valid JSON matching the I5/I15 schema |
 | B2 Test set | Both | B1 | About 100 labeled chief complaints, including negations |
 | B3 Context adjuster | Both | B2 | I4 in, I5 to the engine, I15 to the evaluation log; quote check enforced; scored on the test set |

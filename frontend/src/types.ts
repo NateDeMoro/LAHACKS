@@ -39,9 +39,17 @@ export interface Wearable { wearable_id: number; label: string; patient_id: stri
 export interface IntakeRecord {
   patient_id?: string; name?: string; wearable_id?: number; arrival_ts?: string
   age?: number; sex?: 'male' | 'female'; height_cm?: number; weight_kg?: number; pregnant?: boolean | null
-  conditions?: string[]; medications?: string[]; chief_complaint?: string
+  conditions?: string[]; custom_conditions?: string[]; medications?: string[]; chief_complaint?: string
   triage?: { sbp?: number; dbp?: number; alertness?: string; pain?: number; on_oxygen?: boolean; level?: number }
 }
 export interface IntakeCard { context: IntakeRecord & { bmi?: number | null; drug_classes?: string[] | null; unmatched_medications?: string[] | null }; ranges: I8 | null; adjuster: string
   i5?: { adjustments?: { rule_id?: string | null; vital?: string | null; bound?: string | null; value?: number | null }[] | null } | null
-  i15_items?: { rule_id?: string | null; fact?: string | null; quote?: string | null }[] | null }
+  i15_items?: { rule_id?: string | null; fact?: string | null; quote?: string | null; unreviewed?: boolean | null
+    sources?: { kind?: string | null; id?: string | null; title?: string | null; year?: number | null; passage?: string | null }[] | null }[] | null
+  conditions?: ConditionsCard | null }
+export type ConditionStatus = 'found' | 'ambiguous' | 'not_found' | 'checklist' | 'unavailable'
+export interface ConditionItem { typed?: string | null; canonical?: string | null; code?: string | null; status?: ConditionStatus | null
+  candidates?: { canonical?: string | null; code?: string | null }[] | null; checklist?: string | null }
+/** null on the card means the nurse typed no custom conditions. */
+export interface ConditionsCard { state: 'pending' | 'done' | 'failed'; resolution?: { items?: ConditionItem[] | null } | null
+  suggestions?: { code?: string; menu_id?: string; reason?: string }[]; infra_errors?: string[] }

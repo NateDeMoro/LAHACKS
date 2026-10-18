@@ -125,5 +125,15 @@ export const card = async (id: string): Promise<IntakeCard> => {
   const r = ranges(id)
   return { ranges: r, adjuster: 'done', context: { patient_id: id, name: s?.name ?? 'Presenter', age: s?.age ?? 30, sex: s?.sex ?? 'male', height_cm: 172, weight_kg: 94, bmi: 31.8,
     conditions: ['hypertension', 'diabetes'], medications: ['Metoprolol', 'Lisinopril'], chief_complaint: 'Fever and chills for two days, barely eating, feel weak.',
-    triage: { sbp: 128, dbp: 80, alertness: 'alert', pain: 3, on_oxygen: false, level: 3 }, wearable_id: s?.wearable ?? 1 } }
+    triage: { sbp: 128, dbp: 80, alertness: 'alert', pain: 3, on_oxygen: false, level: 3 }, wearable_id: s?.wearable ?? 1 },
+    conditions: condCard(id) }
+}
+// Typed-condition states for the profile card, by patient id (try /patient/cond-loading etc. with VITE_MOCK=1).
+const found = { typed: 'sepsis', canonical: 'Sepsis', code: 'A41.9', status: 'found' as const }
+function condCard(id: string): IntakeCard['conditions'] {
+  if (id === 'cond-loading') return { state: 'pending', resolution: null }
+  if (id === 'cond-failed') return { state: 'failed', resolution: null }
+  if (id === 'cond-error') return { state: 'done', infra_errors: ['A41.9: PubMed did not answer'], resolution: { items: [found] } }
+  if (id === 'cond-none') return { state: 'done', resolution: { items: [{ typed: 'eczema', canonical: 'Eczema', code: 'L30.9', status: 'found' }, { typed: 'blorptic syndrome', status: 'not_found' }] } }
+  return null
 }

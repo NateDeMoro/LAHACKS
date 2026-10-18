@@ -6,6 +6,7 @@ import RangeBars from '../components/RangeBars'
 import WhyUrgent from '../components/WhyUrgent'
 import { rankedAlerts, tileSeverity, useStore } from '../store'
 import type { I9, IntakeCard, VitalKey, VitalRange } from '../types'
+import ConditionLimits from '../components/ConditionLimits'
 import VitalChart from '../components/VitalChart'
 import SensorModal from '../components/SensorModal'
 
@@ -29,7 +30,7 @@ export default function Patient({ id }: { id: string }) {
   useEffect(() => { api.getHistory(id).then(setRows).catch(() => {}) }, [id, tsKey])
   useEffect(() => {
     let t: number | undefined
-    const load = () => api.getCard(id).then((c) => { setCard(c); if (c.adjuster === 'pending') t = window.setTimeout(load, 3000) }).catch(() => setCard(null))
+    const load = () => api.getCard(id).then((c) => { setCard(c); if (c.adjuster === 'pending' || c.conditions?.state === 'pending') t = window.setTimeout(load, 3000) }).catch(() => setCard(null))
     load()
     return () => window.clearTimeout(t)
   }, [id, modal])
@@ -165,6 +166,7 @@ export default function Patient({ id }: { id: string }) {
             </div>
           </div>
           <Adjustments card={card} />
+          <ConditionLimits card={card} />
           <RangeBars ranges={i8} values={{ hr: i13?.hr ?? i9?.vital_values?.hr, resp_rate: i13?.resp_rate ?? i9?.vital_values?.resp_rate, spo2: i13?.spo2 ?? i9?.vital_values?.spo2, temp_c: i13?.temp_c ?? i9?.vital_values?.temp_c }} />
         </div>
       </div>

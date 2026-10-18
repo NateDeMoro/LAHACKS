@@ -30,6 +30,7 @@ export default function CheckIn() {
   const [name, setName] = useState(''); const [age, setAge] = useState(''); const [sex, setSex] = useState<'male' | 'female' | null>(null)
   const [h, setH] = useState(''); const [w, setW] = useState(''); const [preg, setPreg] = useState<boolean | null>(null)
   const [conds, setConds] = useState<string[]>([]); const [meds, setMeds] = useState<string[]>([]); const [medIn, setMedIn] = useState('')
+  const [custom, setCustom] = useState<string[]>([]); const [customIn, setCustomIn] = useState('')
   const [cc, setCc] = useState(''); const [sbp, setSbp] = useState(''); const [dbp, setDbp] = useState('')
   const [esi, setEsi] = useState<number | null>(null); const [o2, setO2] = useState<boolean | null>(null)
   const [alertness, setAlertness] = useState<string | null>(null); const [pain, setPain] = useState<number | null>(null)
@@ -45,13 +46,14 @@ export default function CheckIn() {
   }
 
   const addMed = () => { const m = medIn.trim(); if (m && !meds.includes(m)) setMeds([...meds, m]); setMedIn('') }
+  const addCustom = () => { const m = customIn.trim(); if (m && !custom.includes(m)) setCustom([...custom, m]); setCustomIn('') }
   const ready = strap != null && !!name.trim()
 
   const submit = async () => {
     setBusy(true); setErr(null)
     const rec: IntakeRecord = {
       name: name.trim(), wearable_id: strap!, age: num(age), sex: sex ?? undefined, height_cm: num(h), weight_kg: num(w),
-      pregnant: sex === 'female' ? preg : null, conditions: conds, medications: meds, chief_complaint: cc.trim() || undefined,
+      pregnant: sex === 'female' ? preg : null, conditions: conds, custom_conditions: custom.length ? custom : undefined, medications: meds, chief_complaint: cc.trim() || undefined,
       triage: { sbp: num(sbp), dbp: num(dbp), level: esi ?? undefined, on_oxygen: o2 ?? undefined, alertness: alertness ?? undefined, pain: pain ?? undefined },
     }
     try { await api.postIntake(rec); await refresh(); go('/') } catch (e) { setErr(String((e as Error).message ?? e)) } finally { setBusy(false) }
@@ -95,6 +97,18 @@ export default function CheckIn() {
                   const on = conds.includes(c)
                   return <button key={c} type="button" onClick={() => setConds(on ? conds.filter((x) => x !== c) : [...conds, c])} className={`h-9 flex items-center px-3.5 rounded-[18px] gap-1.5 text-[14px] leading-5 border ${on ? 'bg-navy border-navy text-ground font-[500]' : 'bg-ground border-edge text-ink'}`}>{on && <svg width="12" height="12" viewBox="0 0 14 14"><path d="M2 7.5 L5.5 11 L12 3.5" fill="none" stroke="#FFFFFF" strokeWidth="2" /></svg>}{label(c)}</button>
                 })}
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <div className="text-[13px] leading-4.5 font-[500] text-ink">Other conditions</div>
+              <div className="flex items-center flex-wrap min-h-13 py-2 px-3 rounded-[6px] gap-2 border border-edge">
+                {custom.map((m) => (
+                  <div key={m} className="flex items-center h-8 pr-2.5 pl-3 rounded-[4px] gap-2 bg-fog text-[14px] leading-5 text-ink">{m}
+                    <button type="button" onClick={() => setCustom(custom.filter((x) => x !== m))} aria-label={`Remove ${m}`} className="bg-transparent border-0 p-0"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 2 L8 8 M8 2 L2 8" stroke="#56616B" strokeWidth="1.6" /></svg></button>
+                  </div>
+                ))}
+                <input value={customIn} onChange={(e) => setCustomIn(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom() } }} onBlur={addCustom}
+                  placeholder="Any other condition, then Enter" className="grow basis-40 min-w-0 outline-none text-[14px] leading-5 text-ink bg-transparent" />
               </div>
             </div>
             <div className="flex flex-col gap-2">

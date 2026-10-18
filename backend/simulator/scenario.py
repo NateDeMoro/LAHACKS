@@ -75,22 +75,22 @@ SCENARIO_PATIENTS = [
     ScenarioPatient("h1", "Marcus Webb", _W[0], _rec("h1"),
                     minute_script(_flat(72, 14, 98, 36.6), 201, [0] * 4, "None"), 0),
     ScenarioPatient("h2", "Priya Nair", _W[1], _rec("h2"),
-                    minute_script(_flat(78, 15, 97, 36.8, 80, 15, 97, 36.8), 202, [0] * 4, "None"), 13),
+                    minute_script(_flat(78, 15, 97, 36.8, 80, 15, 97, 36.8), 202, [0] * 4, "None"), 11),
     ScenarioPatient("u1", "Walter Hobbs", _W[2], _rec("u1"),
-                    minute_script(_flat(82, 18, 96, 37.4, 90, 19, 95, 37.4), 203, [1, 1, 2, 2], "Amber at most"), 24),
+                    minute_script(_flat(82, 18, 96, 37.4, 90, 19, 95, 37.4), 203, [1, 1, 2, 2], "Amber at most"), 20),
     ScenarioPatient("john", "John Chamberlain", _W[3], _john_record(), JOHN_SCRIPT, 38),
     ScenarioPatient("c1", "Elena Ruiz", _W[4],
                     _rec("c1", triage=Triage(sbp=112, dbp=70, alertness="alert", pain=2, on_oxygen=False, level=2)),
-                    minute_script(_flat(90, 20, 95, 36.8, 96, 21, 94, 36.9), 204, [1, 2, 3, 4], "Below high"), 46),
+                    minute_script(_flat(90, 20, 95, 36.8, 96, 21, 94, 36.9), 204, [1, 2, 3, 4], "Below high"), 27),
     ScenarioPatient("c2", "Dorothy Klein", _W[5],
                     _rec("c2", triage=Triage(sbp=108, dbp=66, alertness="alert", pain=0, on_oxygen=False, level=2)),
-                    minute_script(_flat(94, 19, 96, 37.4, 98, 20, 96, 37.5), 205, [1, 2, 3, 4], "Below high"), 52),
+                    minute_script(_flat(94, 19, 96, 37.4, 98, 20, 96, 37.5), 205, [1, 2, 3, 4], "Below high"), 33),
 ]
 
 _JOHN_JOIN = next(p.join_minute for p in SCENARIO_PATIENTS if p.key == "john")
-# John's story is timed from his own arrival: the board opens 20 minutes after he arrives,
-# skips land at his minutes 30 and 45, and the scenario ends at his minute 60.
-LEAD_IN_MINUTES = _JOHN_JOIN + 20
+# John's story is timed from his own arrival: he walks in as the board opens, the +30 and +15 skips
+# land at his minutes 30 and 45, and the scenario ends at his minute 60. Everyone else arrives before him.
+LEAD_IN_MINUTES = _JOHN_JOIN
 END_MINUTE = _JOHN_JOIN + 60
 CALLED_IN_KEY, CALLED_IN_MINUTE = "h1", _JOHN_JOIN + 25
 

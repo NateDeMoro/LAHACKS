@@ -43,7 +43,7 @@ export default function Board() {
                 <button disabled={!!busy} onClick={act('start', api.simStart)} className="flex items-center h-9 px-3.5 rounded-[6px] gap-1.5 bg-navy text-[14px] leading-5 font-[500] text-ground">Start</button>
                 <button disabled={!!busy} onClick={act('stop', api.simStop)} className={ghost}>Stop</button>
                 <button disabled={!!busy} onClick={act('reset', api.simReset)} className={ghost}>Reset</button>
-                <button disabled={!!busy || !scenarioOn} onClick={act('skip10', () => api.simSkip(10))} className={ghost}>+10m</button>
+                <button disabled={!!busy || !scenarioOn} onClick={act('skip30', () => api.simSkip(30))} className={ghost}>+30m</button>
                 <button disabled={!!busy || !scenarioOn} onClick={act('skip15', () => api.simSkip(15))} className={ghost}>+15m</button>
               </div>
             ) : (

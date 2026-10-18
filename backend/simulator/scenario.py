@@ -37,7 +37,7 @@ JOHN_POINTS = {
     "spo2": [(0, 97), (35, 91), (45, 88), (60, 85)],
     "temp_c": [(0, 36.7), (32, 37.4), (36, 38.3), (60, 38.9)],
 }
-JOHN_SCRIPT = minute_script(JOHN_POINTS, 107, [0, 0, 3, 8],
+JOHN_SCRIPT = minute_script(JOHN_POINTS, 102, [0, 0, 3, 8],
                             "Trend alert by about minute 28, high NEWS2 8 alert by minute 45")
 
 

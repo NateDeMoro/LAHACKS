@@ -84,7 +84,7 @@ class IngestConfig:
     default_assignments: dict[int, str] = field(default_factory=lambda: {ReceiverConfig.wearable_id: "demo-001"})
     store_path: str = os.environ.get("INGEST_STORE_PATH", "data/ingest.sqlite")
     unassigned_log_every_s: float = 30.0
-    disabled_vitals: tuple[str, ...] = ("resp_rate",)  # the strap cannot measure breathing; dropped from both sources
+    disabled_vitals: tuple[str, ...] = ()  # breathing re-enabled for the demo (was ("resp_rate",)); list a vital here to drop it from both sources
 
 
 @dataclass(frozen=True)

@@ -30,6 +30,7 @@ async def test_rows_written_while_running_are_fetched_in_order_and_filtered(tmp_
     assert [r["hr"] for r in store.fetch("I6", patient_id="a")] == [70, 71]
     assert store.fetch("I9") == []
     task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
 
 
 async def test_cancel_flushes_what_is_queued(tmp_path):
@@ -62,6 +63,7 @@ async def test_a_failing_insert_is_logged_and_later_rows_still_land(tmp_path, mo
     assert not task.done()
     assert "disk full" in caplog.text
     task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
 
 
 def test_full_queue_drops_the_oldest(tmp_path):

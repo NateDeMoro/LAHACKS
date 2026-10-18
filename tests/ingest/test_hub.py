@@ -119,3 +119,28 @@ async def test_slow_client_loses_oldest_and_disconnect_cleans_up():
     await asyncio.wait_for(task, 1)
     assert h.client_count == 0
     h.publish("I13", LiveWindow(patient_id="p", hr=5))  # no client left; must not raise
+
+
+def test_acknowledged_alert_leaves_the_snapshot():
+    h = hub(on_ack=lambda a: True)
+    h.publish("I10", Alert(alert_id="a1", patient_id="p1", severity="urgent"))
+    with client_for(h).websocket_connect("/ws") as ws:
+        ws.receive_json()
+        ws.send_text(json.dumps({"type": "I11", "data": {"alert_id": "a1"}}))
+        for _ in range(50):  # the ack is handled in the server task; wait until a fresh client sees it
+            with client_for(h).websocket_connect("/ws") as other:
+                h.publish("I13", LiveWindow(patient_id="p1"))
+                if other.receive_json()["type"] == "I13":
+                    break
+    assert "a1" not in h._alerts
+
+
+def test_newest_message_per_patient_comes_last_and_forget_clears_a_patient():
+    h = hub()
+    h.publish("I13", LiveWindow(patient_id="old", hr=1))
+    h.publish("I13", LiveWindow(patient_id="new", hr=2))
+    h.publish("I13", LiveWindow(patient_id="old", hr=3))
+    h.publish("I10", Alert(alert_id="a1", patient_id="old"))
+    assert [m["data"]["patient_id"] for m in h._snapshot()][:2] == ["new", "old"]
+    h.forget("old")
+    assert [m["data"]["patient_id"] for m in h._snapshot()] == ["new"]

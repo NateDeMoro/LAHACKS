@@ -23,7 +23,7 @@ class _Client:
 
 
 class DashboardHub:
-    def __init__(self, on_ack: Callable[[Acknowledgment], None],
+    def __init__(self, on_ack: Callable[[Acknowledgment], bool | None],
                  on_scenario: Callable[[ScenarioTrigger], None], queue_max: int = 200):
         self._on_ack, self._on_scenario, self._queue_max = on_ack, on_scenario, queue_max
         self._latest: dict[tuple[str, str | None], dict] = {}
@@ -37,13 +37,20 @@ class DashboardHub:
     def publish(self, type_: str, model: Model) -> None:
         env = {"type": type_, "data": model.model_dump(mode="json")}
         if type_ in SNAPSHOT_TYPES:
-            self._latest[(type_, env["data"].get("patient_id"))] = env
+            key = (type_, env["data"].get("patient_id"))
+            self._latest.pop(key, None)  # re-inserted last, so a snapshot ends with the newest patient
+            self._latest[key] = env
         elif type_ == "I10" and env["data"].get("alert_id"):
             for old in env["data"].get("supersedes") or []:
                 self._alerts.pop(old, None)
             self._alerts[env["data"]["alert_id"]] = env
         for c in self._clients:
             self._put(c, env)
+
+    def forget(self, patient_id: str) -> None:
+        """Drops a patient who is no longer being monitored from what new clients are sent."""
+        self._latest = {k: v for k, v in self._latest.items() if k[1] != patient_id}
+        self._alerts = {k: v for k, v in self._alerts.items() if v["data"].get("patient_id") != patient_id}
 
     def _snapshot(self) -> list[dict]:
         return [*self._latest.values(), *self._alerts.values()]
@@ -84,7 +91,10 @@ class DashboardHub:
             text = await ws.receive_text()
             try:
                 type_, model = parse_envelope(text, {"I11", "I12"})
-                (self._on_ack if type_ == "I11" else self._on_scenario)(model)
+                if type_ == "I12":
+                    self._on_scenario(model)
+                elif self._on_ack(model):  # an acknowledged alert is not shown as open to a client that reconnects
+                    self._alerts.pop(model.alert_id, None)
             except BadMessage as e:
                 log.warning("dashboard message ignored: %s", e)
             except Exception:

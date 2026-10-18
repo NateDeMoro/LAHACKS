@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta
 
 from backend.config import IngestConfig
-from backend.contracts import Acknowledgment, PatientRanges, VitalsReading
+from backend.contracts import PatientRanges, VitalsReading
 from backend.ingest.service import IngestService
 from backend.risk_engine.alerts import AlertLogic
 from backend.risk_engine.engine import RiskEngine
@@ -91,16 +91,49 @@ def test_minute_close_feeds_engine_alerts_hub_and_store():
     assert "I1" in kinds
 
 
-def test_acknowledgment_reaches_alert_logic():
+def test_last_minute_of_a_run_is_closed_when_the_run_ends():
     svc, clock, out = make()
     svc.assign(1, "p1")
     svc.set_run_state("p1", "running")
-    for _ in range(5 * 60):
+    for _ in range(100):
         clock.now += timedelta(seconds=1)
-        svc.ingest(reading(hr=140, resp_rate=30, spo2=90, temp_c=39.5), "simulator")
+        svc.ingest(reading(hr=90, resp_rate=18, spo2=97, temp_c=37.0), "simulator")
         svc.tick()
-    alert = out.of("I10")[-1]
-    assert svc.on_ack(Acknowledgment(alert_id=alert.alert_id, ts=clock.now)) is True
+    assert len(out.of("I9")) == 1
+    svc.set_run_state("p1", "ended")
+    assert len(out.of("I9")) == 2 and [k for k, _, _ in out.stored].count("I6") == 2
+
+
+def test_strap_readings_dropped_in_run_mode_are_not_stored():
+    svc, clock, out = make()
+    svc.set_run_state("demo-001", "running")
+    svc.ingest(reading(hr=70), "strap")
+    svc.ingest(reading(hr=90), "simulator")
+    assert [src for k, _, src in out.stored if k == "I1"] == ["simulator"]
+
+
+def test_reassigning_wearables_never_leaves_a_dangling_mapping():
+    svc, clock, out = make(cfg=IngestConfig(default_assignments={}))
+    svc.assign(2, "p1")
+    svc.assign(1, "p1")  # the patient moves to wearable 1
+    svc.assign(2, "p2")
+    seconds(svc, clock, 1, hr=70)  # wearable 1 still maps to p1; must not raise
+    assert {w.patient_id for w in out.of("I13")} == {"p1", "p2"}
+
+
+def test_dropped_patient_is_forgotten_by_the_hub():
+    gone = []
+    clock, out = Clock(), Out()
+    svc = IngestService(RiskEngine(), AlertLogic(), out.publish, out, IngestConfig(), clock=clock, on_drop=gone.append)
+    svc.assign(1, "p-new")
+    assert gone == ["demo-001"]
+
+
+def test_ranges_are_pushed_once_even_before_a_personal_baseline_exists():
+    svc, clock, out = make()
+    seconds(svc, clock, 130, hr=70, resp_rate=15)
+    ranges = out.of("I8")
+    assert len(ranges) == 1 and ranges[0].patient_id == "demo-001"
 
 
 def test_engine_range_changes_are_pushed_as_i8():

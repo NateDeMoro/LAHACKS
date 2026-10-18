@@ -35,31 +35,37 @@ class PatientStream:
     def _start(self, now: datetime) -> None:
         """Clears everything; minutes count from here so they line up with the trend pre-roll."""
         self._minute_start = now
-        self._window: deque[_Sample] = deque()
+        self._window: deque[_Sample] = deque(maxlen=int(self._cfg.window_s))  # ticks can jitter; I13 allows 60 at most
         self._minute: list[_Sample] = []
         self._strap: tuple[datetime, VitalsReading] | None = None
         self._sim: dict[str, tuple[datetime, float]] = {}
         self._sim_contact: tuple[datetime, bool] | None = None
         self._frozen: LiveWindow | None = None
 
-    def set_run_state(self, now: datetime, state: RunState) -> None:
-        if state == "ended":
+    def set_run_state(self, now: datetime, state: RunState) -> MinuteSummary | None:
+        """Returns the minute left open when a run ends: no tick will close it once the window is frozen."""
+        last = None
+        if state == "ended" and self.run_state != "ended":
+            last = self._summarise_minute() if self._minute else None
             self._frozen = self._live(now).model_copy(update={"run_state": "ended"})
         elif state != self.run_state:
             self._start(now)
         self.run_state = state
+        return last
 
-    def on_reading(self, now: datetime, reading: VitalsReading, source: Source) -> None:
+    def on_reading(self, now: datetime, reading: VitalsReading, source: Source) -> bool:
+        """False when the reading is not kept (run mode ignores the strap, an ended run ignores everything)."""
         if self.run_state == "ended" or (source == "strap" and self.run_state == "running"):
-            return
+            return False
         if source == "strap":
             self._strap = (now, reading)
-            return
+            return True
         for v in VITALS:
             if (val := getattr(reading, v)) is not None:
                 self._sim[v] = (now, val)
         if reading.contact is not None:
             self._sim_contact = (now, reading.contact)
+        return True
 
     def tick(self, now: datetime) -> Tick:
         if self.run_state == "ended":
@@ -103,13 +109,16 @@ class PatientStream:
         length = timedelta(seconds=self._cfg.window_s)
         if now < self._minute_start + length:
             return None
-        med, seconds = self._medians(self._minute, 1)
-        out = MinuteSummary(patient_id=self.patient_id, minute_ts=self._minute_start,
-                            clean_seconds=seconds, **med)
+        out = self._summarise_minute()
         # After a stall, jump to the minute that contains now instead of emitting empty rows.
         self._minute_start += length * ((now - self._minute_start) // length)
         self._minute = []
         return out
+
+    def _summarise_minute(self) -> MinuteSummary:
+        med, seconds = self._medians(self._minute, 1)
+        return MinuteSummary(patient_id=self.patient_id, minute_ts=self._minute_start,
+                             clean_seconds=seconds, **med)
 
     @staticmethod
     def _medians(samples, need: int) -> tuple[dict[str, float | None], int]:
@@ -117,5 +126,5 @@ class PatientStream:
         med = {}
         for v in VITALS:
             xs = [s.values[v] for s in clean if v in s.values]
-            med[v] = median(xs) if len(xs) >= need else None
+            med[v] = round(median(xs), 3) if len(xs) >= need else None
         return med, len(clean)

@@ -26,7 +26,8 @@ def create_app(engine: RiskEngine | None = None, store_path: str | Path | None =
     alerts = AlertLogic(engine.config.alerts, engine.bed_label)
     store = Store(store_path or CONFIG.ingest.store_path)
     hub_ref: list[DashboardHub] = []  # the service needs hub.publish and the hub needs service.on_ack
-    service = IngestService(engine, alerts, lambda t, m: hub_ref[0].publish(t, m), store)
+    service = IngestService(engine, alerts, lambda t, m: hub_ref[0].publish(t, m), store,
+                            on_drop=lambda pid: hub_ref[0].forget(pid))
     controller = SimController(service)
 
     def start_run(trigger: ScenarioTrigger) -> None:

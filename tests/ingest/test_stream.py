@@ -81,6 +81,16 @@ def test_simulator_overrides_strap_for_the_same_vital():
     assert t.live.hr == 120
 
 
+def test_on_reading_says_whether_it_kept_the_reading():
+    st = PatientStream("p1", at(0))
+    assert st.on_reading(at(1), strap(), "strap") is True
+    st.set_run_state(at(1), "running")
+    assert st.on_reading(at(2), strap(), "strap") is False
+    assert st.on_reading(at(2), sim(hr=90), "simulator") is True
+    st.set_run_state(at(3), "ended")
+    assert st.on_reading(at(4), sim(hr=90), "simulator") is False
+
+
 def test_run_mode_drops_strap_readings():
     st = PatientStream("p1", at(0))
     st.set_run_state(at(0), "running")
@@ -149,3 +159,35 @@ def test_late_tick_skips_empty_minutes_without_a_burst_of_rows():
     t = st.tick(at(400))  # loop stalled for over six minutes
     assert t.minute is not None
     assert st.tick(at(401)).minute is None
+
+
+def test_jittery_ticks_never_report_more_than_60_clean_seconds():
+    st = PatientStream("p1", at(0))
+    for i in range(1, 140):
+        now = at(i * 0.9)
+        st.on_reading(now, strap(), "strap")
+        assert st.tick(now).live.clean_seconds <= 60
+
+
+def test_medians_carry_no_float_noise():
+    st = PatientStream("p1", at(0))
+    for s in range(1, 9):
+        st.on_reading(at(s), sim(hr=70, temp_c=36.6 if s % 2 else 36.7), "simulator")
+        t = st.tick(at(s))
+    assert t.live.temp_c == 36.65
+
+
+def test_ending_a_run_hands_back_the_open_minute():
+    st = PatientStream("p1", at(0))
+    st.set_run_state(at(0), "running")
+    for s in range(1, 90):  # one full minute closes on the way; 29 s are left open
+        st.on_reading(at(s), sim(hr=90, resp_rate=18, spo2=97, temp_c=37.0), "simulator")
+        st.tick(at(s))
+    last = st.set_run_state(at(90), "ended")
+    assert last.minute_ts == at(60) and last.hr == 90 and last.clean_seconds == 30
+    assert st.set_run_state(at(91), "ended") is None  # a repeat finds nothing open
+
+
+def test_ending_with_nothing_open_returns_nothing():
+    st = PatientStream("p1", at(0))
+    assert st.set_run_state(at(5), "ended") is None

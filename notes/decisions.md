@@ -225,6 +225,33 @@ Every modelling choice for the risk engine, with the alternatives and the eviden
 - **Deviation from the training plan** (one teammate labels, the other checks): Claude labeled. Checks: (1) a blind second Claude pass agreed 100/100 on rule and source, which we treat as weak evidence because the guide's examples mirror the cases and both passes were the same model family; quote spans differed in 27 of 45 text labels, so B3 should accept any quote in the complaint that covers the fact. (2) Nate labeled a random 20-case test sample blind: 15/18 answered agreed on rules (14/18 with source); every difference was reconciled in favour of the Claude label (a measured fever counts as suspected infection; age65 fires on age alone; the pregnant flag wins over text for source). On that basis the remaining 80 cases were accepted without individual checks.
 - **Revisit if:** B3 scores look too good: add 15-20 fully human-written cases and report their score separately, and strip case-specific examples from the guide.
 
+## S2 Ingest
+
+### Wearable to patient: config default plus `assign()`
+- **Options:** config default; explicit `assign()`; auto-assign unknown wearables; drop until intake.
+- **Why:** both of the first two. One function is the I3 entry for the simulator and intake, and a config line (wearable 1 is `demo-001`) lets the strap work before intake exists. Unknown wearables stay dropped so wiring mistakes show up.
+
+### Minutes start at the patient's stream start
+- **Options:** from assignment or run start; wall-clock minutes.
+- **Why:** a 10-minute run gives 10 whole rows instead of 11 with partial ends, and rows line up with the 120-minute pre-roll. Cost: the rows do not match Tiger Data's clock buckets, so the live path does not depend on a database aggregate.
+
+### A clean second needs contact and a heart rate
+- **Options:** contact and hr; per-vital counts; any non-null vital.
+- **Why:** one number, and it matches the I1 note that no-contact seconds are not clean. With the strap off, the simulated SpO2 and temperature also drop out, which reads as no patient on the device. The baseline discards minutes under 40 clean seconds, so this definition decides what it learns.
+
+### Window rules: 5-sample minimum, wide bounds, 5 s simulator lifetime, arrival-time clock
+- **Why:** a window of two or three seconds flickered NEWS2 at the start of a run, so a vital needs 5 clean samples. Bounds (hr 20-250, breathing 3-60, SpO2 50-100, temperature 30-45) drop only impossible values, so a true danger value always passes. A simulator value counts for 5 s so a stopped filler shows up. Readings are windowed on arrival time so a later move of the receiver to another machine cannot skew them; the source timestamp stays in the store.
+- **Found in a live run:** tick jitter put 61 samples in a 60 s window (I13 allows 60), so the window holds at most 60; float medians such as 38.650000000000006 are rounded to 3 places.
+
+### Ended run: frozen window, clock keeps moving, last minute closed
+- **Why:** per-second consumers should not see a stale clock, and `run_state: ended` tells the dashboard it is a pause. Review found the last minute of every run was lost (the freeze came before the close), so the open minute is closed when the run ends.
+
+### Bad messages keep the socket open
+- Non-finite numbers become null before validation, so one bad field does not cost the reading. A message that still fails is logged and ignored; closing the socket would make the receiver back off for 1 to 15 s during a live demo.
+
+### Storage: SQLite behind a queue
+- One `events` table (kind, patient, time, source, JSON) written off the tick; a failed write is logged and never stops the loop. Tiger Data can be a second writer later.
+
 ## Stated limits
 - NEWS2 was validated mainly on admitted patients; we use it in a waiting room.
 - NHANES pulse is seated and resting; anxious waiting patients may run above the 90 bpm cap and show warning (check at C2; the fix would be a config offset).

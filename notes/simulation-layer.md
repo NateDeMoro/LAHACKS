@@ -123,4 +123,4 @@ Built: models, profiles, generator, pre-roll, player, controller, routes, consol
 | Strap, live mode | Run mode ignores a connected strap. Live mode merges real heart rate and breathing with simulated SpO2 and temperature (C2). |
 | Everything | One full 10-minute real-time run from button to "Run ended". |
 
-Not built: an app that mounts the router and an I12 handler that calls the controller (S2, S6), the form's "Load sample patient" and the dashboard's run button and "Run ended" label (S5, S6), live-mode filler (S3 for C2), the ingest and engine sides of `RunSink` (S2, T5/T6), and the run-mode rules in ingest.
+Built by S2: the app that mounts the router, the I12 handler, ingest's side of `RunSink` and the run-mode rules (`backend/app.py`, `backend/ingest/`). Not built: the form's "Load sample patient" and the dashboard's run button and "Run ended" label (S5, S6), live-mode filler (S3 for C2), and the engine's `seed_trend_history` (T6; ingest skips the call until it exists).

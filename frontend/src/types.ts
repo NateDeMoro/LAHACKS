@@ -42,4 +42,6 @@ export interface IntakeRecord {
   conditions?: string[]; medications?: string[]; chief_complaint?: string
   triage?: { sbp?: number; dbp?: number; alertness?: string; pain?: number; on_oxygen?: boolean; level?: number }
 }
-export interface IntakeCard { context: IntakeRecord & { bmi?: number | null; drug_classes?: string[] | null; unmatched_medications?: string[] | null }; ranges: I8 | null; adjuster: string }
+export interface IntakeCard { context: IntakeRecord & { bmi?: number | null; drug_classes?: string[] | null; unmatched_medications?: string[] | null }; ranges: I8 | null; adjuster: string
+  i5?: { adjustments?: { rule_id?: string | null; vital?: string | null; bound?: string | null; value?: number | null }[] | null } | null
+  i15_items?: { rule_id?: string | null; fact?: string | null; quote?: string | null }[] | null }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import * as api from '../api'
 import { Glyph, SEV, VITALS, fmtClock, go, levelBorder, levelFromPoints, show, useApp, waitingMin } from '../lib'
+import Adjustments from '../components/Adjustments'
 import WhyUrgent from '../components/WhyUrgent'
 import { rankedAlerts, tileSeverity, useStore } from '../store'
 import type { I10, I9, IntakeCard, VitalKey } from '../types'
@@ -22,7 +23,12 @@ export default function Patient({ id }: { id: string }) {
   const i9 = s.i9[id], i13 = s.i13[id], i14 = s.i14[id], i8 = s.i8[id] ?? card?.ranges ?? undefined
   const tsKey = i9?.ts
   useEffect(() => { api.getHistory(id).then(setRows).catch(() => {}) }, [id, tsKey])
-  useEffect(() => { api.getCard(id).then(setCard).catch(() => setCard(null)) }, [id, modal])
+  useEffect(() => {
+    let t: number | undefined
+    const load = () => api.getCard(id).then((c) => { setCard(c); if (c.adjuster === 'pending') t = window.setTimeout(load, 3000) }).catch(() => setCard(null))
+    load()
+    return () => window.clearTimeout(t)
+  }, [id, modal])
 
   const alerts = rankedAlerts(s, id)
   const news2 = mode === 'live' ? 0 : i14?.news2 ?? i9?.news2
@@ -160,6 +166,7 @@ export default function Patient({ id }: { id: string }) {
               </div>
             </div>
           </div>
+          <Adjustments card={card} />
           {danger.length > 0 && (
             <div className="flex flex-col pt-5 gap-2 border-t border-line">
               <div className="font-mono text-[12px] leading-4 tracking-[0.08em] text-muted">DANGER LIMITS</div>

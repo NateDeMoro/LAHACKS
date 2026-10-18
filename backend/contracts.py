@@ -254,6 +254,29 @@ class ModelConfig(Model):  # I7 config.json
     trend: TrendConfig | None = None
 
 
+class RuleAdjustment(Model):
+    vital: Vital | None = None
+    bound: Bound | None = None
+    value: float | None = None
+
+
+class RuleSpec(Model):
+    """One allowed context-adjustment rule (I7 rules.json). Values are proposals; labels name rules, not numbers."""
+    id: str | None = None
+    adjustments: list[RuleAdjustment] | None = None
+    status: Literal["proposed", "confirmed"] | None = None
+    trigger_source: Literal["structured", "text", "both"] | None = None
+    fires_when: str | None = None
+    does_not_fire: str | None = None
+    sources: list[str] | None = None
+    evidence: Literal["strong", "medium", "weak"] | None = None
+    flag: str | None = None  # why a value is unconfirmed
+
+
+class RulesFile(Model):  # I7 rules.json
+    rules: list[RuleSpec] | None = None
+
+
 class QuantileFit(Model):
     intercept: float | None = None
     coef: dict[str, float] | None = None

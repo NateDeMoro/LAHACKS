@@ -1,0 +1,87 @@
+{
+  "rules": [
+    {
+      "id": "chemo_fever",
+      "adjustments": [{"vital": "temp_c", "bound": "high", "value": 38.3}],
+      "status": "proposed",
+      "trigger_source": "text",
+      "fires_when": "Currently on chemotherapy (within about 6 weeks of a treatment) or told they are neutropenic. The cancer condition flag alone does not fire it.",
+      "does_not_fire": "Cancer in the past, finished treatment long ago, remission, 'don't need chemo'.",
+      "sources": ["https://swab.nl/exec/file/download/174"],
+      "evidence": "strong",
+      "flag": null
+    },
+    {
+      "id": "suspected_infection",
+      "adjustments": [{"vital": "resp_rate", "bound": "high", "value": 22}],
+      "status": "proposed",
+      "trigger_source": "text",
+      "fires_when": "The complaint describes a current infection: fever or chills, productive cough with fever, urinary burning with fever or flank pain, a red, hot or draining wound.",
+      "does_not_fire": "Negated or past fever, vague 'feel off' with no infection signs, allergies, dry cough without fever.",
+      "sources": ["https://pubmed.ncbi.nlm.nih.gov/26903338/"],
+      "evidence": "strong",
+      "flag": null
+    },
+    {
+      "id": "opioid",
+      "adjustments": [{"vital": "resp_rate", "bound": "low", "value": 10}],
+      "status": "proposed",
+      "trigger_source": "both",
+      "fires_when": "Currently taking an opioid, prescribed or not: oxycodone, morphine, fentanyl, methadone, codeine, tramadol, hydrocodone, heroin.",
+      "does_not_fire": "Stopped or past use, an allergy to an opioid, non-opioid pain medicines.",
+      "sources": [
+        "https://www.asahq.org/~/media/sites/asahq/files/public/resources/standards-guidelines/practice-guidelines-for-the-prevention-detection-and-management-of-respiratory-depression.pdf",
+        "https://www.rightdecisions.scot.nhs.uk/shared-content/palliative-care/palliative-care/opioids/life-threatening-opioid-induced-respiratory-depression-requiring-naloxone/"
+      ],
+      "evidence": "strong",
+      "flag": null
+    },
+    {
+      "id": "steroid_immunosuppressed",
+      "adjustments": [{"vital": "temp_c", "bound": "high", "value": 38.0}],
+      "status": "proposed",
+      "trigger_source": "both",
+      "fires_when": "Currently on a systemic steroid (prednisone, dexamethasone, methylprednisolone) or an immunosuppressant (transplant or anti-rejection drugs, azathioprine, tacrolimus).",
+      "does_not_fire": "Inhaled, nasal, eye or skin steroids; a finished taper; past use.",
+      "sources": ["https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6360780/"],
+      "evidence": "medium",
+      "flag": null
+    },
+    {
+      "id": "age65_fever",
+      "adjustments": [{"vital": "temp_c", "bound": "high", "value": 37.8}],
+      "status": "proposed",
+      "trigger_source": "structured",
+      "fires_when": "Age 65 or older.",
+      "does_not_fire": "Age 64 or younger.",
+      "sources": ["https://www.pubmed.ncbi.nlm.nih.gov/25180381/", "https://stacks.cdc.gov/view/cdc/97193/cdc_97193_DS1.pdf"],
+      "evidence": "medium",
+      "flag": "37.8 is the IDSA single-reading fever threshold for older adults; the exact figure for a danger edge is unconfirmed."
+    },
+    {
+      "id": "beta_blocker",
+      "adjustments": [{"vital": "hr", "bound": "high", "value": 110}],
+      "status": "proposed",
+      "trigger_source": "both",
+      "fires_when": "Currently taking a beta blocker: metoprolol, atenolol, carvedilol, propranolol, labetalol. Tachycardia is an unreliable sign on these drugs.",
+      "does_not_fire": "Stopped or past use, beta-blocker eye drops.",
+      "sources": ["https://doaj.org/article/534b643510c745418abca8a5271d43d8"],
+      "evidence": "weak",
+      "flag": "The direction is supported but 110 has no numeric source."
+    },
+    {
+      "id": "pregnancy",
+      "adjustments": [
+        {"vital": "sbp", "bound": "high", "value": 160},
+        {"vital": "hr", "bound": "high", "value": 120}
+      ],
+      "status": "proposed",
+      "trigger_source": "both",
+      "fires_when": "The pregnant flag is set, or the complaint says the patient is pregnant.",
+      "does_not_fire": "A partner or other person pregnant, a negative test, 'had a baby' with no current pregnancy.",
+      "sources": ["https://pmc.ncbi.nlm.nih.gov/articles/PMC8328243/table/tbl3"],
+      "evidence": "medium",
+      "flag": null
+    }
+  ]
+}

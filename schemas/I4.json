@@ -101,6 +101,18 @@
       "default": null,
       "title": "Patient Id"
     },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Name"
+    },
     "wearable_id": {
       "anyOf": [
         {

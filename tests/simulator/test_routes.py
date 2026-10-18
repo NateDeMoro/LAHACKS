@@ -40,7 +40,9 @@ def test_run_lifecycle_over_http():
         assert http.post("/sim/run", json={"profile_id": "nope"}).status_code == 404
         started = http.post("/sim/run", json={"profile_id": "u1"})
         assert started.status_code == 202 and started.json()["state"] == "running"
-        assert http.get("/sim/run").json() == {"state": "running", "profile_id": "u1", "patient_id": "sim-u1"}
+        assert http.get("/sim/run").json() == {"state": "running", "profile_id": "u1", "patient_id": "sim-u1",
+                                           "kind": "single", "sim_now": None}
         assert http.post("/sim/run", json={"profile_id": "h1"}).status_code == 409
         assert http.post("/sim/run/stop").json()["state"] == "ended"
-        assert http.post("/sim/run/reset").json() == {"state": "live", "profile_id": None, "patient_id": None}
+        assert http.post("/sim/run/reset").json() == {"state": "live", "profile_id": None, "patient_id": None,
+                                                       "kind": None, "sim_now": None}

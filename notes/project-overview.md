@@ -22,6 +22,7 @@ Where to look next:
 
 ## Demo
 
+- **Waiting-room scenario (Simulation mode):** six scripted patients with names, a 20-minute lead-in, and two fast-forward presses (+10, +15 min); John Chamberlain goes from a trend alert to NEWS2 8. Live mode shows only the wearer, NEWS2 fixed at 0.
 - **One patient: the wearer, in two modes.** Live mode: the Polar H10 strap supplies real heart rate and breathing rate and the simulator fills in SpO2 and temperature, shown alongside the real values. Run mode: the simulator supplies every vital and the strap is ignored. The data carries no real/simulated tag; we say which is which in the pitch.
 - **Sample patients and runs.** Six fictional patients (two healthy, two at risk, two critical) can prefill the intake form. A dashboard button starts that patient's 10-minute run: every vital follows a script, the trend models get two hours of starting-value history first, and at the end the data stops and the screen shows a pause with alerts still up. See [simulation-layer.md](simulation-layer.md).
 - **Live feel.** Vitals and NEWS2 update every second on the dashboard; trend models and alerts run every 30 seconds.

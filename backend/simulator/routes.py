@@ -2,13 +2,17 @@
 from fastapi import APIRouter, HTTPException
 
 from backend.contracts import Model
-from backend.simulator.controller import RunInProgress, RunStatus, SimController, UnknownProfile
+from backend.simulator.controller import NoScenario, RunInProgress, RunStatus, SimController, UnknownProfile
 
 
 class StartRequest(Model):
     profile_id: str
     patient_id: str | None = None
     wearable_id: int | None = None
+
+
+class SkipRequest(Model):
+    minutes: float
 
 
 def build_router(controller: SimController) -> APIRouter:
@@ -38,6 +42,20 @@ def build_router(controller: SimController) -> APIRouter:
             raise HTTPException(404, f"unknown sample patient {req.profile_id!r}") from None
         except RunInProgress:
             raise HTTPException(409, "a run is already going; stop or reset it first") from None
+
+    @router.post("/scenario", status_code=202)
+    async def start_scenario() -> RunStatus:
+        try:
+            return await controller.start_scenario()
+        except RunInProgress:
+            raise HTTPException(409, "a run is already going; stop or reset it first") from None
+
+    @router.post("/skip")
+    async def skip(req: SkipRequest) -> RunStatus:
+        try:
+            return await controller.skip(req.minutes)
+        except NoScenario:
+            raise HTTPException(409, "no scenario is running") from None
 
     @router.post("/run/stop")
     async def stop_run() -> RunStatus:

@@ -83,6 +83,14 @@ class Trend:
             self._failed = True
             log.exception(msg)
 
+    def seed(self, patient_id: str, rows: list[PeriodSummary]):
+        """Replace the patient's history with these rows (clean ones only), so a repeat run starts fresh."""
+        hist = TrendHistory()
+        for m in sorted((r for r in rows if r.period_ts is not None and
+                         is_clean_period(r.clean_seconds, self.min_clean_seconds)), key=lambda r: r.period_ts):
+            hist.add(m)
+        self.histories[patient_id] = hist
+
     def update(self, m: PeriodSummary, levels: dict[str, str | None], level: str,
                reason: str | None) -> TrendOutcome:
         """Feed one period with its classified levels; returns the (possibly raised) level and trend fields."""

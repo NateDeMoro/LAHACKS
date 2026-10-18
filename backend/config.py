@@ -59,14 +59,17 @@ class AdjusterConfig:
 @dataclass(frozen=True)
 class BedConfig:
     """Bed label per wearable, used in alert messages."""
-    labels: dict[int, str] = field(default_factory=lambda: {1: "Bed 4"})
+    labels: dict[int, str] = field(default_factory=lambda: {1: "Polar H10", 101: "Wearable 1", 102: "Wearable 2",
+                                                             103: "Wearable 3", 104: "Wearable 4", 105: "Wearable 5",
+                                                             106: "Wearable 6"})
 
 
 @dataclass(frozen=True)
 class SimulatorConfig:
     run_length_s: int = 600  # every run script is stored as fractions of this, so changing it rescales all six
-    preroll_minutes: int = 120  # trend-model look-back fed before 0:00; the sepsis slow model needs 120 minutes
+    preroll_minutes: int = 60  # trend-model look-back fed before 0:00; matches trend.HISTORY
     default_wearable_id: int = ReceiverConfig.wearable_id  # same wearer as the strap
+    scenario_wearable_ids: tuple[int, ...] = (101, 102, 103, 104, 105, 106)  # the waiting room's sim wearables, in patient order
 
 
 @dataclass(frozen=True)
@@ -81,7 +84,7 @@ class IngestConfig:
     default_assignments: dict[int, str] = field(default_factory=lambda: {ReceiverConfig.wearable_id: "demo-001"})
     store_path: str = os.environ.get("INGEST_STORE_PATH", "data/ingest.sqlite")
     unassigned_log_every_s: float = 30.0
-    disabled_vitals: tuple[str, ...] = ("resp_rate",)  # the strap cannot measure breathing; dropped from both sources
+    disabled_vitals: tuple[str, ...] = ()  # breathing re-enabled for the demo (was ("resp_rate",)); list a vital here to drop it from both sources
 
 
 @dataclass(frozen=True)

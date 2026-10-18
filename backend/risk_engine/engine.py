@@ -72,6 +72,10 @@ class RiskEngine:
             self.baselines[patient_id] = PersonalBaseline(
                 self.config.baseline or BaselineConfig(), population, centres)
 
+    def seed_trend_history(self, patient_id: str, rows: list[PeriodSummary]):
+        """Pre-roll for simulated runs: feeds the trend layer only, never the baseline, alerts or store."""
+        self.trend.seed(patient_id, rows)
+
     def on_intake(self, ctx: PatientContext, adjustments: ContextAdjustments | None = None
                   ) -> PatientRanges:
         self.context[ctx.patient_id] = ctx
